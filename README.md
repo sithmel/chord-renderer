@@ -204,6 +204,31 @@ npm run build:types
 
 The generated types are available in `types/chord.d.ts`.
 
+## Demo (Static Web Page)
+
+A demo page is available in `public/` to experiment with voicings and automatically render all inversions using svguitar.
+
+Build the bundled demo (uses esbuild):
+
+```bash
+npm run build:demo
+```
+
+This produces `public/bundle.js`. Then serve the `public/` directory with any static file server, for example:
+
+```bash
+npx http-server public
+# or
+python -m http.server --directory public 8080
+```
+
+Open http://localhost:8080 (or the port shown) in your browser.
+
+- Choose intervals (high E string is first select)
+- Leave blank for muted strings
+- Submit to see original + inversions rendered
+- Reset to clear
+
 ## Development
 
 ### Running Tests

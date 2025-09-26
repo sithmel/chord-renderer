@@ -8,7 +8,9 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "test:watch": "node --test --watch test/*.test.js",
-    "build:types": "tsc"
+    "build:types": "tsc",
+    "build:demo": "node ./scripts/build-demo.js",
+    "demo": "npx http-server -p 8080 public"
   },
   "keywords": [
     "guitar",
@@ -32,6 +34,8 @@
   },
   "homepage": "https://github.com/username/chord-renderer#readme",
   "devDependencies": {
+    "esbuild": "^0.25.10",
+    "svguitar": "^2.4.1",
     "typescript": "^5.9.2"
   }
 }

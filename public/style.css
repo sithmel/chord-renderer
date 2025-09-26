@@ -1,0 +1,108 @@
+body {
+  font-family: system-ui, Arial, sans-serif;
+  margin: 1.5rem;
+  line-height: 1.4;
+}
+
+h1 {
+  margin-top: 0;
+  font-size: 1.6rem;
+}
+
+.selectors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.select-wrap {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+}
+
+.select-wrap select {
+  min-width: 130px;
+  padding: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border: 1px solid #333;
+  background: #222;
+  color: #fff;
+  border-radius: 4px;
+}
+
+button.secondary {
+  background: #555;
+}
+
+.results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.chord-block {
+  border: 1px solid #ddd;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: #fafafa;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+.chord-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.meta {
+  font-size: 0.6rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+  text-align: center;
+}
+
+.message {
+  min-height: 1.2rem;
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.message.error { color: #b00020; }
+
+svg {
+  max-width: 140px;
+  height: auto;
+  display: block;
+}
+
+.export {
+  margin-top: 2rem;
+  max-width: 640px;
+}
+
+#json-output {
+  width: 100%;
+  min-height: 140px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+}

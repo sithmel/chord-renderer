@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chord Renderer Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="./style.css" />
+  <script defer type="module" src="./bundle.js"></script>
+</head>
+<body>
+  <h1>Chord Voicing → Inversions</h1>
+  <form id="voicing-form">
+    <p>Select intervals (string 1 = high E). Blank = muted.</p>
+    <div id="selectors" class="selectors"></div>
+    <div class="actions">
+      <button type="submit">Generate Inversions</button>
+      <button type="button" id="reset-btn" class="secondary">Reset</button>
+    </div>
+  </form>
+  <div id="message" class="message" aria-live="polite"></div>
+  <h2>Results</h2>
+  <div id="results" class="results" aria-live="polite"></div>
+  <div class="export" id="export-box">
+    <h3>Export JSON</h3>
+    <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
+    <div class="actions">
+      <button type="button" id="copy-json" class="secondary">Copy JSON</button>
+    </div>
+  </div>
+</body>
+</html>
