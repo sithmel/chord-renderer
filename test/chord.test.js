@@ -390,7 +390,7 @@ describe("intervalDistanceFromVoicing", () => {
   });
 });
 
-describe.only("voicingToChord", () => {
+describe("voicingToChord", () => {
   test("should convert voicing to chord representation correctly", () => {
     // Create a voicing: C, E, G (root position)
     const voicing = [
@@ -410,6 +410,66 @@ describe.only("voicingToChord", () => {
       [5, 2, {}], // String 2 (7-5), fret 2
       [4, 1, {}], // String 3 (7-4), fret 1
       [3, 3, {}], // String 4 (7-3), fret 3
+    ]);
+  });
+
+  test("should handle simple power chord voicing", () => {
+    // Create a simple power chord: root and fifth only
+    const voicing = [
+      Interval.UNISON, // String 0: Root (C)
+      Interval.PERFECT_FIFTH, // String 1: Perfect fifth (G)
+      null, // String 2: Muted
+      null, // String 3: Muted
+      null, // String 4: Muted
+      null, // String 5: Muted
+    ];
+
+    const chord = voicingToChord(voicing);
+
+    // Power chord should normalize to simple fret positions
+    assert.deepEqual(chord, [
+      [6, 1, {}], // Root on string 6
+      [5, 3, {}], // Fifth on string 5 (same fret due to tuning)
+    ]);
+  });
+
+  test("should handle voicing with scattered strings", () => {
+    // Create a voicing that uses non-consecutive strings
+    const voicing = [
+      Interval.UNISON, // String 0: Root (C)
+      null, // String 1: Muted
+      Interval.MAJOR_THIRD, // String 2: Major third (E)
+      null, // String 3: Muted
+      Interval.PERFECT_FIFTH, // String 4: Perfect fifth (G)
+      null, // String 5: Muted
+    ];
+
+    const chord = voicingToChord(voicing);
+
+    // Should handle non-consecutive string usage
+    assert.deepEqual(chord, [
+      [6, 13, {}], // Root on string 6
+      [4, 7, {}], // Third on string 4
+      [2, 1, {}], // Fifth on string 2
+    ]);
+  });
+
+  test("should handle single note voicing", () => {
+    // Create a voicing with only one note
+    const voicing = [
+      null, // String 0: Muted
+      null, // String 1: Muted
+      Interval.UNISON, // String 2: Root (C) only
+      null, // String 3: Muted
+      null, // String 4: Muted
+      null, // String 5: Muted
+    ];
+
+    const chord = voicingToChord(voicing);
+
+    // Single note should result in single fret position
+    assert.deepEqual(chord, [
+      [4, 1, {}], // Root on string 4, fret 1 (after normalization)
     ]);
   });
 });
