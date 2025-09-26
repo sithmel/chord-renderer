@@ -1,0 +1,32 @@
+{
+  "name": "chord-renderer",
+  "version": "0.0.0",
+  "description": "A JavaScript library for working with guitar chords, voicings, and inversions",
+  "main": "lib/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js"
+  },
+  "keywords": [
+    "guitar",
+    "chords",
+    "music",
+    "voicing",
+    "intervals",
+    "inversions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/username/chord-renderer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/username/chord-renderer/issues"
+  },
+  "homepage": "https://github.com/username/chord-renderer#readme"
+}
