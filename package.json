@@ -10,7 +10,7 @@
     "test:watch": "node --test --watch test/*.test.js",
     "build:types": "tsc",
     "build:demo": "node ./scripts/build-demo.js",
-    "demo": "npx http-server -p 8080 public"
+    "demo": "npx http-server -p 8080 docs"
   },
   "keywords": [
     "guitar",

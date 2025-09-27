@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const root = resolve(__dirname, '..');
-const publicDir = resolve(root, 'public');
+const publicDir = resolve(root, 'docs');
 
 async function run() {
   await build({

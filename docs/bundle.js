@@ -17,14 +17,14 @@ var Interval_labels = [
   { full: "root", fingerOptions: { className: "root", color: "#d62828", text: "R" } },
   { full: "minor second", fingerOptions: { className: "minor-second", color: "#f77f00", text: "b2" } },
   { full: "major second", fingerOptions: { className: "major-second", color: "#fcbf49", text: "2" } },
-  { full: "minor third", fingerOptions: { className: "minor-third", color: "#eae2b7", text: "b3" } },
-  { full: "major third", fingerOptions: { className: "major-third", color: "#d62828", text: "3" } },
+  { full: "minor third", fingerOptions: { className: "minor-third", color: "#009b8e", text: "b3" } },
+  { full: "major third", fingerOptions: { className: "major-third", color: "#2834d6ff", text: "3" } },
   { full: "perfect fourth", fingerOptions: { className: "perfect-fourth", color: "#f77f00", text: "4" } },
-  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth", color: "#fcbf49", text: "b5" } },
-  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth", color: "#eae2b7", text: "5" } },
+  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth", color: "#f88417ff", text: "b5" } },
+  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth", color: "#f000b4ff", text: "5" } },
   { full: "minor sixth", fingerOptions: { className: "minor-sixth", color: "#d62828", text: "b6" } },
   { full: "major sixth", fingerOptions: { className: "major-sixth", color: "#f77f00", text: "6" } },
-  { full: "minor seventh", fingerOptions: { className: "minor-seventh", color: "#fcbf49", text: "b7" } },
+  { full: "minor seventh", fingerOptions: { className: "minor-seventh", color: "#d8940dff", text: "b7" } },
   { full: "major seventh", fingerOptions: { className: "major-seventh", color: "#7a4f9d", text: "7" } }
 ];
 var INTERVAL_ALIASES = [
@@ -7322,7 +7322,7 @@ var SVGuitarChord = (
   })()
 );
 
-// public/app.js
+// docs/app.js
 var intervalBox = (
   /** @type {HTMLElement} */
   document.getElementById("interval-box")
