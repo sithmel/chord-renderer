@@ -35,6 +35,100 @@ const selectedIntervals = new Set();
  */
 const userIntervalOptions = new Map();
 
+/**
+ * Build current UI state for URL.
+ */
+function buildState() {
+  const intervalsArray = Array.from(selectedIntervals).sort((a,b)=>a-b);
+  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
+  /** @type {Record<string, any>} */
+  const o = {};
+  for (const [interval, opts] of userIntervalOptions) {
+    /** @type {Record<string, any>} */
+    const rec = {};
+    if (opts.text !== undefined) rec.t = opts.text; // explicit empty string allowed
+    if (opts.colored) rec.c = 1;
+    if (Object.keys(rec).length) o[String(interval)] = rec;
+  }
+  return {
+    i: intervalsArray,
+    v: voicingInput ? voicingInput.value : undefined,
+    s: stringSetInput ? stringSetInput.value : undefined,
+    o,
+  };
+}
+
+/** Serialize and push state into query string (replaceState). */
+function pushState() {
+  try {
+    const state = buildState();
+    const hasData = (state.i && state.i.length) || state.v || state.s || Object.keys(state.o).length;
+    const url = hasData
+      ? `${location.pathname}?state=${encodeURIComponent(JSON.stringify(state))}`
+      : location.pathname;
+    history.replaceState(null, '', url);
+  } catch {
+    // ignore serialization errors
+  }
+}
+
+/** Read state object from URL (if present). */
+function readStateFromURL() {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('state');
+  if (!raw) return null;
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Apply a previously serialized state.
+ * @param {any} state
+ */
+function applyState(state) {
+  if (!state || typeof state !== 'object') return;
+  const intervals = Array.isArray(state.i) ? state.i.filter(n => Number.isInteger(n)) : [];
+  selectedIntervals.clear();
+  for (const n of intervals) {
+    if (selectedIntervals.size >= 6) break; // enforce limit
+    selectedIntervals.add(Number(n));
+  }
+  userIntervalOptions.clear();
+  if (state.o && typeof state.o === 'object') {
+    for (const [k, v] of Object.entries(state.o)) {
+      const num = Number(k);
+      if (!Number.isInteger(num)) continue;
+      if (v && typeof v === 'object') {
+        /** @type {{text?: string, colored?: boolean}} */
+        const rec = {};
+        if ('t' in v) rec.text = typeof v.t === 'string' ? v.t : '';
+        if (v.c === 1) rec.colored = true;
+        if (rec.text !== undefined || rec.colored) userIntervalOptions.set(num, rec);
+      }
+    }
+  }
+  // Re-render dependent UI
+  renderIntervals();
+  updateStringSets();
+  renderIntervalLabelOptions();
+  // Apply voicing
+  if (state.v && typeof state.v === 'string') {
+    const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector(`input[name="voicing"][value="${state.v}"]`));
+    if (voicingInput) voicingInput.checked = true;
+  }
+  // Apply string set
+  if (state.s && typeof state.s === 'string') {
+    const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector(`input[name="stringset"][value="${state.s}"]`));
+    if (stringSetInput) stringSetInput.checked = true;
+  }
+  // After applying all, ensure label options reflect overrides
+  renderIntervalLabelOptions();
+}
+
 function renderIntervals() {
   intervalBox.innerHTML = '';
   for (const [name, val] of intervalEntries) {
@@ -56,10 +150,10 @@ function renderIntervals() {
       } else {
         selectedIntervals.delete(Number(val));
       }
-updateStringSets();
-renderIntervalLabelOptions();
+      updateStringSets();
       renderIntervalLabelOptions();
       setMessage('');
+      pushState();
     });
     intervalBox.appendChild(label);
   }
@@ -124,6 +218,7 @@ function renderIntervalLabelOptions() {
       record.text = input.value.trim();
       userIntervalOptions.set(interval, record);
       clearResults();
+      pushState();
     });
     const colorLabel = document.createElement('label');
     colorLabel.className = 'inline';
@@ -135,6 +230,7 @@ function renderIntervalLabelOptions() {
       record.colored = colorCheckbox.checked;
       userIntervalOptions.set(interval, record);
       clearResults();
+      pushState();
     });
     colorLabel.appendChild(colorCheckbox);
     const smallTxt = document.createElement('span');
@@ -169,6 +265,7 @@ resetBtn.addEventListener('click', () => {
   renderIntervalLabelOptions();
   clearResults();
   setMessage('Form reset');
+  history.replaceState(null, '', location.pathname);
 });
 
 copyBtn.addEventListener('click', async () => {
@@ -271,15 +368,22 @@ form.addEventListener('submit', (e) => {
   } else {
     setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
     jsonOutput.value = JSON.stringify(chordShapes, null, 2);
+    pushState();
   }
 });
 
 // Clear results anytime a voicing or string set radio changes (after initial population)
 voicingBox.addEventListener('change', (e) => {
-  if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') clearResults();
+  if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') {
+    clearResults();
+    pushState();
+  }
 });
 stringSetBox.addEventListener('change', (e) => {
-  if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') clearResults();
+  if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') {
+    clearResults();
+    pushState();
+  }
 });
 
 // Initial render
@@ -287,3 +391,17 @@ renderIntervals();
 renderVoicings();
 updateStringSets();
 renderIntervalLabelOptions();
+// Apply state from URL if present
+const initialState = readStateFromURL();
+if (initialState) {
+  applyState(initialState);
+  // Ensure URL normalized (in case of trimming invalid data)
+  pushState();
+  // Auto-generate chords if state is complete
+  const hasIntervals = selectedIntervals.size > 0;
+  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
+  if (hasIntervals && voicingInput && stringSetInput) {
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+  }
+}

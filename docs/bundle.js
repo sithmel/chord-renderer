@@ -7381,6 +7381,89 @@ var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUppe
 ));
 var selectedIntervals = /* @__PURE__ */ new Set();
 var userIntervalOptions = /* @__PURE__ */ new Map();
+function buildState() {
+  const intervalsArray = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
+  const voicingInput = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="voicing"]:checked')
+  );
+  const stringSetInput = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="stringset"]:checked')
+  );
+  const o2 = {};
+  for (const [interval, opts] of userIntervalOptions) {
+    const rec = {};
+    if (opts.text !== void 0) rec.t = opts.text;
+    if (opts.colored) rec.c = 1;
+    if (Object.keys(rec).length) o2[String(interval)] = rec;
+  }
+  return {
+    i: intervalsArray,
+    v: voicingInput ? voicingInput.value : void 0,
+    s: stringSetInput ? stringSetInput.value : void 0,
+    o: o2
+  };
+}
+function pushState() {
+  try {
+    const state = buildState();
+    const hasData = state.i && state.i.length || state.v || state.s || Object.keys(state.o).length;
+    const url = hasData ? `${location.pathname}?state=${encodeURIComponent(JSON.stringify(state))}` : location.pathname;
+    history.replaceState(null, "", url);
+  } catch (e2) {
+  }
+}
+function readStateFromURL() {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get("state");
+  if (!raw) return null;
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch (e2) {
+    return null;
+  }
+}
+function applyState(state) {
+  if (!state || typeof state !== "object") return;
+  const intervals = Array.isArray(state.i) ? state.i.filter((n2) => Number.isInteger(n2)) : [];
+  selectedIntervals.clear();
+  for (const n2 of intervals) {
+    if (selectedIntervals.size >= 6) break;
+    selectedIntervals.add(Number(n2));
+  }
+  userIntervalOptions.clear();
+  if (state.o && typeof state.o === "object") {
+    for (const [k2, v2] of Object.entries(state.o)) {
+      const num = Number(k2);
+      if (!Number.isInteger(num)) continue;
+      if (v2 && typeof v2 === "object") {
+        const rec = {};
+        if ("t" in v2) rec.text = typeof v2.t === "string" ? v2.t : "";
+        if (v2.c === 1) rec.colored = true;
+        if (rec.text !== void 0 || rec.colored) userIntervalOptions.set(num, rec);
+      }
+    }
+  }
+  renderIntervals();
+  updateStringSets();
+  renderIntervalLabelOptions();
+  if (state.v && typeof state.v === "string") {
+    const voicingInput = (
+      /** @type {HTMLInputElement|null} */
+      form.querySelector(`input[name="voicing"][value="${state.v}"]`)
+    );
+    if (voicingInput) voicingInput.checked = true;
+  }
+  if (state.s && typeof state.s === "string") {
+    const stringSetInput = (
+      /** @type {HTMLInputElement|null} */
+      form.querySelector(`input[name="stringset"][value="${state.s}"]`)
+    );
+    if (stringSetInput) stringSetInput.checked = true;
+  }
+  renderIntervalLabelOptions();
+}
 function renderIntervals() {
   intervalBox.innerHTML = "";
   for (const [name, val] of intervalEntries) {
@@ -7407,8 +7490,8 @@ function renderIntervals() {
       }
       updateStringSets();
       renderIntervalLabelOptions();
-      renderIntervalLabelOptions();
       setMessage("");
+      pushState();
     });
     intervalBox.appendChild(label);
   }
@@ -7470,6 +7553,7 @@ function renderIntervalLabelOptions() {
       record.text = input.value.trim();
       userIntervalOptions.set(interval, record);
       clearResults();
+      pushState();
     });
     const colorLabel = document.createElement("label");
     colorLabel.className = "inline";
@@ -7481,6 +7565,7 @@ function renderIntervalLabelOptions() {
       record.colored = colorCheckbox.checked;
       userIntervalOptions.set(interval, record);
       clearResults();
+      pushState();
     });
     colorLabel.appendChild(colorCheckbox);
     const smallTxt = document.createElement("span");
@@ -7508,6 +7593,7 @@ resetBtn.addEventListener("click", () => {
   renderIntervalLabelOptions();
   clearResults();
   setMessage("Form reset");
+  history.replaceState(null, "", location.pathname);
 });
 copyBtn.addEventListener("click", async () => {
   if (!jsonOutput.value) return;
@@ -7601,22 +7687,46 @@ form.addEventListener("submit", (e2) => {
   } else {
     setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
     jsonOutput.value = JSON.stringify(chordShapes, null, 2);
+    pushState();
   }
 });
 voicingBox.addEventListener("change", (e2) => {
   if (
     /** @type {HTMLElement} */
     e2.target.tagName === "INPUT"
-  ) clearResults();
+  ) {
+    clearResults();
+    pushState();
+  }
 });
 stringSetBox.addEventListener("change", (e2) => {
   if (
     /** @type {HTMLElement} */
     e2.target.tagName === "INPUT"
-  ) clearResults();
+  ) {
+    clearResults();
+    pushState();
+  }
 });
 renderIntervals();
 renderVoicings();
 updateStringSets();
 renderIntervalLabelOptions();
+var initialState = readStateFromURL();
+if (initialState) {
+  applyState(initialState);
+  pushState();
+  const hasIntervals = selectedIntervals.size > 0;
+  const voicingInput = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="voicing"]:checked')
+  );
+  const stringSetInput = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="stringset"]:checked')
+  );
+  if (hasIntervals && voicingInput && stringSetInput) {
+    form.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+}
 //# sourceMappingURL=bundle.js.map
