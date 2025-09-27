@@ -8,15 +8,13 @@ const voicingBox = /** @type {HTMLElement} */(document.getElementById('voicing-b
 const form = /** @type {HTMLFormElement} */(document.getElementById('voicing-form'));
 const results = /** @type {HTMLElement} */(document.getElementById('results'));
 const message = /** @type {HTMLElement} */(document.getElementById('message'));
-const resetBtn = /** @type {HTMLButtonElement} */(document.getElementById('reset-btn'));
 const jsonOutput = /** @type {HTMLTextAreaElement} */(document.getElementById('json-output'));
 const copyBtn = /** @type {HTMLButtonElement} */(document.getElementById('copy-json'));
-const generateBtn = /** @type {HTMLButtonElement} */(document.getElementById('generate-btn'));
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn || !generateBtn || !intervalLabelOptionsBox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -91,7 +89,20 @@ function readStateFromURL() {
  */
 function applyState(state) {
   if (!state || typeof state !== 'object') return;
-  const intervals = Array.isArray(state.i) ? state.i.filter(n => Number.isInteger(n)) : [];
+  /**
+   * Serialized state read from URL.
+   * @typedef {Object} SerializedState
+   * @property {number[]} [i] - selected intervals
+   * @property {string} [v] - voicing key
+   * @property {string} [s] - stringset key
+   * @property {Record<string,{t?:string,c?:number}>} [o] - overrides map
+   */
+
+  /** @type {SerializedState} */
+  const s = /** @type {any} */ (state);
+
+  /** @type {number[]} */
+  const intervals = Array.isArray(s.i) ? s.i.filter(n => Number.isInteger(n)).map(Number) : [];
   selectedIntervals.clear();
   for (const n of intervals) {
     if (selectedIntervals.size >= 6) break; // enforce limit
@@ -139,7 +150,6 @@ function renderIntervals() {
     const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
     input.checked = selectedIntervals.has(Number(val));
     input.addEventListener('change', () => {
-      clearResults();
       if (input.checked) {
         if (selectedIntervals.size >= 6) {
           input.checked = false;
@@ -152,8 +162,8 @@ function renderIntervals() {
       }
       updateStringSets();
       renderIntervalLabelOptions();
-      setMessage('');
       pushState();
+      tryAutoGenerate();
     });
     intervalBox.appendChild(label);
   }
@@ -217,8 +227,8 @@ function renderIntervalLabelOptions() {
       // Preserve empty string to explicitly clear default label
       record.text = input.value.trim();
       userIntervalOptions.set(interval, record);
-      clearResults();
       pushState();
+      tryAutoGenerate();
     });
     const colorLabel = document.createElement('label');
     colorLabel.className = 'inline';
@@ -229,8 +239,8 @@ function renderIntervalLabelOptions() {
       const record = userIntervalOptions.get(interval) || {};
       record.colored = colorCheckbox.checked;
       userIntervalOptions.set(interval, record);
-      clearResults();
       pushState();
+      tryAutoGenerate();
     });
     colorLabel.appendChild(colorCheckbox);
     const smallTxt = document.createElement('span');
@@ -257,17 +267,6 @@ function setMessage(text, type = '') {
   message.className = 'message ' + type;
 }
 
-resetBtn.addEventListener('click', () => {
-  selectedIntervals.clear();
-  userIntervalOptions.clear();
-  renderIntervals();
-  updateStringSets();
-  renderIntervalLabelOptions();
-  clearResults();
-  setMessage('Form reset');
-  history.replaceState(null, '', location.pathname);
-});
-
 copyBtn.addEventListener('click', async () => {
   if (!jsonOutput.value) return;
   try {
@@ -283,42 +282,25 @@ copyBtn.addEventListener('click', async () => {
 });
 
 /**
- * Render a chord using svguitar.
- * @param {import('../lib/chord.js').Chord} chord
- * @param {number} index
- * @param {string} voicingName
+ * Determine whether we have enough info to generate chords.
  */
-function renderChord(chord, index, voicingName) {
-  const holder = document.createElement('div');
-  holder.className = 'chord-block';
-  const title = document.createElement('div');
-  title.className = 'chord-title';
-  title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
-  holder.appendChild(title);
-
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  meta.textContent = chord.map(([string, fret]) => `S${string}:F${fret}`).join(' ');
-  holder.appendChild(meta);
-
-  const svgContainer = document.createElement('div');
-  holder.appendChild(svgContainer);
-  results.appendChild(holder);
-
-  const frets = Math.max(3, ...chord.map(f => f[1]));
-
-  new /** @type {any} */(SVGuitarChord)(svgContainer)
-    .chord({ fingers: chord, barres: [] })
-    .configure({ frets })
-    .draw();
+function canGenerate() {
+  if (selectedIntervals.size < 2) return false;
+  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+  if (!voicingInput) return false;
+  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
+  if (!stringSetInput) return false;
+  return true;
 }
 
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
+/**
+ * Perform chord generation.
+ */
+function generateChords() {
   clearResults();
   setMessage('');
-  if (selectedIntervals.size === 0) {
-    setMessage('Select at least one interval.', 'error');
+  if (selectedIntervals.size < 2) {
+    setMessage('Select at least two intervals.', 'error');
     return;
   }
   const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
@@ -370,19 +352,79 @@ form.addEventListener('submit', (e) => {
     jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
   }
+}
+
+/**
+ * Attempt generation if possible; otherwise show guidance or clear.
+ */
+function tryAutoGenerate() {
+  if (canGenerate()) {
+    generateChords();
+  } else {
+    clearResults();
+    if (selectedIntervals.size > 0 && selectedIntervals.size < 2) {
+      setMessage('Select at least two intervals.', 'error');
+    } else if (selectedIntervals.size >= 2) {
+      // Have enough intervals; maybe missing voicing or string set
+      const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+      const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
+      if (!voicingInput) setMessage('Select a voicing.', 'error');
+      else if (!stringSetInput) setMessage('Select a string set.', 'error');
+      else setMessage('');
+    } else {
+      setMessage('');
+    }
+  }
+}
+
+/**
+ * Render a chord using svguitar.
+ * @param {import('../lib/chord.js').Chord} chord
+ * @param {number} index
+ * @param {string} voicingName
+ */
+function renderChord(chord, index, voicingName) {
+  const holder = document.createElement('div');
+  holder.className = 'chord-block';
+  const title = document.createElement('div');
+  title.className = 'chord-title';
+  title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
+  holder.appendChild(title);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = chord.map(([string, fret]) => `S${string}:F${fret}`).join(' ');
+  holder.appendChild(meta);
+
+  const svgContainer = document.createElement('div');
+  holder.appendChild(svgContainer);
+  results.appendChild(holder);
+
+  const frets = Math.max(3, ...chord.map(f => f[1]));
+
+  new /** @type {any} */(SVGuitarChord)(svgContainer)
+    .chord({ fingers: chord, barres: [] })
+    .configure({ frets })
+    .draw();
+}
+
+// Keep submit handler for manual triggers (backward compatibility / URL state load)
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  generateChords();
 });
 
-// Clear results anytime a voicing or string set radio changes (after initial population)
+// Clear & auto generate on voicing or string set changes
 voicingBox.addEventListener('change', (e) => {
   if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') {
-    clearResults();
     pushState();
+    tryAutoGenerate();
   }
 });
 stringSetBox.addEventListener('change', (e) => {
   if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') {
-    clearResults();
     pushState();
+    tryAutoGenerate();
   }
 });
 
@@ -398,10 +440,5 @@ if (initialState) {
   // Ensure URL normalized (in case of trimming invalid data)
   pushState();
   // Auto-generate chords if state is complete
-  const hasIntervals = selectedIntervals.size > 0;
-  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
-  if (hasIntervals && voicingInput && stringSetInput) {
-    form.dispatchEvent(new Event('submit', { cancelable: true }));
-  }
+  tryAutoGenerate();
 }

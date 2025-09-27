@@ -240,8 +240,8 @@ Open http://localhost:8080 (or the port shown) in your browser.
  - Choose intervals (high E string is first select)
  - (Optional) Customize interval labels: after selecting intervals an "Interval Labels" section appears. Enter up to 3 chars (empty allowed to clear). Check Color if you want the predefined marker color.
  - Leave blank interval selectors for muted strings
- - Submit to see original + inversions rendered
- - Reset to clear (also clears custom labels)
+  - Chords auto-generate once you have: at least two intervals, a voicing, and a string set selected
+  - To start over, deselect intervals manually (URL updates automatically)
 
  ### Custom Interval Labels (Demo)
  The demo lets you override the short text and color used for each selected interval before generating voicings/inversions.
@@ -249,7 +249,7 @@ Open http://localhost:8080 (or the port shown) in your browser.
  - Color toggle: unchecked by default; checking applies the predefined interval color.
  - Scope: affects only the current browser session; not persisted and not part of the published library API.
  - Merging: overrides are shallowly merged with the internal interval fingerOptions (text replaced; color only applied when checkbox is checked).
- - Reset: the Reset button clears all custom labels and color choices.
+  - Clearing: remove intervals to clear results; label/color overrides persist per interval until interval removed or page reloaded.
 
  This feature is for illustrative customization only; library functions like notesToChord remain unchanged.
 
