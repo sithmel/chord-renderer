@@ -71,7 +71,7 @@ h3 { margin: 1.5rem 0 0.75rem; font-size: 1rem; }
 
 /* Responsive 3-column layout for the selection workflow */
 @media (min-width: 900px) {
-  form#voicing-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; align-items: start; }
+  form#voicing-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; align-items: start; }
   form#voicing-form .group { margin: 0; }
   form#voicing-form .actions { grid-column: 1 / -1; }
 }
@@ -170,7 +170,7 @@ button.secondary {
   border-radius: var(--radius-md);
   /* background: var(--color-surface); */
   box-shadow: var(--shadow-sm);
-  min-width: 160px;
+  min-width: 215px;
   position: relative;
   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
@@ -179,7 +179,7 @@ button.secondary {
 .chord-title { color: var(--color-surface) ;font-weight: 600; margin-bottom: 0.3rem; text-align: center; font-size: 0.82rem; letter-spacing: .3px; }
 .meta { font-size: 0.58rem; color: var(--color-text-subtle); margin-bottom: 0.3rem; text-align: center; }
 
-svg { max-width: 140px; height: auto; display: block; margin: 0 auto; }
+svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 
 /* Messages */
 .message { min-height: 1.2rem; font-size: 0.8rem; margin: 0.4rem 0 0.9rem; color: var(--color-text-subtle); }
@@ -289,3 +289,12 @@ svg { max-width: 140px; height: auto; display: block; margin: 0 auto; }
   .site-header h1 { font-size:1.3rem; }
   .site-header .tagline { font-size:0.68rem; }
 }
+
+/* Interval label customisation */
+.interval-label-options { display:flex; flex-direction: column; gap:0.4rem; }
+.interval-label-row { display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; font-size:0.82rem; padding:0.35rem 0.5rem; border:1px dashed var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-alt); }
+.interval-label-row span.interval-name { font-weight:600; min-width:120px; }
+.interval-label-row input[type="text"] { width:3.2rem; font-size:0.82rem; padding:0.2rem 0.3rem; border:1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); }
+.interval-label-row input[type="text"]:focus-visible { outline:none; box-shadow: var(--color-focus-ring); }
+.interval-label-row label.inline { display:inline-flex; align-items:center; gap:0.25rem; cursor:pointer; }
+.interval-label-row input[type="checkbox"] { margin:0; }

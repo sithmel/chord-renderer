@@ -1,5 +1,5 @@
 //@ts-check
-import { Interval, VOICING, getStringSets, getAllInversions, notesToChord } from '../lib/chord.js';
+import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
@@ -14,7 +14,9 @@ const copyBtn = /** @type {HTMLButtonElement} */(document.getElementById('copy-j
 const generateBtn = /** @type {HTMLButtonElement} */(document.getElementById('generate-btn'));
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn || !generateBtn) {
+const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
+
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn || !generateBtn || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -25,13 +27,21 @@ const intervalEntries = Object.entries(Interval).filter(([k]) => k === k.toUpper
 /** @type {Set<number>} */
 const selectedIntervals = new Set();
 
+/**
+ * Store user overrides for interval display.
+ * key: interval number
+ * value: { text?: string, colored?: boolean }
+ * @type {Map<number,{text?: string, colored?: boolean}>}
+ */
+const userIntervalOptions = new Map();
+
 function renderIntervals() {
   intervalBox.innerHTML = '';
   for (const [name, val] of intervalEntries) {
     const id = `int-${name}`;
     const label = document.createElement('label');
     label.className = 'check-wrap';
-    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${name} (${val})</span>`;
+    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${Interval_labels[val].full}</span>`;
     const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
     input.checked = selectedIntervals.has(Number(val));
     input.addEventListener('change', () => {
@@ -46,7 +56,9 @@ function renderIntervals() {
       } else {
         selectedIntervals.delete(Number(val));
       }
-      updateStringSets();
+updateStringSets();
+renderIntervalLabelOptions();
+      renderIntervalLabelOptions();
       setMessage('');
     });
     intervalBox.appendChild(label);
@@ -87,6 +99,54 @@ function renderVoicings() {
   });
 }
 
+function renderIntervalLabelOptions() {
+  intervalLabelOptionsBox.innerHTML = '';
+  if (selectedIntervals.size === 0) return;
+  const sorted = Array.from(selectedIntervals).sort((a,b)=>a-b);
+  for (const interval of sorted) {
+    const base = Interval_labels[interval];
+    const existing = userIntervalOptions.get(interval) || {};
+    const row = document.createElement('div');
+    row.className = 'interval-label-row';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'interval-name';
+    nameSpan.textContent = base.full;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 3;
+    input.value = existing.text !== undefined ? existing.text : (base.fingerOptions?.text || '');
+    input.setAttribute('aria-label', base.full + ' label');
+    input.addEventListener('input', () => {
+      const val = input.value.trim();
+      if (val.length > 3) input.value = val.slice(0,3);
+      const record = userIntervalOptions.get(interval) || {};
+      // Preserve empty string to explicitly clear default label
+      record.text = input.value.trim();
+      userIntervalOptions.set(interval, record);
+      clearResults();
+    });
+    const colorLabel = document.createElement('label');
+    colorLabel.className = 'inline';
+    const colorCheckbox = document.createElement('input');
+    colorCheckbox.type = 'checkbox';
+    colorCheckbox.checked = existing.colored ?? false; // default now false (no color)
+    colorCheckbox.addEventListener('change', () => {
+      const record = userIntervalOptions.get(interval) || {};
+      record.colored = colorCheckbox.checked;
+      userIntervalOptions.set(interval, record);
+      clearResults();
+    });
+    colorLabel.appendChild(colorCheckbox);
+    const smallTxt = document.createElement('span');
+    smallTxt.textContent = 'color';
+    colorLabel.appendChild(smallTxt);
+    row.appendChild(nameSpan);
+    row.appendChild(input);
+    row.appendChild(colorLabel);
+    intervalLabelOptionsBox.appendChild(row);
+  }
+}
+
 function clearResults() {
   results.innerHTML = '';
   jsonOutput.value = '';
@@ -103,8 +163,10 @@ function setMessage(text, type = '') {
 
 resetBtn.addEventListener('click', () => {
   selectedIntervals.clear();
+  userIntervalOptions.clear();
   renderIntervals();
   updateStringSets();
+  renderIntervalLabelOptions();
   clearResults();
   setMessage('Form reset');
 });
@@ -183,7 +245,22 @@ form.addEventListener('submit', (e) => {
   for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
     // Prepare notes copy for note->chord consumption (it mutates via shift())
     const notesCopy = [...inversion];
-    const chord = notesToChord(notesCopy, stringSetBits, () => ({}));
+    /**
+     * Get finger options for a given interval.
+     * @param {number|null} interval
+     * @returns {import('../lib/chord.js').FingerOptions}
+     */
+    const intervalToFingerOptions = (interval) => {
+      if (interval === null) return {};
+      const base = Interval_labels[interval].fingerOptions ?? {};
+      const override = userIntervalOptions.get(interval) || {};
+      return {
+        className: base.className,
+        text: override.text !== undefined ? override.text : base.text,
+        color: override.colored === true ? base.color : undefined,
+      };
+    };
+    const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
     chordShapes.push(chord);
     renderChord(chord, count, voicingName);
     count++;
@@ -209,3 +286,4 @@ stringSetBox.addEventListener('change', (e) => {
 renderIntervals();
 renderVoicings();
 updateStringSets();
+renderIntervalLabelOptions();

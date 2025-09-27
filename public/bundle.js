@@ -13,6 +13,20 @@ var Interval = {
   MINOR_SEVENTH: 10,
   MAJOR_SEVENTH: 11
 };
+var Interval_labels = [
+  { full: "root", fingerOptions: { className: "root", color: "#d62828", text: "R" } },
+  { full: "minor second", fingerOptions: { className: "minor-second", color: "#f77f00", text: "b2" } },
+  { full: "major second", fingerOptions: { className: "major-second", color: "#fcbf49", text: "2" } },
+  { full: "minor third", fingerOptions: { className: "minor-third", color: "#eae2b7", text: "b3" } },
+  { full: "major third", fingerOptions: { className: "major-third", color: "#d62828", text: "3" } },
+  { full: "perfect fourth", fingerOptions: { className: "perfect-fourth", color: "#f77f00", text: "4" } },
+  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth", color: "#fcbf49", text: "b5" } },
+  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth", color: "#eae2b7", text: "5" } },
+  { full: "minor sixth", fingerOptions: { className: "minor-sixth", color: "#d62828", text: "b6" } },
+  { full: "major sixth", fingerOptions: { className: "major-sixth", color: "#f77f00", text: "6" } },
+  { full: "minor seventh", fingerOptions: { className: "minor-seventh", color: "#fcbf49", text: "b7" } },
+  { full: "major seventh", fingerOptions: { className: "major-seventh", color: "#7a4f9d", text: "7" } }
+];
 var INTERVAL_ALIASES = [
   [new RegExp("^1$|^i$", "i"), Interval.UNISON],
   [new RegExp("^b2$|^bii$", "i"), Interval.MINOR_SECOND],
@@ -148,7 +162,7 @@ function notesToChord(notes, stringSet, intervalToFingerOptions = () => ({}), st
       continue;
     }
     intervalOffset += chordInterval - stringOffset;
-    chord.push([reverseString(stringNumber + 1), intervalOffset, intervalToFingerOptions(notes[stringNumber])]);
+    chord.push([reverseString(stringNumber + 1), intervalOffset, intervalToFingerOptions(chordIntervals[stringNumber])]);
   }
   fretNormalizer(chord);
   return chord;
@@ -7353,7 +7367,11 @@ var stringsHint = (
   /** @type {HTMLElement} */
   document.getElementById("strings-hint")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn || !generateBtn) {
+var intervalLabelOptionsBox = (
+  /** @type {HTMLElement} */
+  document.getElementById("interval-label-options")
+);
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn || !generateBtn || !intervalLabelOptionsBox) {
   throw new Error("Required DOM elements not found");
 }
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase()).sort((a2, b2) => (
@@ -7362,13 +7380,14 @@ var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUppe
   b2[1]
 ));
 var selectedIntervals = /* @__PURE__ */ new Set();
+var userIntervalOptions = /* @__PURE__ */ new Map();
 function renderIntervals() {
   intervalBox.innerHTML = "";
   for (const [name, val] of intervalEntries) {
     const id = `int-${name}`;
     const label = document.createElement("label");
     label.className = "check-wrap";
-    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${name} (${val})</span>`;
+    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${Interval_labels[val].full}</span>`;
     const input = (
       /** @type {HTMLInputElement} */
       label.querySelector("input")
@@ -7387,6 +7406,8 @@ function renderIntervals() {
         selectedIntervals.delete(Number(val));
       }
       updateStringSets();
+      renderIntervalLabelOptions();
+      renderIntervalLabelOptions();
       setMessage("");
     });
     intervalBox.appendChild(label);
@@ -7424,6 +7445,53 @@ function renderVoicings() {
     voicingBox.appendChild(label);
   });
 }
+function renderIntervalLabelOptions() {
+  var _a, _b;
+  intervalLabelOptionsBox.innerHTML = "";
+  if (selectedIntervals.size === 0) return;
+  const sorted = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
+  for (const interval of sorted) {
+    const base = Interval_labels[interval];
+    const existing = userIntervalOptions.get(interval) || {};
+    const row = document.createElement("div");
+    row.className = "interval-label-row";
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "interval-name";
+    nameSpan.textContent = base.full;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = 3;
+    input.value = existing.text !== void 0 ? existing.text : ((_a = base.fingerOptions) == null ? void 0 : _a.text) || "";
+    input.setAttribute("aria-label", base.full + " label");
+    input.addEventListener("input", () => {
+      const val = input.value.trim();
+      if (val.length > 3) input.value = val.slice(0, 3);
+      const record = userIntervalOptions.get(interval) || {};
+      record.text = input.value.trim();
+      userIntervalOptions.set(interval, record);
+      clearResults();
+    });
+    const colorLabel = document.createElement("label");
+    colorLabel.className = "inline";
+    const colorCheckbox = document.createElement("input");
+    colorCheckbox.type = "checkbox";
+    colorCheckbox.checked = (_b = existing.colored) != null ? _b : false;
+    colorCheckbox.addEventListener("change", () => {
+      const record = userIntervalOptions.get(interval) || {};
+      record.colored = colorCheckbox.checked;
+      userIntervalOptions.set(interval, record);
+      clearResults();
+    });
+    colorLabel.appendChild(colorCheckbox);
+    const smallTxt = document.createElement("span");
+    smallTxt.textContent = "color";
+    colorLabel.appendChild(smallTxt);
+    row.appendChild(nameSpan);
+    row.appendChild(input);
+    row.appendChild(colorLabel);
+    intervalLabelOptionsBox.appendChild(row);
+  }
+}
 function clearResults() {
   results.innerHTML = "";
   jsonOutput.value = "";
@@ -7434,8 +7502,10 @@ function setMessage(text, type = "") {
 }
 resetBtn.addEventListener("click", () => {
   selectedIntervals.clear();
+  userIntervalOptions.clear();
   renderIntervals();
   updateStringSets();
+  renderIntervalLabelOptions();
   clearResults();
   setMessage("Form reset");
 });
@@ -7509,7 +7579,18 @@ form.addEventListener("submit", (e2) => {
   let count = 0;
   for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
     const notesCopy = [...inversion];
-    const chord = notesToChord(notesCopy, stringSetBits, () => ({}));
+    const intervalToFingerOptions = (interval) => {
+      var _a;
+      if (interval === null) return {};
+      const base = (_a = Interval_labels[interval].fingerOptions) != null ? _a : {};
+      const override = userIntervalOptions.get(interval) || {};
+      return {
+        className: base.className,
+        text: override.text !== void 0 ? override.text : base.text,
+        color: override.colored === true ? base.color : void 0
+      };
+    };
+    const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
     chordShapes.push(chord);
     renderChord(chord, count, voicingName);
     count++;
@@ -7537,4 +7618,5 @@ stringSetBox.addEventListener("change", (e2) => {
 renderIntervals();
 renderVoicings();
 updateStringSets();
+renderIntervalLabelOptions();
 //# sourceMappingURL=bundle.js.map
