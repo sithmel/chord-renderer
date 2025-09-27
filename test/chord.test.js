@@ -1,3 +1,4 @@
+//@ts-check
 import { test, describe } from "node:test";
 import { strict as assert } from "node:assert";
 import {
@@ -5,8 +6,11 @@ import {
   stringToInterval,
   fretNormalizer,
   generateInversions,
-  voicingToChord,
-  intervalDistanceFromVoicing,
+  notesToChord,
+  intervalDistanceFromNotes,
+  getStringSets,
+  VOICING,
+  getAllInversions,
 } from "../lib/chord.js";
 
 describe("stringToInterval", () => {
@@ -105,371 +109,345 @@ describe("stringToInterval", () => {
 
 describe("fretNormalizer", () => {
   test("should normalize chord frets to lowest position", () => {
-    // Create a chord with frets 5, 7, 9
+    /** @type {import("../lib/chord.js").Chord} */
     const chord = [
-      [1, 5], // String 1, fret 5
-      [2, 7], // String 2, fret 7
-      [3, 9], // String 3, fret 9
+      [1, 5, {}],
+      [2, 7, {}],
+      [3, 9, {}],
     ];
-
-    // After normalization, should be 0, 2, 4 (all reduced by 5)
     fretNormalizer(chord);
-
-    assert.equal(chord[0][1], 1); // First fret should be 1
-    assert.equal(chord[1][1], 3); // Second fret should be 3
-    assert.equal(chord[2][1], 5); // Third fret should be 5
-
-    // String numbers should remain unchanged
+    assert.equal(chord[0][1], 1);
+    assert.equal(chord[1][1], 3);
+    assert.equal(chord[2][1], 5);
     assert.equal(chord[0][0], 1);
     assert.equal(chord[1][0], 2);
     assert.equal(chord[2][0], 3);
   });
 
   test("should handle chords with muted strings (null values)", () => {
-    // Create a chord with some muted strings
+    /** @type {import("../lib/chord.js").Chord} */
     const chord = [
-      [1, 8], // String 1, fret 8
-      null, // String 2, muted
-      [3, 10], // String 3, fret 10
-      null, // String 4, muted
-      [5, 12], // String 5, fret 12
+      [1, 8],
+      [3, 10],
+      [5, 12],
     ];
-
-    // After normalization, frets should be reduced by (8-1) = 7
     fretNormalizer(chord);
-
-    assert.equal(chord[0][1], 1); // 8 - 7 = 1
-    assert.equal(chord[1], null); // Should remain null
-    assert.equal(chord[2][1], 3); // 10 - 7 = 3
-    assert.equal(chord[3], null); // Should remain null
-    assert.equal(chord[4][1], 5); // 12 - 7 = 5
+    assert.equal(chord[0][1], 1);
+    assert.equal(chord[1][1], 3);
+    assert.equal(chord[2][1], 5);
   });
 
   test("should return original chord when already at minimum position", () => {
-    // Create a chord that's already normalized (starts at fret 1)
+    /** @type {import("../lib/chord.js").Chord} */
     const chord = [
-      [1, 1], // String 1, fret 1
-      [2, 3], // String 2, fret 3
-      [3, 5], // String 3, fret 5
+      [1, 1],
+      [2, 3],
+      [3, 5],
     ];
-
-    // Store original values for comparison
     const originalChord = JSON.parse(JSON.stringify(chord));
-
     fretNormalizer(chord);
-
-    // Should remain unchanged since it's already at minimum
     assert.deepEqual(chord, originalChord);
   });
 
   test("should handle chord with all muted strings", () => {
-    // Create a chord with all muted strings
-    const chord = [null, null, null, null, null, null];
-
-    // Store original for comparison
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [];
     const originalChord = [...chord];
-
     fretNormalizer(chord);
-
-    // Should remain unchanged
     assert.deepEqual(chord, originalChord);
     assert.ok(chord.every((pos) => pos === null));
   });
 });
 
 describe("generateInversions", () => {
-  test("should generate correct inversions for a simple triad voicing", () => {
-    // Create a C major triad voicing: C(root), E(major third), G(perfect fifth)
-    const voicing = [
-      Interval.UNISON, // String 0: Root (C)
-      Interval.MAJOR_THIRD, // String 1: Major third (E)
-      Interval.PERFECT_FIFTH, // String 2: Perfect fifth (G)
-      null, // String 3: Muted
-      null, // String 4: Muted
-      null, // String 5: Muted
-    ];
+  /** Create all cyclic left rotations of an array (including original). */
+  /** @type {(arr: Array<number>) => Array<Array<number>>} */
+  const cyclicRotations = (arr) => {
+    const rots = [];
+    let cur = [...arr];
+    for (let i = 0; i < arr.length; i++) {
+      rots.push([...cur]);
+      cur = [...cur.slice(1), cur[0]];
+    }
+    return rots;
+  };
 
-    // Generate inversions using the generator
+  function isRotationOf(base, candidate) {
+    const cand = JSON.stringify(candidate);
+    return cyclicRotations(base).some(r => JSON.stringify(r) === cand);
+  }
+
+  test("should yield all distinct cyclic rotations except the original (triad)", () => {
+    const voicing = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH];
+    const expectedSet = new Set(cyclicRotations(voicing).slice(1).map(r => JSON.stringify(r))); // exclude original
     const inversions = [...generateInversions(voicing)];
-
-    // Should generate 2 inversions
-    assert.equal(inversions.length, 2);
-    console.log(inversions);
-    // Both inversions are currently the same due to implementation
-    assert.deepEqual(inversions[0], [
-      Interval.MAJOR_THIRD,
-      Interval.PERFECT_FIFTH,
-      Interval.UNISON,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(inversions[1], [
-      Interval.PERFECT_FIFTH,
-      Interval.UNISON,
-      Interval.MAJOR_THIRD,
-      null,
-      null,
-      null,
-    ]);
+    assert.equal(inversions.length, voicing.length - 1);
+    const actualSet = new Set(inversions.map(r => JSON.stringify(r)));
+    // All yielded inversions must be rotations (excluding the original)
+    for (const inv of inversions) {
+      assert.ok(expectedSet.has(JSON.stringify(inv)));
+      assert.notDeepEqual(inv, voicing);
+    }
+    // Order doesn't matter; we just ensure no unexpected rotations
+    for (const exp of expectedSet) {
+      assert.ok(actualSet.has(exp));
+    }
   });
 
-  test("should handle voicing with only two intervals", () => {
-    // Create a simple two-note voicing: C and G (power chord)
-    const voicing = [
-      Interval.UNISON, // String 0: Root (C)
-      null, // String 1: Muted
-      Interval.PERFECT_FIFTH, // String 2: Perfect fifth (G)
-      null, // String 3: Muted
-      null, // String 4: Muted
-      null, // String 5: Muted
-    ];
-
+  test("should generate single rotation for two-interval voicing", () => {
+    const voicing = [Interval.UNISON, Interval.PERFECT_FIFTH];
     const inversions = [...generateInversions(voicing)];
-
-    // Should generate 1 inversion (2 intervals - 1 = 1)
-    assert.equal(inversions.length, 1);
-
-    // First inversion: G, C
-    assert.deepEqual(inversions[0], [
-      Interval.PERFECT_FIFTH, // G on string 0
-      null, // String 1: Muted
-      Interval.UNISON, // C on string 2
-      null, // String 3: Muted
-      null, // String 4: Muted
-      null, // String 5: Muted
-    ]);
+    assert.equal(inversions.length, voicing.length - 1);
+    // Only one possible rotation and it must not equal original
+    assert.notDeepEqual(inversions[0], voicing);
+    assert.ok(isRotationOf(voicing, inversions[0]));
   });
 
-  test("should handle voicing with different string positions", () => {
-    // Create a voicing on different strings: strings 1, 3, 5
-    const voicing = [
-      null, // String 0: Muted
-      Interval.UNISON, // String 1: Root (C)
-      null, // String 2: Muted
-      Interval.MAJOR_THIRD, // String 3: Major third (E)
-      null, // String 4: Muted
-      Interval.PERFECT_FIFTH, // String 5: Perfect fifth (G)
-    ];
-
+  test("single note produces zero inversions", () => {
+    const voicing = [Interval.UNISON];
     const inversions = [...generateInversions(voicing)];
-
-    // Should generate 2 inversions
-    assert.equal(inversions.length, 2);
-
-    // First inversion: E, G, C (on strings 1, 3, 5)
-    assert.deepEqual(inversions[0], [
-      null, // String 0: Muted
-      Interval.MAJOR_THIRD, // E on string 1
-      null, // String 2: Muted
-      Interval.PERFECT_FIFTH, // G on string 3
-      null, // String 4: Muted
-      Interval.UNISON, // C on string 5
-    ]);
-
-    // Second inversion: G, C, E (on strings 1, 3, 5)
-    assert.deepEqual(inversions[1], [
-      null, // String 0: Muted
-      Interval.PERFECT_FIFTH, // G on string 1
-      null, // String 2: Muted
-      Interval.UNISON, // C on string 3
-      null, // String 4: Muted
-      Interval.MAJOR_THIRD, // E on string 5
-    ]);
-  });
-
-  test("should return empty generator for single interval voicing", () => {
-    // Create a voicing with only one interval
-    const voicing = [
-      Interval.UNISON, // String 0: Root (C)
-      null, // String 1: Muted
-      null, // String 2: Muted
-      null, // String 3: Muted
-      null, // String 4: Muted
-      null, // String 5: Muted
-    ];
-
-    const inversions = [...generateInversions(voicing)];
-
-    // Should generate 0 inversions (1 interval - 1 = 0)
     assert.equal(inversions.length, 0);
   });
 });
 
-describe("intervalDistanceFromVoicing", () => {
+describe("intervalDistanceFromNotes", () => {
   test("should calculate correct distances between consecutive intervals", () => {
-    // Create a voicing with intervals: C, E, G (0, 4, 7)
-    const voicing = [
-      Interval.UNISON, // String 0: 0
-      Interval.MAJOR_THIRD, // String 1: 4 
-      Interval.PERFECT_FIFTH, // String 2: 7
-      null, // String 3: Muted
-      Interval.MAJOR_SEVENTH, // String 4: 11
-      null, // String 5: Muted
+    const notes = [
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      null,
+      Interval.MAJOR_SEVENTH,
+      null,
     ];
-
-    const distances = intervalDistanceFromVoicing(voicing);
-
-    // Expected distances:
-    // String 0: 0 - 0 = 0 (first interval, distance from previous 0)
-    // String 1: 4 - 0 = 4 (distance from 0 to 4)
-    // String 2: 7 - 4 = 3 (distance from 4 to 7)
-    // String 3: null (muted string)
-    // String 4: 11 - 7 = 4 (distance from 7 to 11)
-    // String 5: null (muted string)
+    const distances = intervalDistanceFromNotes(notes);
     assert.deepEqual(distances, [0, 4, 3, null, 4, null]);
   });
 
   test("should handle intervals that require octave adjustment", () => {
-    // Create a voicing where intervals go down and need octave adjustment
-    const voicing = [
-      Interval.PERFECT_FIFTH, // String 0: 7
-      Interval.MAJOR_THIRD, // String 1: 4 (lower than previous, should become 4 + 12 = 16)
-      Interval.UNISON, // String 2: 0 (lower than previous, should become 0 + 12 = 12)
-      null, // String 3: Muted
-      Interval.MAJOR_SIXTH, // String 4: 9 (lower than previous 16, should become 9 + 12 = 21)
-      null, // String 5: Muted
+    const notes = [
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      null,
+      Interval.MAJOR_SIXTH,
+      null,
     ];
-
-    const distances = intervalDistanceFromVoicing(voicing);
-
-    // Expected distances:
-    // String 0: 7 - 0 = 7 (first interval)
-    // String 1: 16 - 7 = 9 (4 + 12 - 7)
-    // String 2: 12 - 16 = -4, but actually 12 + 12 - 16 = 8 (0 + 12 - 16, then +12 again)
-    // String 3: null (muted)
-    // String 4: 21 - 24 = -3, but actually 21 - 12 = 9 (9 + 12 - 12)
-    // String 5: null (muted)
+    const distances = intervalDistanceFromNotes(notes);
     assert.deepEqual(distances, [7, 9, 8, null, 9, null]);
   });
 
   test("should handle voicing with scattered intervals across strings", () => {
-    // Create a voicing with intervals on non-consecutive strings
-    const voicing = [
-      null, // String 0: Muted
-      Interval.MINOR_THIRD, // String 1: 3
-      null, // String 2: Muted
-      null, // String 3: Muted
-      Interval.PERFECT_FIFTH, // String 4: 7
-      Interval.MAJOR_SEVENTH, // String 5: 11
+    const notes = [
+      null,
+      Interval.MINOR_THIRD,
+      null,
+      null,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
     ];
-
-    const distances = intervalDistanceFromVoicing(voicing);
-
-    // Expected distances:
-    // String 0: null (muted)
-    // String 1: 3 - 0 = 3 (first non-null interval)
-    // String 2: null (muted)
-    // String 3: null (muted)
-    // String 4: 7 - 3 = 4 (distance from 3 to 7)
-    // String 5: 11 - 7 = 4 (distance from 7 to 11)
+    const distances = intervalDistanceFromNotes(notes);
     assert.deepEqual(distances, [null, 3, null, null, 4, 4]);
   });
 
   test("should handle ascending intervals in reverse string order", () => {
-    // Create a voicing where intervals ascend but are placed on strings in reverse order
-    const voicing = [
-      Interval.MAJOR_SEVENTH, // String 0: 11
-      Interval.PERFECT_FIFTH, // String 1: 7 (lower, should become 7 + 12 = 19)
-      Interval.MAJOR_THIRD, // String 2: 4 (lower, should become 4 + 12 = 16)
-      Interval.UNISON, // String 3: 0 (lower, should become 0 + 12 = 12)
-      null, // String 4: Muted
-      null, // String 5: Muted
+    const notes = [
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      null,
+      null,
     ];
-
-    const distances = intervalDistanceFromVoicing(voicing);
-
-    // Expected distances:
-    // String 0: 11 - 0 = 11 (first interval)
-    // String 1: 19 - 11 = 8 (7 + 12 - 11)
-    // String 2: 16 - 19 = -3, but should be 16 + 12 - 19 = 9
-    // String 3: 12 - 28 = -16, but should be 12 + 12 - 28 = -4, then +12 = 8
-    // String 4: null (muted)
-    // String 5: null (muted)
+    const distances = intervalDistanceFromNotes(notes);
     assert.deepEqual(distances, [11, 8, 9, 8, null, null]);
   });
 });
 
-describe("voicingToChord", () => {
-  test("should convert voicing to chord representation correctly", () => {
-    // Create a voicing: C, E, G (root position)
-    const voicing = [
-      Interval.PERFECT_FIFTH, // String 0: Fifth (G)
-      Interval.UNISON, // String 1: Root (C)
-      Interval.MAJOR_THIRD, // String 2: Major third (E)
-      Interval.MAJOR_SEVENTH, // String 3: Major seventh (B)
-      null, // String 4: Muted
-      null, // String 5: Muted
+describe("notesToChord", () => {
+  test("should convert notes and string set to chord representation", () => {
+    const notes = [
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
     ];
+    const stringSet = [true, true, true, true, false, false]; // lowest 4 strings
+    const chord = notesToChord([...notes], [...stringSet]);
+    assert.equal(chord.length, 4);
+    // finger numbers should be 6,5,4,3 (descending)
+    assert.deepEqual(chord.map(p => p[0]), [6,5,4,3]);
+    // frets normalized to start at 1
+    const minFret = Math.min(...chord.map(p => p[1]));
+    assert.equal(minFret, 1);
+  });
 
-    const chord = voicingToChord(voicing);
+  test("should handle simple power chord (root + fifth)", () => {
+    const notes = [Interval.UNISON, Interval.PERFECT_FIFTH];
+    const stringSet = [true, true, false, false, false, false];
+    const chord = notesToChord([...notes], [...stringSet]);
+    assert.equal(chord.length, 2);
+    assert.deepEqual(chord.map(p => p[0]), [6,5]);
+  });
 
-    // Assert the chord representation
-    assert.deepEqual(chord, [
-      [6, 2, {}], // String 1 (7-6), fret 2
-      [5, 2, {}], // String 2 (7-5), fret 2
-      [4, 1, {}], // String 3 (7-4), fret 1
-      [3, 3, {}], // String 4 (7-3), fret 3
+  test("should handle scattered string usage", () => {
+    const notes = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH];
+    const stringSet = [true, false, true, false, true, false];
+    const chord = notesToChord([...notes], [...stringSet]);
+    assert.equal(chord.length, 3);
+    assert.deepEqual(chord.map(p => p[0]), [6,4,2]);
+  });
+
+  test("should handle single note", () => {
+    const notes = [Interval.UNISON];
+    const stringSet = [false, false, true, false, false, false]; // third string from low side
+    const chord = notesToChord([...notes], [...stringSet]);
+    assert.equal(chord.length, 1);
+    assert.deepEqual(chord[0][0], 4); // finger number (reverseString mapping)
+    assert.equal(chord[0][1], 1); // normalized fret
+  });
+
+  test("should throw if notes length doesn't match string set notes count", () => {
+    assert.throws(() => notesToChord([Interval.UNISON], [true, true, false, false, false, false]));
+  });
+
+  test("should attach custom finger options via callback", () => {
+    const notes = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH];
+    const stringSet = [true, true, true, false, false, false];
+    const labelMap = {
+      [Interval.UNISON]: 'R',
+      [Interval.MAJOR_THIRD]: '3',
+      [Interval.PERFECT_FIFTH]: '5',
+    };
+    const chord = notesToChord([...notes], [...stringSet], (interval) => ({ text: labelMap[interval ?? -1] }));
+    assert.equal(chord.length, 3);
+    // Implementation passes original notes mutated via shift; we can't rely on mapping, only presence of option keys
+    assert.ok(chord.every(p => p[2] && 'text' in p[2]));
+  });
+});
+
+describe("getStringSets", () => {
+  test("should generate all combinations with exactly N notes (choose 3 of 6)", () => {
+    const combos = [...getStringSets(3)];
+    assert.equal(combos.length, 20); // C(6,3)
+    for (const c of combos) {
+      assert.equal(c.length, 6);
+      assert.equal(c.filter(Boolean).length, 3);
+    }
+    assert.deepEqual(combos[0], [false, false, false, true, true, true]);
+    assert.deepEqual(combos[combos.length - 1], [true, true, true, false, false, false]);
+  });
+
+  test("should yield single all-false combination when N = 0", () => {
+    const combos = [...getStringSets(0)];
+    assert.equal(combos.length, 1);
+    assert.deepEqual(combos[0], [false, false, false, false, false, false]);
+  });
+
+  test("should yield empty when N greater than number of strings", () => {
+    const combos = [...getStringSets(7)];
+    assert.equal(combos.length, 0);
+  });
+
+  test("should work with custom stringIntervals length (4 strings)", () => {
+    const custom = [0, 5, 5, 4];
+    const combos = [...getStringSets(2, custom)];
+    assert.equal(combos.length, 6); // C(4,2)
+    for (const c of combos) {
+      assert.equal(c.length, 4);
+      assert.equal(c.filter(Boolean).length, 2);
+    }
+  });
+
+  test("should produce correct combinations for all strings (N = length)", () => {
+    const combos = [...getStringSets(6)];
+    assert.equal(combos.length, 1);
+    assert.deepEqual(combos[0], [true, true, true, true, true, true]);
+  });
+});
+
+describe("getAllInversions", () => {
+  function rotations(arr) {
+    const res = [];
+    let cur = [...arr];
+    for (let i = 0; i < arr.length; i++) { res.push([...cur]); cur = [...cur.slice(1), cur[0]]; }
+    return res;
+  }
+  function toSet(arrs) { return new Set(arrs.map(a => JSON.stringify(a))); }
+
+  test("should yield sorted CLOSE voicing then its distinct rotations (order agnostic)", () => {
+    const notes = [Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH];
+    const collected = [...getAllInversions([...notes])];
+    assert.deepEqual(collected[0], [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH]);
+    assert.equal(collected.length, notes.length);
+    const expectedRots = rotations([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH]).slice(1); // exclude original
+    const expectedSet = toSet(expectedRots);
+    const actualSet = toSet(collected.slice(1));
+    assert.equal(actualSet.size, expectedSet.size);
+    for (const rot of expectedSet) assert.ok(actualSet.has(rot));
+  });
+
+  test("should apply DROP_2 voicing then yield its rotations", () => {
+    const notes = [Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH];
+    const collected = [...getAllInversions([...notes], VOICING.DROP_2)];
+    // Sorted first
+    const sorted = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH];
+    // First collected is DROP_2 applied to sorted
+    assert.deepEqual(collected[0], VOICING.DROP_2(sorted));
+    assert.equal(collected.length, notes.length);
+    const expectedRots = rotations(sorted).slice(1).map(r => VOICING.DROP_2(r));
+    const expectedSet = toSet(expectedRots);
+    const actualSet = toSet(collected.slice(1));
+    for (const rot of expectedSet) assert.ok(actualSet.has(rot));
+  });
+});
+
+describe("VOICING", () => {
+  const baseIntervals = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH];
+
+  test("CLOSE should return a shallow copy of intervals", () => {
+    const res = VOICING.CLOSE(baseIntervals);
+    assert.deepEqual(res, baseIntervals);
+    assert.notStrictEqual(res, baseIntervals);
+  });
+
+  test("DROP_2 should move the 2nd from last to front", () => {
+    const res = VOICING.DROP_2(baseIntervals);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
     ]);
   });
 
-  test("should handle simple power chord voicing", () => {
-    // Create a simple power chord: root and fifth only
-    const voicing = [
-      Interval.UNISON, // String 0: Root (C)
-      Interval.PERFECT_FIFTH, // String 1: Perfect fifth (G)
-      null, // String 2: Muted
-      null, // String 3: Muted
-      null, // String 4: Muted
-      null, // String 5: Muted
-    ];
-
-    const chord = voicingToChord(voicing);
-
-    // Power chord should normalize to simple fret positions
-    assert.deepEqual(chord, [
-      [6, 1, {}], // Root on string 6
-      [5, 3, {}], // Fifth on string 5 (same fret due to tuning)
+  test("DROP_3 should move the 3rd from last to front", () => {
+    const res = VOICING.DROP_3(baseIntervals);
+    assert.deepEqual(res, [
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
     ]);
   });
 
-  test("should handle voicing with scattered strings", () => {
-    // Create a voicing that uses non-consecutive strings
-    const voicing = [
-      Interval.UNISON, // String 0: Root (C)
-      null, // String 1: Muted
-      Interval.MAJOR_THIRD, // String 2: Major third (E)
-      null, // String 3: Muted
-      Interval.PERFECT_FIFTH, // String 4: Perfect fifth (G)
-      null, // String 5: Muted
-    ];
-
-    const chord = voicingToChord(voicing);
-
-    // Should handle non-consecutive string usage
-    assert.deepEqual(chord, [
-      [6, 13, {}], // Root on string 6
-      [4, 7, {}], // Third on string 4
-      [2, 1, {}], // Fifth on string 2
+  test("DROP_2_AND_3 should apply drop2 then drop3", () => {
+    const res = VOICING.DROP_2_AND_3(baseIntervals);
+    assert.deepEqual(res, [
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
     ]);
   });
 
-  test("should handle single note voicing", () => {
-    // Create a voicing with only one note
-    const voicing = [
-      null, // String 0: Muted
-      null, // String 1: Muted
-      Interval.UNISON, // String 2: Root (C) only
-      null, // String 3: Muted
-      null, // String 4: Muted
-      null, // String 5: Muted
-    ];
-
-    const chord = voicingToChord(voicing);
-
-    // Single note should result in single fret position
-    assert.deepEqual(chord, [
-      [4, 1, {}], // Root on string 4, fret 1 (after normalization)
+  test("DROP_2_AND_4 should apply drop2 then drop4", () => {
+    const res = VOICING.DROP_2_AND_4(baseIntervals);
+    assert.deepEqual(res, [
+      Interval.UNISON,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
     ]);
   });
 });

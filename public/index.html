@@ -8,16 +8,33 @@
   <script defer type="module" src="./bundle.js"></script>
 </head>
 <body>
-  <h1>Chord Voicing → Inversions</h1>
+  <h1>Intervals → Voicing → Inversions</h1>
   <form id="voicing-form">
-    <p>Select intervals (string 1 = high E). Blank = muted.</p>
-    <div id="selectors" class="selectors"></div>
+    <fieldset class="group">
+      <legend>1. Select Intervals</legend>
+      <p class="hint">Choose up to 6 unique intervals (unordered). Order and voicing are applied later.</p>
+      <div id="interval-box" class="selectors"></div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>2. Voicing</legend>
+      <div id="voicing-box" class="selectors"></div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>3. String Set</legend>
+      <p class="hint" id="strings-hint">Select intervals first to see valid string sets.</p>
+      <div id="stringset-box" class="selectors"></div>
+    </fieldset>
+
     <div class="actions">
-      <button type="submit">Generate Inversions</button>
+      <button type="submit" id="generate-btn">Generate</button>
       <button type="button" id="reset-btn" class="secondary">Reset</button>
     </div>
   </form>
+
   <div id="message" class="message" aria-live="polite"></div>
+
   <h2>Results</h2>
   <div id="results" class="results" aria-live="polite"></div>
   <div class="export" id="export-box">

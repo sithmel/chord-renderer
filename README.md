@@ -20,29 +20,35 @@ npm install chord-renderer
 import { 
   Interval, 
   stringToInterval,
-  voicingToChord, 
+  notesToChord, 
   generateInversions,
-  getAllInversions
+  getAllInversions,
+  getStringSets,
+  VOICING,
+  intervalDistanceFromNotes
 } from 'chord-renderer';
 
-// Define a voicing (array of 6 elements for guitar strings)
-const voicing = [
-  Interval.PERFECT_FIFTH, // String 0: High E (6th string)
-  Interval.UNISON,        // String 1: B (5th string)
-  Interval.MAJOR_THIRD,   // String 2: G (4th string) 
-  Interval.MAJOR_SEVENTH, // String 3: D (3rd string)
-  null,                   // String 4: A (2nd string - muted)
-  null                    // String 5: Low E (1st string - muted)
+// Define a set of intervals (unordered) and a string set describing which strings are used (true = used)
+const notes = [
+  Interval.UNISON,
+  Interval.MAJOR_THIRD,
+  Interval.PERFECT_FIFTH,
 ];
+// Select any combination of 3 strings using getStringSets(3). Example: lowest 3 strings
+const stringSet = [true, true, true, false, false, false]; // (low E to high E ordering internally)
 
-// Convert voicing to chord fingering
-const chord = voicingToChord(voicing);
-// Result: [[6, 2, {}], [5, 2, {}], [4, 1, {}], [3, 3, {}]]
+// Convert to chord fingering (array of [stringNumber, fret, options])
+const chord = notesToChord([...notes], [...stringSet]);
+// Example result: [[6, 1, {}], [5, 3, {}], [4, 5, {}]] after normalization
 
-// Generate all inversions
-for (const inversion of generateInversions(voicing)) {
-  const inversionChord = voicingToChord(inversion);
-  console.log('Inversion:', inversionChord);
+// Generate simplistic rotations (generateInversions just rotates the array without octave math)
+for (const rotated of generateInversions(notes)) {
+  console.log('Rotation:', rotated);
+}
+
+// getAllInversions first sorts, applies a voicing strategy (e.g. DROP_2) then yields rotations
+for (const voiced of getAllInversions([Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH], VOICING.DROP_2)) {
+  console.log('Voiced:', voiced);
 }
 ```
 
@@ -133,64 +139,71 @@ fretNormalizer(chord);
 // Result: [[1, 1], [2, 3], [3, 5]]
 ```
 
-#### `generateInversions(voicing)`
+#### `generateInversions(notes)`
 Generates all possible inversions of a given voicing.
 
 **Parameters:**
-- `voicing` (Voicing): Array of 6 intervals (or null for muted strings)
+- `notes` (Array<Interval>): Array of intervals (order is rotated each yield)
 
 **Returns:**
-- `Generator<Voicing>`: Generator yielding all inversions
+- `Generator<Array<Interval>>`: Generator yielding (len-1) simple left rotations
 
 **Example:**
 ```javascript
-const voicing = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, null, null, null];
-for (const inversion of generateInversions(voicing)) {
+const notesExample = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH];
+for (const inversion of generateInversions(notesExample)) {
   console.log(inversion);
 }
 ```
 
-#### `intervalDistanceFromVoicing(voicing)`
-Calculates the interval distances between consecutive notes in a voicing.
+#### `intervalDistanceFromNotes(notes)`
+Calculates distances between successive (possibly sparse) intervals in string order, adjusting by octaves so each next sounded note is >= previous.
 
 **Parameters:**
-- `voicing` (Voicing): Array of 6 intervals
+- `notes` (Array<number|null>): Intervals in string order (null for muted)
 
 **Returns:**
-- `Array<number | null>`: Distances between consecutive intervals
+- `Array<number | null>`: Distance in semitones from previous sounded note (null preserved)
 
-#### `voicingToChord(voicing, intervalToFingerOptions?, stringIntervals?)`
-Converts a voicing to actual fret positions on guitar.
+#### `notesToChord(notes, stringSet, intervalToFingerOptions?, stringIntervals?)`
+Converts an ordered list of intervals plus a boolean string usage mask into fret positions.
 
 **Parameters:**
-- `voicing` (Voicing): Array of 6 intervals representing the chord
-- `intervalToFingerOptions` (function, optional): Function to generate finger options
-- `stringIntervals` (Array<number>, optional): Guitar tuning intervals
+- `notes` (Array<Interval>): Intervals to place (consumed left-to-right)
+- `stringSet` (Array<boolean>): True for each used string (low E -> high E)
+- `intervalToFingerOptions` (function, optional): Map interval -> `{text?, color?, className?}`
+- `stringIntervals` (Array<number>, optional): Tuning step intervals `[0,5,5,5,4,5]` default
 
 **Returns:**
-- `Chord`: Array of finger positions `[guitarString, fret, options]`
+- `Chord`: Array of `[stringNumber, fret, options]` with stringNumber 6..1 (low->high becomes 6->1 after reversal)
 
 **Example:**
 ```javascript
-const voicing = [Interval.PERFECT_FIFTH, Interval.UNISON, Interval.MAJOR_THIRD, null, null, null];
-const chord = voicingToChord(voicing);
-// Result: [[6, 2, {}], [5, 2, {}], [4, 1, {}]]
+const chord = notesToChord([
+  Interval.UNISON,
+  Interval.MAJOR_THIRD,
+  Interval.PERFECT_FIFTH
+], [true,true,true,false,false,false]);
 ```
 
-#### `getAllInversions(voicing)`
-Generates the original voicing and all its inversions as chord fingerings.
+#### `getAllInversions(notes, voicingStrategy?)`
+Sorts a note set ascending, applies a voicing transformation (CLOSE by default, or DROP variants), then yields the voiced set followed by simple rotations.
 
 **Parameters:**
-- `voicing` (Voicing): Array of 6 intervals
+- `notes` (Array<Interval>): Unordered set of chord tones
+- `voicingStrategy` (VOICING, optional): One of `VOICING.CLOSE`, `VOICING.DROP_2`, etc.
 
 **Returns:**
-- `Generator<Chord>`: Generator yielding chord fingerings for original and all inversions
+- `Generator<Array<Interval>>`: First the voiced array, then (len-1) rotations
 
 **Example:**
 ```javascript
-const voicing = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, null, null, null];
-for (const chord of getAllInversions(voicing)) {
-  console.log('Chord:', chord);
+for (const inversion of getAllInversions([
+  Interval.MAJOR_THIRD,
+  Interval.UNISON,
+  Interval.PERFECT_FIFTH
+], VOICING.DROP_2)) {
+  console.log('Inversion:', inversion);
 }
 ```
 

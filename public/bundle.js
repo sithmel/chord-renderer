@@ -35,6 +35,51 @@ var GUITAR_STANDARD_TUNING_INTERVALS = [
   4,
   5
 ];
+function moveItem(arr, from2, to2) {
+  arr.splice(to2 < 0 ? arr.length + to2 : to2, 0, arr.splice(from2 < 0 ? arr.length + from2 : from2, 1)[0]);
+}
+function drop2(intervals) {
+  const clone = [...intervals];
+  moveItem(clone, -2, 0);
+  return clone;
+}
+function drop3(intervals) {
+  const clone = [...intervals];
+  moveItem(clone, -3, 0);
+  return clone;
+}
+function drop2and3(intervals) {
+  const clone = [...intervals];
+  moveItem(clone, -2, 0);
+  moveItem(clone, -2, 0);
+  return clone;
+}
+function drop2and4(intervals) {
+  const clone = [...intervals];
+  moveItem(clone, -2, 0);
+  moveItem(clone, -3, 0);
+  return clone;
+}
+var VOICING = {
+  CLOSE: (intervals) => [...intervals],
+  DROP_2: drop2,
+  DROP_3: drop3,
+  DROP_2_AND_3: drop2and3,
+  DROP_2_AND_4: drop2and4
+};
+function* getStringSets(numberOfNNotes, stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
+  for (let i = 0; i < Math.pow(2, stringIntervals.length); i++) {
+    let numberOfStrings = 0;
+    const combination = i.toString(2).padStart(stringIntervals.length, "0").split("").map((bit) => {
+      const isOne = bit === "1";
+      if (isOne) numberOfStrings++;
+      return isOne;
+    });
+    if (numberOfStrings === numberOfNNotes) {
+      yield combination;
+    }
+  }
+}
 function fretNormalizer(chord) {
   const minFret = Math.min(
     ...chord.map((pos) => pos ? pos[1] : Infinity)
@@ -45,14 +90,6 @@ function fretNormalizer(chord) {
     pos[1] = pos[1] - (minFret - 1);
   });
 }
-function extractInversionNotesAndStrings(voicing) {
-  const strings = [];
-  voicing.forEach((interval, index) => {
-    if (interval != null) strings.push(index);
-  });
-  const intervals = voicing.filter((interval) => interval != null);
-  return { intervals, strings };
-}
 function* zip(arr1, arr2) {
   const length2 = Math.min(arr1.length, arr2.length);
   for (let i = 0; i < length2; i++) {
@@ -62,19 +99,11 @@ function* zip(arr1, arr2) {
 function rotateArray(arr) {
   return [...arr.slice(1), arr[0]];
 }
-function getVoicingFromIntervalAndStrings(intervals, strings) {
-  const voicing = [null, null, null, null, null, null];
-  for (const [i, s2] of zip(intervals, strings)) {
-    voicing[s2] = i;
-  }
-  return voicing;
-}
-function* generateInversions(voicing) {
-  const { intervals, strings } = extractInversionNotesAndStrings(voicing);
-  let newIntervals = intervals;
-  for (let i = 0; i < intervals.length - 1; i++) {
-    newIntervals = rotateArray(newIntervals);
-    yield getVoicingFromIntervalAndStrings(newIntervals, strings);
+function* generateInversions(notes) {
+  let inversion = [...notes];
+  for (let i = 0; i < notes.length - 1; i++) {
+    inversion = rotateArray(inversion);
+    yield inversion;
   }
 }
 function* enumerate(array2) {
@@ -84,10 +113,10 @@ function* enumerate(array2) {
     c2++;
   }
 }
-function intervalDistanceFromVoicing(voicing) {
+function intervalDistanceFromNotes(notes) {
   const distances = [];
   let previousInterval = 0;
-  for (const interval of voicing) {
+  for (const interval of notes) {
     if (interval == null) {
       distances.push(null);
       continue;
@@ -102,8 +131,14 @@ function intervalDistanceFromVoicing(voicing) {
   }
   return distances;
 }
-function voicingToChord(voicing, intervalToFingerOptions = () => ({}), stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
-  const intervalDistance = intervalDistanceFromVoicing(voicing);
+function notesToChord(notes, stringSet, intervalToFingerOptions = () => ({}), stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
+  const numberOfNNotes = notes.length;
+  const numberOfStrings = stringSet.filter((s2) => s2).length;
+  if (numberOfNNotes !== numberOfStrings) {
+    throw new Error(`Number of notes (${numberOfNNotes}) does not match number of strings (${numberOfStrings}) in string set.`);
+  }
+  const chordIntervals = stringSet.map((usedString) => usedString ? notes.shift() : null);
+  const intervalDistance = intervalDistanceFromNotes(chordIntervals);
   const reverseString = (stringNumber) => stringIntervals.length + 1 - stringNumber;
   const chord = [];
   let intervalOffset = 0;
@@ -113,15 +148,16 @@ function voicingToChord(voicing, intervalToFingerOptions = () => ({}), stringInt
       continue;
     }
     intervalOffset += chordInterval - stringOffset;
-    chord.push([reverseString(stringNumber + 1), intervalOffset, intervalToFingerOptions(voicing[stringNumber])]);
+    chord.push([reverseString(stringNumber + 1), intervalOffset, intervalToFingerOptions(notes[stringNumber])]);
   }
   fretNormalizer(chord);
   return chord;
 }
-function* getAllInversions(voicing) {
-  yield voicingToChord(voicing);
-  for (const inversion of generateInversions(voicing)) {
-    yield voicingToChord(inversion);
+function* getAllInversions(notes, voicing = VOICING.CLOSE) {
+  notes.sort((a2, b2) => a2 - b2);
+  yield voicing(notes);
+  for (const inversion of generateInversions(notes)) {
+    yield voicing(inversion);
   }
 }
 
@@ -7273,9 +7309,17 @@ var SVGuitarChord = (
 );
 
 // public/app.js
-var selectorsContainer = (
+var intervalBox = (
   /** @type {HTMLElement} */
-  document.getElementById("selectors")
+  document.getElementById("interval-box")
+);
+var stringSetBox = (
+  /** @type {HTMLElement} */
+  document.getElementById("stringset-box")
+);
+var voicingBox = (
+  /** @type {HTMLElement} */
+  document.getElementById("voicing-box")
 );
 var form = (
   /** @type {HTMLFormElement} */
@@ -7301,21 +7345,84 @@ var copyBtn = (
   /** @type {HTMLButtonElement} */
   document.getElementById("copy-json")
 );
-if (!selectorsContainer || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn) {
+var generateBtn = (
+  /** @type {HTMLButtonElement} */
+  document.getElementById("generate-btn")
+);
+var stringsHint = (
+  /** @type {HTMLElement} */
+  document.getElementById("strings-hint")
+);
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !resetBtn || !jsonOutput || !copyBtn || !generateBtn) {
   throw new Error("Required DOM elements not found");
 }
-var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
-var selects = [];
-for (let i = 0; i < 6; i++) {
-  const wrapper = document.createElement("label");
-  wrapper.className = "select-wrap";
-  wrapper.innerHTML = `<span class="lbl">String ${i + 1}</span>`;
-  const sel = document.createElement("select");
-  sel.setAttribute("aria-label", `String ${i + 1} interval`);
-  sel.innerHTML = `<option value="">(muted)</option>` + intervalEntries.map(([name, val]) => `<option value="${val}">${name} (${val})</option>`).join("");
-  wrapper.appendChild(sel);
-  selectorsContainer.appendChild(wrapper);
-  selects.push(sel);
+var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase()).sort((a2, b2) => (
+  /** @type {number} */
+  a2[1] - /** @type {number} */
+  b2[1]
+));
+var selectedIntervals = /* @__PURE__ */ new Set();
+function renderIntervals() {
+  intervalBox.innerHTML = "";
+  for (const [name, val] of intervalEntries) {
+    const id = `int-${name}`;
+    const label = document.createElement("label");
+    label.className = "check-wrap";
+    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${name} (${val})</span>`;
+    const input = (
+      /** @type {HTMLInputElement} */
+      label.querySelector("input")
+    );
+    input.checked = selectedIntervals.has(Number(val));
+    input.addEventListener("change", () => {
+      clearResults();
+      if (input.checked) {
+        if (selectedIntervals.size >= 6) {
+          input.checked = false;
+          setMessage("Max 6 intervals.", "error");
+          return;
+        }
+        selectedIntervals.add(Number(val));
+      } else {
+        selectedIntervals.delete(Number(val));
+      }
+      updateStringSets();
+      setMessage("");
+    });
+    intervalBox.appendChild(label);
+  }
+}
+function updateStringSets() {
+  stringSetBox.innerHTML = "";
+  const count = selectedIntervals.size;
+  if (count === 0) {
+    stringsHint.textContent = "Select intervals first to see valid string sets.";
+    return;
+  }
+  stringsHint.textContent = `${count} interval${count > 1 ? "s" : ""} selected.`;
+  let index = 0;
+  for (const set of getStringSets(count)) {
+    const id = `ss-${index}`;
+    const label = document.createElement("label");
+    label.className = "radio-wrap";
+    const visual = set.map((b2) => b2 ? "\u25CF" : "\u25CB").join("");
+    label.innerHTML = `<input type="radio" name="stringset" value="${set.map((b2) => b2 ? 1 : 0).join("")}" id="${id}"><span>${visual}</span>`;
+    stringSetBox.appendChild(label);
+    index++;
+  }
+  if (stringSetBox.firstElementChild) {
+    stringSetBox.firstElementChild.querySelector("input").checked = true;
+  }
+}
+function renderVoicings() {
+  voicingBox.innerHTML = "";
+  Object.keys(VOICING).forEach((name, i) => {
+    const id = `voi-${name}`;
+    const label = document.createElement("label");
+    label.className = "radio-wrap";
+    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${i === 0 ? "checked" : ""}><span>${name.replace(/_/g, " ")}</span>`;
+    voicingBox.appendChild(label);
+  });
 }
 function clearResults() {
   results.innerHTML = "";
@@ -7326,12 +7433,11 @@ function setMessage(text, type = "") {
   message.className = "message " + type;
 }
 resetBtn.addEventListener("click", () => {
-  selects.forEach((s2) => {
-    s2.value = "";
-  });
+  selectedIntervals.clear();
+  renderIntervals();
+  updateStringSets();
   clearResults();
   setMessage("Form reset");
-  selects[0].focus();
 });
 copyBtn.addEventListener("click", async () => {
   if (!jsonOutput.value) return;
@@ -7350,12 +7456,12 @@ copyBtn.addEventListener("click", async () => {
     }, 1200);
   }
 });
-function renderChord(chord, index) {
+function renderChord(chord, index, voicingName) {
   const holder = document.createElement("div");
   holder.className = "chord-block";
   const title = document.createElement("div");
   title.className = "chord-title";
-  title.textContent = index === 0 ? "Original" : `Inversion ${index}`;
+  title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
   holder.appendChild(title);
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -7366,30 +7472,46 @@ function renderChord(chord, index) {
   results.appendChild(holder);
   const frets = Math.max(3, ...chord.map((f2) => f2[1]));
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({
-    fingers: chord,
-    barres: []
-  }).configure({
-    frets
-  }).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure({ frets }).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();
   clearResults();
   setMessage("");
-  const voicing = selects.map((sel) => sel.value === "" ? null : Number(sel.value));
-  if (!voicing.some((v2) => v2 != null)) {
+  if (selectedIntervals.size === 0) {
     setMessage("Select at least one interval.", "error");
     return;
   }
-  const chords = [];
+  const voicingInput = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="voicing"]:checked')
+  );
+  if (!voicingInput) {
+    setMessage("Select a voicing.", "error");
+    return;
+  }
+  const voicingName = voicingInput.value;
+  const voicingFn = (
+    /** @type {(x:number[])=>number[]} */
+    VOICING[voicingName]
+  );
+  const stringSetInput = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="stringset"]:checked')
+  );
+  if (!stringSetInput) {
+    setMessage("Select a string set.", "error");
+    return;
+  }
+  const stringSetBits = stringSetInput.value.split("").map((c2) => c2 === "1");
+  const intervalsArray = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
+  const chordShapes = [];
   let count = 0;
-  for (const chord of getAllInversions(
-    /** @type {any} */
-    voicing
-  )) {
-    chords.push(chord);
-    renderChord(chord, count);
+  for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
+    const notesCopy = [...inversion];
+    const chord = notesToChord(notesCopy, stringSetBits, () => ({}));
+    chordShapes.push(chord);
+    renderChord(chord, count, voicingName);
     count++;
   }
   if (count === 0) {
@@ -7397,7 +7519,22 @@ form.addEventListener("submit", (e2) => {
     jsonOutput.value = "";
   } else {
     setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
-    jsonOutput.value = JSON.stringify(chords, null, 2);
+    jsonOutput.value = JSON.stringify(chordShapes, null, 2);
   }
 });
+voicingBox.addEventListener("change", (e2) => {
+  if (
+    /** @type {HTMLElement} */
+    e2.target.tagName === "INPUT"
+  ) clearResults();
+});
+stringSetBox.addEventListener("change", (e2) => {
+  if (
+    /** @type {HTMLElement} */
+    e2.target.tagName === "INPUT"
+  ) clearResults();
+});
+renderIntervals();
+renderVoicings();
+updateStringSets();
 //# sourceMappingURL=bundle.js.map
