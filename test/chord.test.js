@@ -171,7 +171,12 @@ describe("generateInversions", () => {
     }
     return rots;
   };
-
+  /**
+   *
+   * @param {Array<number>} base
+   * @param {Array<number>} candidate
+   * @returns {boolean}
+   */
   function isRotationOf(base, candidate) {
     const cand = JSON.stringify(candidate);
     return cyclicRotations(base).some(r => JSON.stringify(r) === cand);
@@ -367,12 +372,22 @@ describe("getStringSets", () => {
 });
 
 describe("getAllInversions", () => {
+  /**
+   * @template T
+   * @param {Array<T>} arr 
+   * @returns {Array<Array<T>>}
+   */
   function rotations(arr) {
     const res = [];
     let cur = [...arr];
     for (let i = 0; i < arr.length; i++) { res.push([...cur]); cur = [...cur.slice(1), cur[0]]; }
     return res;
   }
+  /**
+   * @template T
+   * @param {Array<T>} arrs 
+   * @returns {Set<string>}
+   */
   function toSet(arrs) { return new Set(arrs.map(a => JSON.stringify(a))); }
 
   test("should yield sorted CLOSE voicing then its distinct rotations (order agnostic)", () => {

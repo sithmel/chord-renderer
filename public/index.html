@@ -49,15 +49,15 @@
 
   <h2>Results</h2>
   <div id="results" class="results" aria-live="polite"></div>
-  <div class="export" id="export-box">
-    <h3>Export JSON</h3>
+  <details class="export" id="export-box">
+    <summary><h3>Export JSON</h3></summary>
     <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
     <div class="actions">
       <button type="button" id="copy-json" class="secondary">Copy JSON</button>
     </div>
-  </div>
+  </details>
   <footer class="site-footer">
-    <p class="about">Interactive demo for exploring interval sets, guitar voicings and simple generated inversions. Build custom chord shapes from unordered pitch-class collections.</p>
+    <p class="about">Interactive demo for exploring interval sets, guitar voicings and simple generated inversions. Build custom chord shapes from unordered pitch-class collections. Rendering powered by <a href="https://github.com/omnibrain/svguitar" target="_blank" rel="noopener">SVGuitar</a>.</p>
     <p class="meta">© 2025 <span class="author">sithmel</span> · <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a></p>
   </footer>
 </body>
