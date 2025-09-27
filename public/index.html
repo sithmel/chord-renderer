@@ -8,7 +8,19 @@
   <script defer type="module" src="./bundle.js"></script>
 </head>
 <body>
-  <h1>Intervals → Voicing → Inversions</h1>
+  <header class="site-header">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">♭♯</span>
+      <div class="titles">
+        <h1>Chord Renderer</h1>
+        <p class="tagline">Intervals → Voicing → Inversions</p>
+      </div>
+    </div>
+    <nav class="quick-links" aria-label="Primary">
+      <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/sithmel/chord-renderer#readme" target="_blank" rel="noopener">Docs</a>
+    </nav>
+  </header>
   <form id="voicing-form">
     <fieldset class="group">
       <legend>1. Select Intervals</legend>
@@ -44,5 +56,9 @@
       <button type="button" id="copy-json" class="secondary">Copy JSON</button>
     </div>
   </div>
+  <footer class="site-footer">
+    <p class="about">Interactive demo for exploring interval sets, guitar voicings and simple generated inversions. Build custom chord shapes from unordered pitch-class collections.</p>
+    <p class="meta">© 2025 <span class="author">sithmel</span> · <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a></p>
+  </footer>
 </body>
 </html>
