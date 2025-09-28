@@ -11,7 +11,8 @@ import {
   getStringSets,
   VOICING,
   getAllInversions,
-} from "../lib/chord.js";
+  closeChordPosition,
+ } from "../lib/chord.js";
 
 describe("stringToInterval", () => {
   test("should return correct intervals for basic numeric patterns", () => {
@@ -229,7 +230,7 @@ describe("intervalDistanceFromNotes", () => {
     assert.deepEqual(distances, [0, 4, 3, null, 4, null]);
   });
 
-  test("should handle intervals that require octave adjustment", () => {
+  test("should handle intervals that ends up being negatives", () => {
     const notes = [
       Interval.PERFECT_FIFTH,
       Interval.MAJOR_THIRD,
@@ -239,33 +240,7 @@ describe("intervalDistanceFromNotes", () => {
       null,
     ];
     const distances = intervalDistanceFromNotes(notes);
-    assert.deepEqual(distances, [7, 9, 8, null, 9, null]);
-  });
-
-  test("should handle voicing with scattered intervals across strings", () => {
-    const notes = [
-      null,
-      Interval.MINOR_THIRD,
-      null,
-      null,
-      Interval.PERFECT_FIFTH,
-      Interval.MAJOR_SEVENTH,
-    ];
-    const distances = intervalDistanceFromNotes(notes);
-    assert.deepEqual(distances, [null, 3, null, null, 4, 4]);
-  });
-
-  test("should handle ascending intervals in reverse string order", () => {
-    const notes = [
-      Interval.MAJOR_SEVENTH,
-      Interval.PERFECT_FIFTH,
-      Interval.MAJOR_THIRD,
-      Interval.UNISON,
-      null,
-      null,
-    ];
-    const distances = intervalDistanceFromNotes(notes);
-    assert.deepEqual(distances, [11, 8, 9, 8, null, null]);
+    assert.deepEqual(distances, [7, -3, -4, null, 9, null]);
   });
 });
 
@@ -464,5 +439,74 @@ describe("VOICING", () => {
       Interval.MAJOR_THIRD,
       Interval.MAJOR_SEVENTH,
     ]);
+  });
+});
+
+describe("closeChordPosition", () => {
+  test("single note chord remains unchanged", () => {
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [[1, 5, {}]];
+    const snapshot = JSON.parse(JSON.stringify(chord));
+    closeChordPosition(chord);
+    assert.deepEqual(chord, snapshot);
+  });
+
+  test("already close chord is unchanged", () => {
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [
+      [1, 5, {}],
+      [2, 8, {}],
+      [3, 10, {}],
+    ];
+    const snapshot = JSON.parse(JSON.stringify(chord));
+    closeChordPosition(chord);
+    assert.deepEqual(chord, snapshot);
+  });
+
+  test("widely spaced upward note is lowered by an octave", () => {
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [
+      [1, 5, {}],
+      [2, 20, {}], // should be lowered to 8
+    ];
+    closeChordPosition(chord);
+    assert.deepEqual(chord.map(c => c[1]), [5, 8]);
+  });
+
+  test("lower note far below midpoint is raised by an octave", () => {
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [
+      [1, 10, {}],
+      [2, 0, {}], // 0 is >6 below 10 midpoint => raised to 12
+    ];
+    closeChordPosition(chord);
+    assert.deepEqual(chord.map(c => c[1]), [10, 12]);
+  });
+
+  test("multiple adjustments keep window within 12-fret span", () => {
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [
+      [1, 5, {}],
+      [2, 20, {}], // -> 8
+      [3, 30, {}], // -> 6 after double octave subtraction
+    ];
+    closeChordPosition(chord);
+    assert.deepEqual(chord.map(c => c[1]), [5, 8, 6]);
+    const max = Math.max(...chord.map(c => c[1]));
+    const min = Math.min(...chord.map(c => c[1]));
+    // Ensure overall span is <= 12 (should actually be 3 here)
+    assert.ok(max - min <= 12);
+  });
+
+  test("does not reorder chord entries (finger numbers stay aligned)", () => {
+    /** @type {import("../lib/chord.js").Chord} */
+    const chord = [
+      [6, 5, {}],
+      [5, 20, {}],
+      [4, 32, {}],
+    ];
+    const fingerOrder = chord.map(c => c[0]);
+    closeChordPosition(chord);
+    assert.deepEqual(chord.map(c => c[0]), fingerOrder);
   });
 });

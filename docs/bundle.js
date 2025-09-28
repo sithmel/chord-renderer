@@ -104,6 +104,23 @@ function fretNormalizer(chord) {
     pos[1] = pos[1] - (minFret - 1);
   });
 }
+function closeChordPosition(chord) {
+  if (chord.length < 2) return;
+  let previous = chord[0];
+  let maxFret = previous[1];
+  let minFret = previous[1];
+  for (let i = 1; i < chord.length; i++) {
+    const current = chord[i];
+    let currentFret = current[1];
+    const midPoint = (maxFret + minFret) / 2;
+    while (currentFret - midPoint > 6) currentFret -= 12;
+    while (currentFret - midPoint < -6) currentFret += 12;
+    if (currentFret > maxFret) maxFret = currentFret;
+    if (currentFret < minFret) minFret = currentFret;
+    current[1] = currentFret;
+    previous = current;
+  }
+}
 function* zip(arr1, arr2) {
   const length2 = Math.min(arr1.length, arr2.length);
   for (let i = 0; i < length2; i++) {
@@ -135,12 +152,8 @@ function intervalDistanceFromNotes(notes) {
       distances.push(null);
       continue;
     }
-    let realInterval = interval;
-    while (realInterval < previousInterval) {
-      realInterval += 12;
-    }
-    const distance = realInterval - previousInterval;
-    previousInterval = realInterval;
+    const distance = interval - previousInterval;
+    previousInterval = interval;
     distances.push(distance);
   }
   return distances;
@@ -164,6 +177,7 @@ function notesToChord(notes, stringSet, intervalToFingerOptions = () => ({}), st
     intervalOffset += chordInterval - stringOffset;
     chord.push([reverseString(stringNumber + 1), intervalOffset, intervalToFingerOptions(chordIntervals[stringNumber])]);
   }
+  closeChordPosition(chord);
   fretNormalizer(chord);
   return chord;
 }
