@@ -27,6 +27,12 @@ export function getStringSets(numberOfNNotes: number, stringIntervals?: Array<nu
  */
 export function fretNormalizer(chord: Chord): Chord;
 /**
+ * This function moves the chord frets so that they are the closest possible to each other.
+ * It does that by increasing or decreasing fret position by 12 (1 octave) until the midpoint is within 6 frets.
+ * @param {Chord} chord
+ */
+export function closeChordPosition(chord: Chord): void;
+/**
  * Generate a new inversion of a given voicing.
  * @param {Notes} notes
  * @returns {Generator<Notes>} - A generator that yields all inversions
@@ -71,6 +77,14 @@ export namespace Interval {
     let MINOR_SEVENTH: number;
     let MAJOR_SEVENTH: number;
 }
+export const Interval_labels: {
+    full: string;
+    fingerOptions: {
+        className: string;
+        color: string;
+        text: string;
+    };
+}[];
 export namespace INVERSIONS {
     let UNISON_1: string;
     export { UNISON_1 as UNISON };

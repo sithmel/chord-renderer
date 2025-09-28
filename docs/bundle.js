@@ -7382,6 +7382,10 @@ var intervalLabelOptionsBox = (
   /** @type {HTMLElement} */
   document.getElementById("interval-label-options")
 );
+var generateSvgBtn = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("generate-svg")
+);
 if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
   throw new Error("Required DOM elements not found");
 }
@@ -7594,6 +7598,62 @@ function renderIntervalLabelOptions() {
 function clearResults() {
   results.innerHTML = "";
   jsonOutput.value = "";
+  if (generateSvgBtn) {
+    generateSvgBtn.disabled = true;
+    generateSvgBtn.style.display = "none";
+  }
+}
+function buildCombinedSvg() {
+  const chordSvgs = (
+    /** @type {NodeListOf<SVGSVGElement>} */
+    results.querySelectorAll(".chord-block svg")
+  );
+  if (!chordSvgs.length) return null;
+  const PER_ROW = 4;
+  const H_GAP = 24;
+  const V_GAP = 24;
+  const items = [];
+  let maxW = 0, maxH = 0;
+  for (const el of chordSvgs) {
+    let w2 = parseFloat(el.getAttribute("width") || "");
+    let h2 = parseFloat(el.getAttribute("height") || "");
+    const vb = el.getAttribute("viewBox");
+    if ((!w2 || !h2) && vb) {
+      const p2 = vb.trim().split(/\s+/);
+      if (p2.length === 4) {
+        const vw = parseFloat(p2[2]);
+        const vh = parseFloat(p2[3]);
+        if (!w2) w2 = vw;
+        if (!h2) h2 = vh;
+      }
+    }
+    if (!w2) w2 = 120;
+    if (!h2) h2 = 140;
+    if (w2 > maxW) maxW = w2;
+    if (h2 > maxH) maxH = h2;
+    items.push({ w: w2, h: h2, el });
+  }
+  const count = items.length;
+  const rows = Math.ceil(count / PER_ROW);
+  const cellW = maxW + H_GAP;
+  const cellH = maxH + V_GAP;
+  const totalW = Math.min(PER_ROW, count) * cellW - H_GAP;
+  const totalH = rows * cellH - V_GAP;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
+  out += `
+<!-- Combined ${count} chord diagram${count > 1 ? "s" : ""}; ${PER_ROW} per row -->
+`;
+  items.forEach((item, i) => {
+    const col = i % PER_ROW;
+    const row = Math.floor(i / PER_ROW);
+    const x2 = col * cellW;
+    const y2 = row * cellH;
+    const src = item.el;
+    const viewBox = src.getAttribute("viewBox") || `0 0 ${item.w} ${item.h}`;
+    out += `<g transform="translate(${x2},${y2})"><svg viewBox="${viewBox}" width="${item.w}" height="${item.h}">${src.innerHTML}</svg></g>`;
+  });
+  out += "\n</svg>\n";
+  return out;
 }
 function setMessage(text, type = "") {
   message.textContent = text;
@@ -7687,6 +7747,10 @@ function generateChords() {
     setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
     jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
+    if (generateSvgBtn) {
+      generateSvgBtn.disabled = false;
+      generateSvgBtn.style.display = "inline-flex";
+    }
   }
 }
 function tryAutoGenerate() {
@@ -7758,5 +7822,29 @@ if (initialState) {
   applyState(initialState);
   pushState();
   tryAutoGenerate();
+}
+if (generateSvgBtn) {
+  generateSvgBtn.addEventListener("click", () => {
+    const svg = buildCombinedSvg();
+    if (!svg) {
+      setMessage("No chords to export.", "error");
+      return;
+    }
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a2 = document.createElement("a");
+    a2.href = url;
+    const vc = (
+      /** @type {HTMLInputElement|null} */
+      form.querySelector('input[name="voicing"]:checked')
+    );
+    const vn = vc ? vc.value : "chords";
+    a2.download = `${vn}-voicings.svg`;
+    document.body.appendChild(a2);
+    a2.click();
+    document.body.removeChild(a2);
+    URL.revokeObjectURL(url);
+    setMessage("SVG downloaded.");
+  });
 }
 //# sourceMappingURL=bundle.js.map

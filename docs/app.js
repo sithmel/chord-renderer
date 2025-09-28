@@ -13,6 +13,7 @@ const copyBtn = /** @type {HTMLButtonElement} */(document.getElementById('copy-j
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
+const generateSvgBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('generate-svg'));
 
 if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
@@ -256,6 +257,61 @@ function renderIntervalLabelOptions() {
 function clearResults() {
   results.innerHTML = '';
   jsonOutput.value = '';
+  if (generateSvgBtn) { generateSvgBtn.disabled = true; generateSvgBtn.style.display = 'none'; }
+}
+
+/**
+ * Build a combined SVG of all rendered chord diagrams.
+ * Layout: 4 per row with spacing.
+ * @returns {string|null}
+ */
+function buildCombinedSvg() {
+  const chordSvgs = /** @type {NodeListOf<SVGSVGElement>} */(results.querySelectorAll('.chord-block svg'));
+  if (!chordSvgs.length) return null;
+  const PER_ROW = 4;
+  const H_GAP = 24;
+  const V_GAP = 24;
+  /** @type {{w:number,h:number,el:SVGSVGElement}[]} */
+  const items = [];
+  let maxW = 0, maxH = 0;
+  for (const el of chordSvgs) {
+    let w = parseFloat(el.getAttribute('width') || '');
+    let h = parseFloat(el.getAttribute('height') || '');
+    const vb = el.getAttribute('viewBox');
+    if ((!w || !h) && vb) {
+      const p = vb.trim().split(/\s+/);
+      if (p.length === 4) {
+        const vw = parseFloat(p[2]);
+        const vh = parseFloat(p[3]);
+        if (!w) w = vw;
+        if (!h) h = vh;
+      }
+    }
+    if (!w) w = 120;
+    if (!h) h = 140;
+    if (w > maxW) maxW = w;
+    if (h > maxH) maxH = h;
+    items.push({ w, h, el });
+  }
+  const count = items.length;
+  const rows = Math.ceil(count / PER_ROW);
+  const cellW = maxW + H_GAP;
+  const cellH = maxH + V_GAP;
+  const totalW = Math.min(PER_ROW, count) * cellW - H_GAP;
+  const totalH = rows * cellH - V_GAP;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
+  out += `\n<!-- Combined ${count} chord diagram${count>1?'s':''}; ${PER_ROW} per row -->\n`;
+  items.forEach((item, i) => {
+    const col = i % PER_ROW;
+    const row = Math.floor(i / PER_ROW);
+    const x = col * cellW;
+    const y = row * cellH;
+    const src = item.el;
+    const viewBox = src.getAttribute('viewBox') || `0 0 ${item.w} ${item.h}`;
+    out += `<g transform="translate(${x},${y})"><svg viewBox="${viewBox}" width="${item.w}" height="${item.h}">${src.innerHTML}</svg></g>`;
+  });
+  out += '\n</svg>\n';
+  return out;
 }
 
 /**
@@ -351,6 +407,7 @@ function generateChords() {
     setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
     jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
+    if (generateSvgBtn) { generateSvgBtn.disabled = false; generateSvgBtn.style.display = 'inline-flex'; }
   }
 }
 
@@ -436,4 +493,28 @@ if (initialState) {
   pushState();
   // Auto-generate chords if state is complete
   tryAutoGenerate();
+}
+
+// Download combined SVG on demand
+if (generateSvgBtn) {
+  generateSvgBtn.addEventListener('click', () => {
+    const svg = buildCombinedSvg();
+    if (!svg) {
+      setMessage('No chords to export.', 'error');
+      return;
+    }
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Attempt to include voicing name if present
+    const vc = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+    const vn = vc ? vc.value : 'chords';
+    a.download = `${vn}-voicings.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setMessage('SVG downloaded.');
+  });
 }

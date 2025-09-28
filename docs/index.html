@@ -53,8 +53,11 @@
   <div id="message" class="message" aria-live="polite"></div>
 
   <div id="results" class="results" aria-live="polite"></div>
+  <div class="actions svg-download">
+    <button type="button" id="generate-svg" disabled style="display:none">Generate SVG</button>
+  </div>
   <details class="export" id="export-box">
-    <summary><h3>Export JSON</h3></summary>
+    <summary><p>Export JSON</p></summary>
     <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
     <div class="actions">
       <button type="button" id="copy-json" class="secondary">Copy JSON</button>
