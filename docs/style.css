@@ -299,3 +299,27 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 .interval-label-row input[type="text"]:focus-visible { outline:none; box-shadow: var(--color-focus-ring); }
 .interval-label-row label.inline { display:inline-flex; align-items:center; gap:0.25rem; cursor:pointer; }
 .interval-label-row input[type="checkbox"] { margin:0; }
+
+/* Intro section */
+.intro {
+  background: var(--color-surface);
+  padding: 1rem 1.2rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin: -0.25rem 0 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.intro:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg,var(--color-accent) 0 6px,transparent 6px),
+    radial-gradient(circle at 85% 25%, rgba(37,99,235,.18), transparent 60%);
+  mix-blend-mode: normal;
+  pointer-events: none;
+  opacity: .12;
+}
+.intro p { margin: 0; font-size: 0.82rem; }

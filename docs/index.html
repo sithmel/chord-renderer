@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Chord Renderer Demo</title>
+  <title>Drop voicings visualizer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="./style.css" />
   <script defer type="module" src="./bundle.js"></script>
@@ -12,7 +12,7 @@
     <div class="brand">
       <span class="logo" aria-hidden="true">♭♯</span>
       <div class="titles">
-        <h1>Chord Renderer</h1>
+        <h1>Drop voicings visualizer</h1>
         <p class="tagline">Intervals → Voicing → Inversions</p>
       </div>
     </div>
@@ -21,6 +21,9 @@
       <a href="https://github.com/sithmel/chord-renderer#readme" target="_blank" rel="noopener">Docs</a>
     </nav>
   </header>
+  <section class="intro" id="intro">
+    <p>This page lets you visualize drop voicings (close, drop 2, drop 3, drop 2+3, drop 2+4) for any set of intervals.<br />Select intervals, pick a voicing, choose a valid string set and the tool will render the chord shape plus its inversions.</p>
+  </section>
   <form id="voicing-form">
     <fieldset class="group">
       <legend>1. Select Intervals</legend>

@@ -15,17 +15,22 @@ var Interval = {
 };
 var Interval_labels = [
   { full: "root", fingerOptions: { className: "root", color: "#d62828", text: "R" } },
-  { full: "minor second", fingerOptions: { className: "minor-second", color: "#f77f00", text: "b2" } },
-  { full: "major second", fingerOptions: { className: "major-second", color: "#fcbf49", text: "2" } },
-  { full: "minor third", fingerOptions: { className: "minor-third", color: "#009b8e", text: "b3" } },
-  { full: "major third", fingerOptions: { className: "major-third", color: "#2834d6ff", text: "3" } },
-  { full: "perfect fourth", fingerOptions: { className: "perfect-fourth", color: "#f77f00", text: "4" } },
-  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth", color: "#f88417ff", text: "b5" } },
-  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth", color: "#f000b4ff", text: "5" } },
-  { full: "minor sixth", fingerOptions: { className: "minor-sixth", color: "#d62828", text: "b6" } },
-  { full: "major sixth", fingerOptions: { className: "major-sixth", color: "#f77f00", text: "6" } },
-  { full: "minor seventh", fingerOptions: { className: "minor-seventh", color: "#d8940dff", text: "b7" } },
-  { full: "major seventh", fingerOptions: { className: "major-seventh", color: "#7a4f9d", text: "7" } }
+  // Seconds (blue hues)
+  { full: "minor second", fingerOptions: { className: "minor-second", color: "#696FC7", text: "b2" } },
+  { full: "major second", fingerOptions: { className: "major-second", color: "#4a52c9", text: "2" } },
+  // Thirds (green hues)
+  { full: "minor third", fingerOptions: { className: "minor-third", color: "#047857", text: "b3" } },
+  { full: "major third", fingerOptions: { className: "major-third", color: "#059669", text: "3" } },
+  // Fourth & Tritone (purple hues)
+  { full: "perfect fourth", fingerOptions: { className: "perfect-fourth", color: "#6d28d9", text: "4" } },
+  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth", color: "#7e22ce", text: "b5" } },
+  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth", color: "#8d52c0", text: "5" } },
+  // Sixths (olive / yellow-green hues)
+  { full: "minor sixth", fingerOptions: { className: "minor-sixth", color: "#4d7c0f", text: "b6" } },
+  { full: "major sixth", fingerOptions: { className: "major-sixth", color: "#65a30d", text: "6" } },
+  // Sevenths (brown / earth tones)
+  { full: "minor seventh", fingerOptions: { className: "minor-seventh", color: "#c46a33", text: "b7" } },
+  { full: "major seventh", fingerOptions: { className: "major-seventh", color: "#c25e12", text: "7" } }
 ];
 var INTERVAL_ALIASES = [
   [new RegExp("^1$|^i$", "i"), Interval.UNISON],
@@ -7715,16 +7720,12 @@ function renderChord(chord, index, voicingName) {
   title.className = "chord-title";
   title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
   holder.appendChild(title);
-  const meta = document.createElement("div");
-  meta.className = "meta";
-  meta.textContent = chord.map(([string, fret]) => `S${string}:F${fret}`).join(" ");
-  holder.appendChild(meta);
   const svgContainer = document.createElement("div");
   holder.appendChild(svgContainer);
   results.appendChild(holder);
   const frets = Math.max(3, ...chord.map((f2) => f2[1]));
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure({ frets }).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure({ frets, noPosition: true }).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();

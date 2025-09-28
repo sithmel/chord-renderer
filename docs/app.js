@@ -391,11 +391,6 @@ function renderChord(chord, index, voicingName) {
   title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
   holder.appendChild(title);
 
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  meta.textContent = chord.map(([string, fret]) => `S${string}:F${fret}`).join(' ');
-  holder.appendChild(meta);
-
   const svgContainer = document.createElement('div');
   holder.appendChild(svgContainer);
   results.appendChild(holder);
@@ -404,7 +399,7 @@ function renderChord(chord, index, voicingName) {
 
   new /** @type {any} */(SVGuitarChord)(svgContainer)
     .chord({ fingers: chord, barres: [] })
-    .configure({ frets })
+    .configure({ frets, noPosition: true })
     .draw();
 }
 
