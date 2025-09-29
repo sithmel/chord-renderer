@@ -79,12 +79,18 @@ function drop2and4(intervals) {
   moveItem(clone, -3, 0);
   return clone;
 }
+function swapLastTwo(intervals) {
+  const clone = [...intervals];
+  moveItem(clone, -1, -2);
+  return clone;
+}
 var VOICING = {
   CLOSE: (intervals) => [...intervals],
   DROP_2: drop2,
   DROP_3: drop3,
   DROP_2_AND_3: drop2and3,
-  DROP_2_AND_4: drop2and4
+  DROP_2_AND_4: drop2and4,
+  SWAP_LAST_TWO: swapLastTwo
 };
 function* getStringSets(numberOfNNotes, stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
   for (let i = 0; i < Math.pow(2, stringIntervals.length); i++) {
@@ -7448,7 +7454,7 @@ function applyState(state) {
   const intervals = Array.isArray(s2.i) ? s2.i.filter((n2) => Number.isInteger(n2)).map(Number) : [];
   selectedIntervals.clear();
   for (const n2 of intervals) {
-    if (selectedIntervals.size >= 6) break;
+    if (selectedIntervals.size >= 4) break;
     selectedIntervals.add(Number(n2));
   }
   userIntervalOptions.clear();
@@ -7466,6 +7472,7 @@ function applyState(state) {
   }
   renderIntervals();
   updateStringSets();
+  renderVoicings();
   renderIntervalLabelOptions();
   if (state.v && typeof state.v === "string") {
     const voicingInput = (
@@ -7497,9 +7504,9 @@ function renderIntervals() {
     input.checked = selectedIntervals.has(Number(val));
     input.addEventListener("change", () => {
       if (input.checked) {
-        if (selectedIntervals.size >= 6) {
+        if (selectedIntervals.size >= 4) {
           input.checked = false;
-          setMessage("Max 6 intervals.", "error");
+          setMessage("Max 4 intervals.", "error");
           return;
         }
         selectedIntervals.add(Number(val));
@@ -7507,6 +7514,7 @@ function renderIntervals() {
         selectedIntervals.delete(Number(val));
       }
       updateStringSets();
+      renderVoicings();
       renderIntervalLabelOptions();
       pushState();
       tryAutoGenerate();
@@ -7536,15 +7544,38 @@ function updateStringSets() {
     stringSetBox.firstElementChild.querySelector("input").checked = true;
   }
 }
+function getAllowedVoicingNames(count) {
+  if (count === 2) return ["CLOSE"];
+  if (count === 3) return ["CLOSE", "DROP_2"];
+  if (count >= 4) return Object.keys(VOICING);
+  return [];
+}
 function renderVoicings() {
+  var _a;
+  const count = selectedIntervals.size;
+  const previouslySelected = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="voicing"]:checked')
+  );
+  const prevValue = previouslySelected ? previouslySelected.value : null;
+  const allowed = getAllowedVoicingNames(count);
   voicingBox.innerHTML = "";
-  Object.keys(VOICING).forEach((name, i) => {
+  allowed.forEach((name, i) => {
     const id = `voi-${name}`;
     const label = document.createElement("label");
     label.className = "radio-wrap";
-    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${i === 0 ? "checked" : ""}><span>${name.replace(/_/g, " ")}</span>`;
+    const checkedAttr = prevValue && prevValue === name || !prevValue && i === 0 ? "checked" : "";
+    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${checkedAttr}><span>${name.replace(/_/g, " ")}</span>`;
     voicingBox.appendChild(label);
   });
+  if (allowed.length === 0) return;
+  const stillSelected = (
+    /** @type {HTMLInputElement|null} */
+    form.querySelector('input[name="voicing"]:checked')
+  );
+  if (!stillSelected) {
+    (_a = form.querySelector('input[name="voicing"]')) == null ? void 0 : _a.setAttribute("checked", "checked");
+  }
 }
 function renderIntervalLabelOptions() {
   var _a, _b;

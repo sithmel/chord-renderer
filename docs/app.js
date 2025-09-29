@@ -106,7 +106,7 @@ function applyState(state) {
   const intervals = Array.isArray(s.i) ? s.i.filter(n => Number.isInteger(n)).map(Number) : [];
   selectedIntervals.clear();
   for (const n of intervals) {
-    if (selectedIntervals.size >= 6) break; // enforce limit
+    if (selectedIntervals.size >= 4) break; // enforce limit (now 4)
     selectedIntervals.add(Number(n));
   }
   userIntervalOptions.clear();
@@ -126,6 +126,7 @@ function applyState(state) {
   // Re-render dependent UI
   renderIntervals();
   updateStringSets();
+  renderVoicings();
   renderIntervalLabelOptions();
   // Apply voicing
   if (state.v && typeof state.v === 'string') {
@@ -152,9 +153,9 @@ function renderIntervals() {
     input.checked = selectedIntervals.has(Number(val));
     input.addEventListener('change', () => {
       if (input.checked) {
-        if (selectedIntervals.size >= 6) {
+        if (selectedIntervals.size >= 4) {
           input.checked = false;
-          setMessage('Max 6 intervals.', 'error');
+          setMessage('Max 4 intervals.', 'error');
           return;
         }
         selectedIntervals.add(Number(val));
@@ -162,6 +163,7 @@ function renderIntervals() {
         selectedIntervals.delete(Number(val));
       }
       updateStringSets();
+      renderVoicings();
       renderIntervalLabelOptions();
       pushState();
       tryAutoGenerate();
@@ -193,15 +195,33 @@ function updateStringSets() {
   }
 }
 
+function getAllowedVoicingNames(count) {
+  if (count === 2) return ['CLOSE'];
+  if (count === 3) return ['CLOSE', 'DROP_2'];
+  if (count >= 4) return Object.keys(VOICING);
+  return []; // <2 notes
+}
+
 function renderVoicings() {
+  const count = selectedIntervals.size;
+  const previouslySelected = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+  const prevValue = previouslySelected ? previouslySelected.value : null;
+  const allowed = getAllowedVoicingNames(count);
   voicingBox.innerHTML = '';
-  Object.keys(VOICING).forEach((name, i) => {
+  allowed.forEach((name, i) => {
     const id = `voi-${name}`;
     const label = document.createElement('label');
     label.className = 'radio-wrap';
-    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${i===0?'checked':''}><span>${name.replace(/_/g,' ')}</span>`;
+    const checkedAttr = (prevValue && prevValue === name) || (!prevValue && i === 0) ? 'checked' : '';
+    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${checkedAttr}><span>${name.replace(/_/g,' ')}</span>`;
     voicingBox.appendChild(label);
   });
+  // If previous selection invalid now, ensure none or first is selected
+  if (allowed.length === 0) return; // nothing selectable yet
+  const stillSelected = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
+  if (!stillSelected) {
+    /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]'))?.setAttribute('checked','checked');
+  }
 }
 
 function renderIntervalLabelOptions() {
