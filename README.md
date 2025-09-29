@@ -250,17 +250,18 @@ The demo lets you collect rendered chord groups and export them.
  - Use the checkboxes beside each rendered chord to include/exclude from the group.
  - Provide an optional group title (default: "Chord Group") and click "Add to cart".
  - The cart (🛒) stores multiple groups (persisted in `localStorage`).
- - Actions inside the cart:
-   - Download SVG: concatenates all groups vertically into a single SVG file.
-   - Export PDF: creates an A4 portrait PDF with groups placed in a 2×2 grid per page (using jsPDF + svg2pdf). Titles are added if missing.
-   - Empty cart: clears all stored groups.
+  - Actions inside the cart:
+    - Download SVG: concatenates all groups vertically into a single SVG file.
+    - Download HTML: builds a standalone printable HTML document (each group in a block, page-breaks avoided within a group) embedding all group SVGs.
+    - Empty cart: clears all stored groups.
+
 
 ### Limitations / Notes (Demo)
- - Max 4 intervals selectable at once (keeps diagrams legible and PDF layout predictable).
- - PDF layout is fixed (2 columns × 2 rows per page); excessive groups will paginate.
- - Interval label overrides are session-only; not part of the public library API.
- - Coloring an interval applies internal predefined colors; unchecked leaves default styling.
- - Generated SVGs may nest `<svg>` elements; the PDF export flattens them to avoid blank output.
+  - Max 4 intervals selectable at once (helps keep diagrams legible).
+  - Interval label overrides are session-only; not part of the public library API.
+  - Coloring an interval applies internal predefined colors; unchecked leaves default styling.
+  - Generated SVGs may nest `<svg>` elements; when downloading the combined SVG they are preserved as-is.
+
 
 ### Custom Interval Labels (Demo)
 The demo lets you override the short text and color used for each selected interval before generating voicings/inversions.

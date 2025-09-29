@@ -21,7 +21,7 @@ const cartList = /** @type {HTMLElement|null} */(document.getElementById('cart-l
 const cartCount = /** @type {HTMLElement|null} */(document.getElementById('cart-count'));
 const cartEmptyBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-empty'));
 const cartDownloadBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download'));
-const cartPdfBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-pdf'));
+const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-html'));
 
 if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
@@ -203,6 +203,17 @@ function updateStringSets() {
   }
 }
 
+/**
+ * @typedef {(x: number[]) => number[]} VoicingFn
+ * @typedef {string} VoicingName
+ * @typedef {Record<string, VoicingFn>} VoicingMap
+ */
+
+/**
+ * Return allowed voicing names for a given number of intervals.
+ * @param {number} count
+ * @returns {VoicingName[]}
+ */
 function getAllowedVoicingNames(count) {
   if (count === 2) return ['CLOSE'];
   if (count === 3) return ['CLOSE', 'DROP_2'];
@@ -282,10 +293,25 @@ function renderIntervalLabelOptions() {
   }
 }
 
+function updateResultToolVisibility() {
+  const hasChords = !!results.querySelector('.chord-block');
+  const tools = document.querySelector('.result-tools');
+  if (tools) {
+    if (hasChords) tools.removeAttribute('hidden');
+    else tools.setAttribute('hidden', '');
+  }
+  const exportBox = document.getElementById('export-box');
+  if (exportBox) {
+    if (hasChords) exportBox.removeAttribute('hidden');
+    else exportBox.setAttribute('hidden', '');
+  }
+}
+
 function clearResults() {
   results.innerHTML = '';
   jsonOutput.value = '';
   if (addToCartBtn) { addToCartBtn.disabled = true; }
+  updateResultToolVisibility();
 }
 
 /**
@@ -436,6 +462,7 @@ function generateChords() {
     jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
     enableChordSelection();
+    updateResultToolVisibility();
   }
 }
 
@@ -548,6 +575,22 @@ function saveCart(entries) {
   try { localStorage.setItem(CART_KEY, JSON.stringify(entries)); } catch {}
 }
 
+/**
+ * Move a cart entry up or down.
+ * @param {string} id
+ * @param {number} delta - +1 to move down, -1 to move up.
+ */
+function moveCartEntry(id, delta) {
+  const entries = loadCart();
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= entries.length) return;
+  const [item] = entries.splice(idx, 1);
+  entries.splice(newIdx, 0, item);
+  saveCart(entries);
+}
+
 function updateCartCount() {
   const len = loadCart().length;
   if (cartCount) cartCount.textContent = String(len);
@@ -571,28 +614,72 @@ function renderCartList() {
   if (!cartList) return;
   cartList.innerHTML = '';
   const entries = loadCart();
-  for (const entry of entries) {
+  entries.forEach((entry, index) => {
     const li = document.createElement('li');
+    const upBtn = document.createElement('button');
+    upBtn.type = 'button';
+    upBtn.textContent = '↑';
+    upBtn.className = 'reorder-btn';
+    upBtn.disabled = index === 0;
+    upBtn.setAttribute('aria-label', 'Move up');
+    upBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      moveCartEntry(entry.id, -1);
+      renderCartList();
+    });
+    li.appendChild(upBtn);
+
+    const downBtn = document.createElement('button');
+    downBtn.type = 'button';
+    downBtn.textContent = '↓';
+    downBtn.className = 'reorder-btn';
+    downBtn.disabled = index === entries.length - 1;
+    downBtn.setAttribute('aria-label', 'Move down');
+    downBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      moveCartEntry(entry.id, 1);
+      renderCartList();
+    });
+    li.appendChild(downBtn);
+
     const titleSpan = document.createElement('span');
     titleSpan.textContent = entry.title || 'Untitled';
     li.appendChild(titleSpan);
+
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.textContent = '✕';
-    delBtn.addEventListener('click', () => {
+    delBtn.setAttribute('aria-label', 'Remove');
+    delBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       const newer = loadCart().filter(e => e.id !== entry.id);
       saveCart(newer);
       updateCartCount();
       renderCartList();
     });
     li.appendChild(delBtn);
+
     cartList.appendChild(li);
-  }
+  });
 }
 
+/**
+ * Toggle the cart dropdown visibility.
+ *
+ * @typedef {Object} ToggleCartOptions
+ * @property {boolean} [open]
+ */
+
+/**
+ * Toggle cart.
+ * @param {boolean} [open] - when provided, force open/close; otherwise toggle.
+ * @returns {void}
+ */
 function toggleCart(open) {
   if (!cartDropdown || !cartToggleBtn) return;
+  /** @type {boolean} */
   const empty = loadCart().length === 0;
+  /** @type {boolean} */
   const shouldOpen = open !== undefined ? open : cartDropdown.hasAttribute('hidden');
   if (shouldOpen && empty) {
     // Do not open when empty; provide subtle feedback
@@ -603,6 +690,7 @@ function toggleCart(open) {
     cartDropdown.removeAttribute('hidden');
     cartToggleBtn.setAttribute('aria-expanded', 'true');
     renderCartList();
+    /** @type {HTMLElement|null} */
     const firstAction = cartDropdown.querySelector('button, [href], input, [tabindex]');
     if (firstAction instanceof HTMLElement) firstAction.focus();
   } else {
@@ -612,15 +700,18 @@ function toggleCart(open) {
 }
 
 if (cartToggleBtn) {
-  cartToggleBtn.addEventListener('click', () => toggleCart());
+  cartToggleBtn.addEventListener('click', (e) => {
+    // Only toggle when the toggle button itself is clicked
+    toggleCart();
+  });
   document.addEventListener('click', (e) => {
     if (!cartDropdown || !cartToggleBtn) return;
     if (cartDropdown.hasAttribute('hidden')) return;
     const t = e.target;
     if (!(t instanceof Node)) return;
-    if (!cartDropdown.contains(t) && !cartToggleBtn.contains(t)) {
-      toggleCart(false);
-    }
+    // If clicking inside dropdown (including its buttons), do nothing
+    if (cartDropdown.contains(t) || cartToggleBtn.contains(t)) return;
+    toggleCart(false);
   });
 }
 
@@ -650,6 +741,53 @@ if (cartDownloadBtn) {
   });
 }
 
+// Build printable HTML document containing all cart entry SVGs
+/**
+ * @typedef {(s:string) => string} EscaperFn
+ */
+
+/**
+ * Build printable HTML document containing all cart entry SVGs.
+ * @param {CartEntry[]} entries
+ * @returns {string}
+ */
+function buildCartHtml(entries) {
+  /** @type {EscaperFn} */
+  const esc = (s) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]||c));
+  /** @type {string} */
+  const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, ' UTC');
+  /** @type {string} */
+  let out = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />';
+  out += '<title>Chord Groups Export</title><meta name="viewport" content="width=device-width,initial-scale=1" />';
+  out += '<style>' +
+    ':root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb;}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text);}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem;}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px;}.meta{font-size:.6rem;color:#555;margin:0;}.groups{display:flex;flex-direction:column;gap:1.2rem;}section.group{padding:.75rem .9rem .9rem;page-break-inside:avoid;break-inside:avoid;}section.group h2{font-size:.8rem;margin:0 0 .5rem;text-align:center;letter-spacing:.4px;}section.group svg{display:block;margin:0 auto;max-width:100%;height:auto;}@media print{body{background:#fff;}section.group{box-shadow:none;background:#fff;}}' +
+    '</style></head><body>';
+  out += `<header><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
+  out += '<div class="groups">';
+  for (const e of entries) {
+    out += `<section class="group">${e.svg}</section>`;
+  }
+  out += '</div></body></html>';
+  return out;
+}
+
+if (cartDownloadHtmlBtn) {
+  cartDownloadHtmlBtn.addEventListener('click', () => {
+    const entries = loadCart();
+    if (!entries.length) return;
+    const html = buildCartHtml(entries);
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chord-groups.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+}
+
 /**
  * Enable chord selection checkboxes and Add to cart button.
  */
@@ -669,6 +807,7 @@ function enableChordSelection() {
 }
 
 function getSelectedChordSvgs() {
+  /** @type {SVGSVGElement[]} */
   const out = [];
   const blocks = /** @type {NodeListOf<HTMLElement>} */(results.querySelectorAll('.chord-block'));
   blocks.forEach((b) => {
@@ -690,6 +829,19 @@ function refreshAddToCartState() {
 results.addEventListener('change', (e) => {
   const t = /** @type {HTMLElement} */(e.target);
   if (t && t.matches('.chord-select input')) refreshAddToCartState();
+});
+results.addEventListener('click', (e) => {
+  const t = /** @type {HTMLElement} */(e.target);
+  if (!t) return;
+  const block = t.closest('.chord-block');
+  if (!block) return;
+  // Avoid toggling if the click originated on the checkbox itself
+  if (t.closest('.chord-select')) return;
+  const cb = /** @type {HTMLInputElement|null} */(block.querySelector('.chord-select input'));
+  if (cb) {
+    cb.checked = !cb.checked;
+    refreshAddToCartState();
+  }
 });
 
 if (addToCartBtn) {
@@ -739,14 +891,19 @@ function buildPartialGroupSvg(svgs, title) {
   const count = items.length;
   const rows = Math.ceil(count / PER_ROW);
   const cellW = maxW + H_GAP; const cellH = maxH + V_GAP;
-  const totalW = Math.min(PER_ROW, count) * cellW - H_GAP;
+  // Always reserve space for full PER_ROW columns to keep uniform width across groups.
+  const totalW = PER_ROW * cellW - H_GAP;
   const titleH = 40; // extra space for title text
   const totalH = rows * cellH - V_GAP + titleH;
+  // Center the used columns if fewer than PER_ROW
+  const usedCols = Math.min(PER_ROW, count);
+  const usedWidth = usedCols * cellW - H_GAP;
+  const offsetX = (totalW - usedWidth) / 2;
   let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
   out += `\n<text x="50%" y="20" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600">${escapeSvgText(title)}</text>`;
   items.forEach((item, i) => {
     const col = i % PER_ROW; const row = Math.floor(i / PER_ROW);
-    const x = col * cellW; const y = row * cellH + titleH;
+    const x = offsetX + col * cellW; const y = row * cellH + titleH;
     out += `<g transform="translate(${x},${y})"><svg viewBox="0 0 ${item.w} ${item.h}" width="${item.w}" height="${item.h}">${item.inner}</svg></g>`;
   });
   out += '\n</svg>'; return out;
@@ -771,8 +928,20 @@ function combineCartEntries(entries) {
   return out;
 }
 
+/**
+ * @typedef {'width'|'height'} SvgDimAttr
+ */
+
+/**
+ * Extract numeric width/height from an SVG string.
+ * Tries explicit width/height attributes first, then falls back to viewBox.
+ *
+ * @param {string} svg
+ * @param {SvgDimAttr} attr
+ * @returns {number}
+ */
 function extractSvgDimension(svg, attr) {
-  const m = svg.match(new RegExp(attr+"=\"(\\d+(?:\\.\\d+)?)\""));
+  const m = svg.match(new RegExp(attr + "=\"(\\d+(?:\\.\\d+)?)\""));
   if (m) return parseFloat(m[1]);
   const vb = svg.match(/viewBox=\"[^\"]+\"/);
   if (vb) {
@@ -784,6 +953,15 @@ function extractSvgDimension(svg, attr) {
   return 0;
 }
 
+/**
+ * @typedef {string} SvgString
+ */
+
+/**
+ * Remove outer <svg> wrapper from an SVG string.
+ * @param {SvgString} svg
+ * @returns {SvgString}
+ */
 function stripOuterSvg(svg) {
   const inner = svg.replace(/^<svg[^>]*>/i, '').replace(/<\/svg>\s*$/i, '');
   return inner;
@@ -801,159 +979,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ---- PDF Export ----
-
-let exportingPdf = false;
-
-/** Enable/disable cart action buttons based on items */
+// ---- Cart action state helper (PDF export removed) ----
 function refreshCartActionStates() {
   const len = loadCart().length;
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
   if (cartDownloadBtn) cartDownloadBtn.disabled = len === 0;
-  if (cartPdfBtn) cartPdfBtn.disabled = len === 0;
+  if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
 }
 
 // Ensure initial state reflects available cart actions
 refreshCartActionStates();
-
-/**
- * Export cart entries to paginated PDF (A4 portrait, 2x2 grid per page).
- * Uses global window.jspdf.jsPDF and window.svg2pdf (loaded via CDN).
- */
-async function exportCartToPdf() {
-  if (exportingPdf) return;
-  exportingPdf = true;
-  try {
-    const entries = loadCart();
-    if (!entries.length) return;
-
-    const w = /** @type {any} */(window);
-    if (!w.jspdf) {
-      setMessage('PDF libs not loaded.', 'error');
-      return;
-    }
-    // Resolve svg2pdf function across possible global shapes
-    let raw = w.svg2pdf;
-    /** @type {any} */
-    let svg2pdfFn = typeof raw === 'function' ? raw
-      : raw && typeof raw.svg2pdf === 'function' ? raw.svg2pdf
-      : raw && typeof raw.default === 'function' ? raw.default
-      : null;
-    if (!svg2pdfFn) {
-      setMessage('svg2pdf not available.', 'error');
-      return;
-    }
-
-    setMessage('Building PDF…');
-    /** @type {any} */
-    const { jsPDF } = w.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-
-    // PDF layout configuration (tweakable)
-    const COLS = 1; // one group per row for larger chord diagrams
-    const ROWS = 4; // rows per page (increased from 2 to fit more groups)
-    const PER_PAGE = COLS * ROWS;
-    const padding = 32;
-    const cellW = (pageW - padding * 2) / COLS;
-    const cellH = (pageH - padding * 2) / ROWS;
-    const titleSpace = 20;
-    const innerPad = 8; // inner padding within each cell
-
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      const tmp = document.createElement('div');
-      tmp.innerHTML = entry.svg.trim();
-      const svgEl = tmp.querySelector('svg');
-      if (!(svgEl instanceof SVGSVGElement)) continue;
-
-      // Flatten nested <svg> nodes into <g> to avoid nested roots issues
-      const nested = Array.from(svgEl.querySelectorAll('svg'));
-      for (const inner of nested) {
-        if (inner === svgEl) continue;
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        const transform = inner.getAttribute('transform');
-        if (transform) g.setAttribute('transform', transform);
-        const cls = inner.getAttribute('class');
-        if (cls) g.setAttribute('class', cls);
-        while (inner.firstChild) g.appendChild(inner.firstChild);
-        inner.replaceWith(g);
-      }
-
-      // Determine intrinsic size
-      let origW = parseFloat(svgEl.getAttribute('width') || '');
-      let origH = parseFloat(svgEl.getAttribute('height') || '');
-      const vb = svgEl.getAttribute('viewBox');
-      if ((!origW || !origH) && vb) {
-        const parts = vb.trim().split(/\s+/);
-        if (parts.length === 4) {
-          if (!origW) origW = parseFloat(parts[2]);
-          if (!origH) origH = parseFloat(parts[3]);
-        }
-      }
-      if (!origW) origW = 400;
-      if (!origH) origH = 300;
-
-      // Inject title if not already present
-      const hasTitle = Array.from(svgEl.querySelectorAll('text')).some(t => t.textContent === entry.title);
-      if (!hasTitle) {
-        const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        title.setAttribute('x', String(origW / 2));
-        title.setAttribute('y', '16');
-        title.setAttribute('text-anchor', 'middle');
-        title.setAttribute('font-size', '14');
-        title.setAttribute('font-family', 'system-ui, sans-serif');
-        title.setAttribute('font-weight', '600');
-        title.textContent = entry.title;
-        svgEl.insertBefore(title, svgEl.firstChild);
-        origH += titleSpace;
-      }
-
-      svgEl.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
-      svgEl.removeAttribute('width');
-      svgEl.removeAttribute('height');
-
-      const indexOnPage = i % PER_PAGE;
-      const col = indexOnPage % COLS;
-      const row = Math.floor(indexOnPage / COLS);
-      const cellX = padding + col * cellW;
-      const cellY = padding + row * cellH;
-
-      // Preserve aspect ratio within cell
-      const maxW = cellW - innerPad * 2;
-      const maxH = cellH - innerPad * 2;
-      const scale = Math.min(maxW / origW, maxH / origH);
-      const renderW = origW * scale;
-      const renderH = origH * scale;
-      const x = cellX + (cellW - renderW) / 2;
-      const y = cellY + (cellH - renderH) / 2;
-
-      try {
-        await svg2pdfFn(svgEl, doc, { x, y, width: renderW, height: renderH });
-      } catch (err) {
-        console.error(err);
-        setMessage('Error rendering some SVG to PDF', 'error');
-      }
-
-      const isLastOnPage = ((i % PER_PAGE) === PER_PAGE - 1) && (i !== entries.length - 1);
-      if (isLastOnPage) doc.addPage();
-    }
-
-    try {
-      doc.save('chord-groups.pdf');
-      setMessage('PDF exported.');
-    } catch (err) {
-      console.error(err);
-      setMessage('PDF export failed.', 'error');
-    }
-  } finally {
-    exportingPdf = false;
-  }
-}
-
-if (cartPdfBtn) {
-  cartPdfBtn.addEventListener('click', () => {
-    exportCartToPdf();
-  });
-}
