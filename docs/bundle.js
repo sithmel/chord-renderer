@@ -7811,7 +7811,7 @@ function renderChord(chord, index, voicingName) {
   results.appendChild(holder);
   const frets = Math.max(3, ...chord.map((f2) => f2[1]));
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure({ frets, noPosition: true }).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure({ frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 }).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();

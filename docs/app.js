@@ -511,7 +511,7 @@ function renderChord(chord, index, voicingName) {
 
   new /** @type {any} */(SVGuitarChord)(svgContainer)
     .chord({ fingers: chord, barres: [] })
-    .configure({ frets, noPosition: true })
+    .configure({ frets, noPosition: true,  fingerSize: 0.75, fingerTextSize: 20 })
     .draw();
 }
 
