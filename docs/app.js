@@ -851,13 +851,15 @@ async function exportCartToPdf() {
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
-    const COLS = 2;
-    const ROWS = 2;
+    // PDF layout configuration (tweakable)
+    const COLS = 1; // one group per row for larger chord diagrams
+    const ROWS = 2; // rows per page
     const PER_PAGE = COLS * ROWS;
     const padding = 32;
     const cellW = (pageW - padding * 2) / COLS;
     const cellH = (pageH - padding * 2) / ROWS;
     const titleSpace = 20;
+    const innerPad = 8; // inner padding within each cell
 
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
@@ -912,16 +914,23 @@ async function exportCartToPdf() {
       svgEl.removeAttribute('width');
       svgEl.removeAttribute('height');
 
-      const col = (i % PER_PAGE) % COLS;
-      const row = Math.floor((i % PER_PAGE) / COLS);
-      const x = padding + col * cellW;
-      const y = padding + row * cellH;
+      const indexOnPage = i % PER_PAGE;
+      const col = indexOnPage % COLS;
+      const row = Math.floor(indexOnPage / COLS);
+      const cellX = padding + col * cellW;
+      const cellY = padding + row * cellH;
 
-      const targetW = cellW - 8; // small inner padding
-      const targetH = cellH - 8;
+      // Preserve aspect ratio within cell
+      const maxW = cellW - innerPad * 2;
+      const maxH = cellH - innerPad * 2;
+      const scale = Math.min(maxW / origW, maxH / origH);
+      const renderW = origW * scale;
+      const renderH = origH * scale;
+      const x = cellX + (cellW - renderW) / 2;
+      const y = cellY + (cellH - renderH) / 2;
 
       try {
-        await svg2pdfFn(svgEl, doc, { x, y, width: targetW, height: targetH });
+        await svg2pdfFn(svgEl, doc, { x, y, width: renderW, height: renderH });
       } catch (err) {
         console.error(err);
         setMessage('Error rendering some SVG to PDF', 'error');
