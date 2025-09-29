@@ -5,6 +5,8 @@
   <title>Drop voicings visualizer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.1/dist/svg2pdf.umd.min.js"></script>
   <script defer type="module" src="./bundle.js"></script>
 </head>
 <body>
@@ -20,6 +22,20 @@
       <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/sithmel/chord-renderer#readme" target="_blank" rel="noopener">Docs</a>
     </nav>
+      <div class="cart-container">
+        <button id="cart-toggle" type="button" aria-haspopup="true" aria-expanded="false" class="cart-button">
+          <span class="cart-icon" aria-hidden="true">🛒</span>
+          <span id="cart-count" class="cart-count">0</span>
+        </button>
+        <div id="cart-dropdown" class="cart-dropdown" hidden>
+          <ul id="cart-list" class="cart-list" aria-label="Saved chord groups"></ul>
+          <div class="cart-actions">
+            <button type="button" id="cart-empty" class="secondary">Empty cart</button>
+            <button type="button" id="cart-download">Download SVG</button>
+            <button type="button" id="cart-pdf" class="secondary">Export PDF</button>
+          </div>
+        </div>
+      </div>
   </header>
   <section class="intro" id="intro">
     <p>This page lets you visualize drop voicings (close, drop 2, drop 3, drop 2+3, drop 2+4) for any set of intervals.<br />Select intervals, pick a voicing, choose a valid string set and the tool will render the chord shape plus its inversions.</p>
@@ -52,10 +68,13 @@
 
   <div id="message" class="message" aria-live="polite"></div>
 
-  <div id="results" class="results" aria-live="polite"></div>
-  <div class="actions svg-download">
-    <button type="button" id="generate-svg" disabled style="display:none">Generate SVG</button>
+  <div class="result-tools">
+    <label class="title-field">Title: <input id="result-title" type="text" maxlength="60" value="Chord Group" /></label>
+    <div class="actions">
+      <button type="button" id="add-to-cart" disabled>Add to cart</button>
+    </div>
   </div>
+  <div id="results" class="results" aria-live="polite"></div>
   <details class="export" id="export-box">
     <summary><p>Export JSON</p></summary>
     <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
