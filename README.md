@@ -219,7 +219,7 @@ The generated types are available in `types/chord.d.ts`.
 
 ## Demo (Static Web Page)
 
-A demo page is available in `public/` to experiment with voicings and automatically render all inversions using svguitar.
+A demo page is available in `docs/` to experiment with voicings and automatically render all inversions using svguitar.
 
 Build the bundled demo (uses esbuild):
 
@@ -227,31 +227,50 @@ Build the bundled demo (uses esbuild):
 npm run build:demo
 ```
 
-This produces `public/bundle.js`. Then serve the `public/` directory with any static file server, for example:
+This produces `docs/bundle.js`. Then serve the `docs/` directory with any static file server, for example:
 
 ```bash
-npx http-server public
+npx http-server docs
 # or
-python -m http.server --directory public 8080
+python -m http.server --directory docs 8080
 ```
 
 Open http://localhost:8080 (or the port shown) in your browser.
 
+Workflow:
  - Choose intervals (high E string is first select)
  - (Optional) Customize interval labels: after selecting intervals an "Interval Labels" section appears. Enter up to 3 chars (empty allowed to clear). Check Color if you want the predefined marker color.
  - Leave blank interval selectors for muted strings
-  - Chords auto-generate once you have: at least two intervals, a voicing, and a string set selected
-  - To start over, deselect intervals manually (URL updates automatically)
+ - Chords auto-generate once you have: at least two intervals, a voicing, and a string set selected
+ - To start over, deselect intervals manually (URL updates automatically)
 
- ### Custom Interval Labels (Demo)
- The demo lets you override the short text and color used for each selected interval before generating voicings/inversions.
+### Cart & Export (Demo Only)
+The demo lets you collect rendered chord groups and export them.
+ - Select intervals, voicing, and a string set; the tool renders the base voicing and its inversions.
+ - Use the checkboxes beside each rendered chord to include/exclude from the group.
+ - Provide an optional group title (default: "Chord Group") and click "Add to cart".
+ - The cart (🛒) stores multiple groups (persisted in `localStorage`).
+ - Actions inside the cart:
+   - Download SVG: concatenates all groups vertically into a single SVG file.
+   - Export PDF: creates an A4 portrait PDF with groups placed in a 2×2 grid per page (using jsPDF + svg2pdf). Titles are added if missing.
+   - Empty cart: clears all stored groups.
+
+### Limitations / Notes (Demo)
+ - Max 4 intervals selectable at once (keeps diagrams legible and PDF layout predictable).
+ - PDF layout is fixed (2 columns × 2 rows per page); excessive groups will paginate.
+ - Interval label overrides are session-only; not part of the public library API.
+ - Coloring an interval applies internal predefined colors; unchecked leaves default styling.
+ - Generated SVGs may nest `<svg>` elements; the PDF export flattens them to avoid blank output.
+
+### Custom Interval Labels (Demo)
+The demo lets you override the short text and color used for each selected interval before generating voicings/inversions.
  - Label length: max 3 characters. Empty string keeps the marker but with no text.
  - Color toggle: unchecked by default; checking applies the predefined interval color.
  - Scope: affects only the current browser session; not persisted and not part of the published library API.
  - Merging: overrides are shallowly merged with the internal interval fingerOptions (text replaced; color only applied when checkbox is checked).
-  - Clearing: remove intervals to clear results; label/color overrides persist per interval until interval removed or page reloaded.
+ - Clearing: remove intervals to clear results; label/color overrides persist per interval until interval removed or page reloaded.
 
- This feature is for illustrative customization only; library functions like notesToChord remain unchanged.
+This feature is for illustrative customization only; library functions like `notesToChord` remain unchanged.
 
 
 ## Development
