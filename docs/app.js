@@ -853,7 +853,7 @@ async function exportCartToPdf() {
 
     // PDF layout configuration (tweakable)
     const COLS = 1; // one group per row for larger chord diagrams
-    const ROWS = 2; // rows per page
+    const ROWS = 4; // rows per page (increased from 2 to fit more groups)
     const PER_PAGE = COLS * ROWS;
     const padding = 32;
     const cellW = (pageW - padding * 2) / COLS;
