@@ -31,7 +31,7 @@ export function fretNormalizer(chord: Chord): Chord;
  * It does that by increasing or decreasing fret position by 12 (1 octave) until the midpoint is within 6 frets.
  * @param {Chord} chord
  */
-export function closeChordPosition(chord: Chord): void;
+export function closeChordPosition(chord: Chord): Chord;
 /**
  * Generate a new inversion of a given voicing.
  * @param {Notes} notes

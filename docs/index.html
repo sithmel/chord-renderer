@@ -13,69 +13,82 @@
       <span class="logo" aria-hidden="true">♭♯</span>
       <div class="titles">
         <h1>Drop voicings visualizer</h1>
-        <p class="tagline">Intervals → Voicing → Inversions</p>
+        <p class="tagline">Saved individual chords gallery</p>
       </div>
     </div>
-      <div class="cart-container">
-        <button id="cart-toggle" type="button" aria-haspopup="true" aria-expanded="false" class="cart-button">
-          <span class="cart-icon" aria-hidden="true">🛒</span>
-          <span id="cart-count" class="cart-count">0</span>
-        </button>
-        <div id="cart-dropdown" class="cart-dropdown" hidden>
-          <ul id="cart-list" class="cart-list" aria-label="Saved chord groups"></ul>
-          <div class="cart-actions">
-            <button type="button" id="cart-empty" class="secondary">Empty cart</button>
-            <button type="button" id="cart-download">Download SVG</button>
-            <button type="button" id="cart-download-html" class="secondary">Download HTML</button>
-          </div>
-        </div>
-      </div>
+    <div class="header-actions">
+      <button id="open-builder" type="button" class="builder-button">
+        <span aria-hidden="true">⚡</span>
+        Create New Chord
+      </button>
+    </div>
   </header>
+  
   <section class="intro" id="intro">
-    <p>This page lets you navigate through different types of voicings on 3 or 4 strings for any set of intervals. Select intervals, pick a voicing, choose a valid string set and the tool will render the chord shape plus its inversions.</p>
-    <p>Select the chords you like and add them to the cart. From there you can export the entire list in SVG or HTML (that can also be printed)</p>
+    <p>This is your saved chords gallery. Each entry shows an individual chord diagram you've created and saved. Click "Create New Chord" to open the chord builder where you can select intervals, voicings, and string sets to generate new chord diagrams.</p>
   </section>
-  <form id="voicing-form">
-    <fieldset class="group">
-      <legend>1. Select Intervals</legend>
-      <p class="hint">Choose up to 6 unique intervals (unordered). Order and voicing are applied later.</p>
-      <div id="interval-box" class="selectors"></div>
-    </fieldset>
 
-    <fieldset class="group">
-      <legend>2. Interval Labels</legend>
-      <p class="hint">Optional: Set a short label (max 3 chars) and choose whether to color each selected interval.</p>
-      <div id="interval-label-options" class="interval-label-options"></div>
-    </fieldset>
-
-    <fieldset class="group">
-      <legend>3. Voicing</legend>
-      <div id="voicing-box" class="selectors"></div>
-    </fieldset>
-
-    <fieldset class="group">
-      <legend>4. String Set</legend>
-      <p class="hint" id="strings-hint">Select intervals first to see valid string sets.</p>
-      <div id="stringset-box" class="selectors"></div>
-    </fieldset>
-
-  </form>
-
-  <div id="message" class="message" aria-live="polite"></div>
-  <div id="results" class="results" aria-live="polite"></div>
-  <div class="result-tools" hidden>
-    <label class="title-field"><input id="result-title" type="text" maxlength="60" value="Chord Group" /></label>
-    <div class="actions">
-      <button type="button" id="add-to-cart" disabled>Add to cart</button>
+  <section id="cart-gallery" class="cart-gallery" aria-live="polite">
+    <div class="gallery-header">
+        <h2>Saved Chords (<span id="cart-count">0</span>)</h2>
+      <div class="gallery-actions">
+        <button type="button" id="cart-empty" class="secondary" disabled>Empty All</button>
+        <button type="button" id="cart-download" disabled>Export All SVG</button>
+        <button type="button" id="cart-download-html" class="secondary" disabled>Export All HTML</button>
+      </div>
     </div>
-  </div>
-  <details class="export" id="export-box" hidden>
-    <summary><p>Export JSON</p></summary>
-    <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
-    <div class="actions">
-      <button type="button" id="copy-json" class="secondary">Copy JSON</button>
+    <div id="cart-items" class="cart-items">
+      <div class="empty-state">
+        <p>No chords saved yet.</p>
+        <p>Click "Create New Chord" above to get started!</p>
+      </div>
     </div>
-  </details>
+  </section>
+
+  <aside id="builder-panel" class="builder-panel" role="dialog" aria-label="Chord Builder" aria-hidden="true">
+    <div class="builder-content">
+      <header class="builder-header">
+        <h2>Chord Builder</h2>
+        <button id="close-builder" type="button" class="close-button" aria-label="Close builder">×</button>
+      </header>
+      
+      <form id="voicing-form">
+        <fieldset class="group">
+          <legend>1. Select Intervals</legend>
+          <p class="hint">Choose up to 6 unique intervals (unordered). Order and voicing are applied later.</p>
+          <div id="interval-box" class="selectors"></div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>2. Interval Labels</legend>
+          <p class="hint">Optional: Set a short label (max 3 chars) and choose whether to color each selected interval.</p>
+          <div id="interval-label-options" class="interval-label-options"></div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>3. Voicing</legend>
+          <div id="voicing-box" class="selectors"></div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>4. String Set</legend>
+          <p class="hint" id="strings-hint">Select intervals first to see valid string sets.</p>
+          <div id="stringset-box" class="selectors"></div>
+        </fieldset>
+      </form>
+
+      <div id="message" class="message" aria-live="polite"></div>
+      <div id="results" class="results" aria-live="polite"></div>
+
+      <details class="export" id="export-box" hidden>
+        <summary><p>Export JSON</p></summary>
+        <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
+        <div class="actions">
+          <button type="button" id="copy-json" class="secondary">Copy JSON</button>
+        </div>
+      </details>
+    </div>
+  </aside>
   <footer class="site-footer">
     <p class="meta">© 2025 <span class="author">Maurizio Lupo</span> · <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a></p>
   </footer>
