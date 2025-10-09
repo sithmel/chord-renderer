@@ -1,3 +1,45 @@
+// lib/bunchByPeriod.js
+function bunchByPeriod(xs) {
+  if (!Array.isArray(xs) || xs.length === 0) {
+    throw new Error("Provide a non-empty array of numbers.");
+  }
+  const n2 = xs.length;
+  if (n2 === 1) {
+    return xs;
+  }
+  const rem = xs.map((x2, index) => {
+    const remainder = (x2.position % 12 + 12) % 12;
+    return { remainder, index, x: x2 };
+  });
+  const sorted = rem.slice().sort((a2, b2) => a2.remainder - b2.remainder);
+  const gaps = [];
+  for (let j2 = 0; j2 < n2 - 1; j2++) {
+    gaps.push({ size: sorted[j2 + 1].remainder - sorted[j2].remainder, idxAfter: j2 + 1 });
+  }
+  gaps.push({
+    size: sorted[0].remainder + 12 - sorted[n2 - 1].remainder,
+    idxAfter: 0
+  });
+  let maxGap = gaps[0].size;
+  let startIdx = gaps[0].idxAfter;
+  for (let g2 = 1; g2 < gaps.length; g2++) {
+    if (gaps[g2].size > maxGap) {
+      maxGap = gaps[g2].size;
+      startIdx = gaps[g2].idxAfter;
+    }
+  }
+  const lifted = new Array(n2);
+  for (let j2 = 0; j2 < n2; j2++) {
+    const s2 = sorted[j2];
+    const position2 = j2 < startIdx ? s2.remainder + 12 : s2.remainder;
+    lifted[j2] = { ...s2, position: position2 };
+  }
+  return lifted.sort((a2, b2) => a2.index - b2.index).map((item) => {
+    const { position: position2, x: x2 } = item;
+    return { position: position2, item: x2.item };
+  });
+}
+
 // lib/chord.js
 var Interval = {
   UNISON: 0,
@@ -116,21 +158,12 @@ function fretNormalizer(chord) {
   });
 }
 function closeChordPosition(chord) {
-  if (chord.length < 2) return;
-  let previous = chord[0];
-  let maxFret = previous[1];
-  let minFret = previous[1];
-  for (let i = 1; i < chord.length; i++) {
-    const current = chord[i];
-    let currentFret = current[1];
-    const midPoint = (maxFret + minFret) / 2;
-    while (currentFret - midPoint > 6) currentFret -= 12;
-    while (currentFret - midPoint < -6) currentFret += 12;
-    if (currentFret > maxFret) maxFret = currentFret;
-    if (currentFret < minFret) minFret = currentFret;
-    current[1] = currentFret;
-    previous = current;
+  const mapped = chord.map(([string, fret, options]) => ({ position: fret, item: [string, fret, options] }));
+  const bunched = bunchByPeriod(mapped);
+  for (let i = 0; i < chord.length; i++) {
+    chord[i][1] = bunched[i].position;
   }
+  return chord;
 }
 function* zip(arr1, arr2) {
   const length2 = Math.min(arr1.length, arr2.length);
