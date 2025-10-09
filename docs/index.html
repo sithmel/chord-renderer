@@ -35,6 +35,7 @@
         <button type="button" id="cart-empty" class="secondary" disabled>Empty All</button>
         <button type="button" id="cart-download" disabled>Export All SVG</button>
         <button type="button" id="cart-download-html" class="secondary" disabled>Export All HTML</button>
+        <button type="button" id="cart-download-json" class="secondary" disabled>Export All JSON</button>
       </div>
     </div>
     <div id="cart-items" class="cart-items">
@@ -79,14 +80,6 @@
 
       <div id="message" class="message" aria-live="polite"></div>
       <div id="results" class="results" aria-live="polite"></div>
-
-      <details class="export" id="export-box" hidden>
-        <summary><p>Export JSON</p></summary>
-        <textarea id="json-output" readonly aria-label="Chord JSON" spellcheck="false"></textarea>
-        <div class="actions">
-          <button type="button" id="copy-json" class="secondary">Copy JSON</button>
-        </div>
-      </details>
     </div>
   </aside>
   <footer class="site-footer">

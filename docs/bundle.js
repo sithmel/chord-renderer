@@ -7405,14 +7405,6 @@ var message = (
   /** @type {HTMLElement} */
   document.getElementById("message")
 );
-var jsonOutput = (
-  /** @type {HTMLTextAreaElement} */
-  document.getElementById("json-output")
-);
-var copyBtn = (
-  /** @type {HTMLButtonElement} */
-  document.getElementById("copy-json")
-);
 var stringsHint = (
   /** @type {HTMLElement} */
   document.getElementById("strings-hint")
@@ -7445,6 +7437,10 @@ var cartDownloadHtmlBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("cart-download-html")
 );
+var cartDownloadJsonBtn = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("cart-download-json")
+);
 var builderPanel = (
   /** @type {HTMLElement|null} */
   document.getElementById("builder-panel")
@@ -7457,7 +7453,7 @@ var closeBuilderBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("close-builder")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox) {
   throw new Error("Required DOM elements not found");
 }
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase()).sort((a2, b2) => (
@@ -7693,29 +7689,11 @@ function renderIntervalLabelOptions() {
 }
 function clearResults() {
   results.innerHTML = "";
-  jsonOutput.value = "";
 }
 function setMessage(text, type = "") {
   message.textContent = text;
   message.className = "message " + type;
 }
-copyBtn.addEventListener("click", async () => {
-  if (!jsonOutput.value) return;
-  try {
-    await navigator.clipboard.writeText(jsonOutput.value);
-    copyBtn.textContent = "Copied!";
-    setTimeout(() => {
-      copyBtn.textContent = "Copy JSON";
-    }, 1200);
-  } catch (e2) {
-    jsonOutput.select();
-    document.execCommand("copy");
-    copyBtn.textContent = "Copied!";
-    setTimeout(() => {
-      copyBtn.textContent = "Copy JSON";
-    }, 1200);
-  }
-});
 function canGenerate() {
   if (selectedIntervals.size < 2) return false;
   const voicingInput = (
@@ -7782,10 +7760,8 @@ function generateChords() {
   }
   if (count === 0) {
     setMessage("No chords produced (unexpected).", "error");
-    jsonOutput.value = "";
   } else {
     setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
-    jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
   }
 }
@@ -7836,15 +7812,15 @@ function renderChord(chord, index, voicingName) {
   saveBtn.textContent = "Save";
   saveBtn.setAttribute("aria-label", `Save chord ${index + 1}`);
   saveBtn.addEventListener("click", () => {
-    const chordSvg = svgContainer.querySelector("svg");
-    if (!chordSvg) return;
     const title2 = nameInput.value.trim();
-    const svg = chordSvg.outerHTML;
     const entries = loadCart();
+    const frets2 = Math.max(3, ...chord.map((f2) => f2[1]));
     const newEntry = {
       id: String(Date.now()) + Math.random().toString(36).slice(2),
       title: title2,
-      svg,
+      fingers: chord,
+      barres: [],
+      frets: frets2,
       created: Date.now()
     };
     entries.push(newEntry);
@@ -7865,8 +7841,9 @@ function renderChord(chord, index, voicingName) {
   holder.appendChild(saveControls);
   results.appendChild(holder);
   const frets = Math.max(3, ...chord.map((f2) => f2[1]));
+  const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure({ frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 }).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure(config).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();
@@ -7900,13 +7877,13 @@ if (initialState) {
   pushState();
   tryAutoGenerate();
 }
-var CART_KEY = "chordRendererCartV1";
+var CART_KEY = "chordRendererCartV2";
 function loadCart() {
   try {
     const raw = localStorage.getItem(CART_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter((e2) => e2 && typeof e2.svg === "string");
+    if (Array.isArray(parsed)) return parsed.filter((e2) => e2 && e2.fingers && Array.isArray(e2.fingers));
   } catch (e2) {
   }
   return [];
@@ -7959,8 +7936,13 @@ function renderCartGallery() {
           <button type="button" class="delete-btn" aria-label="Delete chord">\u2715</button>
         </div>
       </div>
-      <div class="cart-item-svg">${entry.svg}</div>
+      <div class="cart-item-svg"></div>
     `;
+    const svgContainer = item.querySelector(".cart-item-svg");
+    if (svgContainer) {
+      new /** @type {any} */
+      SVGuitarChord(svgContainer).chord({ fingers: entry.fingers, barres: entry.barres }).configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 }).draw();
+    }
     const upBtn = item.querySelector(".up-btn");
     const downBtn = item.querySelector(".down-btn");
     const deleteBtn = item.querySelector(".delete-btn");
@@ -8039,9 +8021,11 @@ if (cartEmptyBtn) {
 }
 if (cartDownloadBtn) {
   cartDownloadBtn.addEventListener("click", () => {
-    const entries = loadCart();
-    if (!entries.length) return;
-    const full = combineCartEntries(entries);
+    if (!cartItems) return;
+    const svgElements = cartItems.querySelectorAll(".cart-item-svg svg");
+    if (!svgElements.length) return;
+    const svgStrings = Array.from(svgElements).map((svg) => svg.outerHTML);
+    const full = combineCartSvgs(svgStrings);
     const blob = new Blob([full], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a2 = document.createElement("a");
@@ -8053,7 +8037,7 @@ if (cartDownloadBtn) {
     URL.revokeObjectURL(url);
   });
 }
-function buildCartHtml(entries) {
+function buildCartHtmlFromSvgs(svgStrings) {
   const esc = (s2) => s2.replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2] || c2);
   const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/T/, " ").replace(/\..+/, " UTC");
   let out = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />';
@@ -8061,17 +8045,35 @@ function buildCartHtml(entries) {
   out += "<style>:root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb;}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text);}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem;}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px;}.meta{font-size:.6rem;color:#555;margin:0;}.chords{display:flex;flex-direction:column;gap:1.2rem;}section.chord{padding:.75rem .9rem .9rem;page-break-inside:avoid;break-inside:avoid;}section.chord h2{font-size:.8rem;margin:0 0 .5rem;text-align:center;letter-spacing:.4px;}section.chord svg{display:block;margin:0 auto;max-width:100%;height:auto;}@media print{body{background:#fff;}section.chord{box-shadow:none;background:#fff;}}</style></head><body>";
   out += `<header><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
   out += '<div class="chords">';
-  for (const e2 of entries) {
-    out += `<section class="chord">${e2.svg}</section>`;
+  for (const svg of svgStrings) {
+    out += `<section class="chord">${svg}</section>`;
   }
   out += "</div></body></html>";
   return out;
 }
-if (cartDownloadHtmlBtn) {
-  cartDownloadHtmlBtn.addEventListener("click", () => {
+if (cartDownloadJsonBtn) {
+  cartDownloadJsonBtn.addEventListener("click", () => {
     const entries = loadCart();
     if (!entries.length) return;
-    const html = buildCartHtml(entries);
+    const jsonData = JSON.stringify(entries, null, 2);
+    const blob = new Blob([jsonData], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a2 = document.createElement("a");
+    a2.href = url;
+    a2.download = "saved-chords.json";
+    document.body.appendChild(a2);
+    a2.click();
+    document.body.removeChild(a2);
+    URL.revokeObjectURL(url);
+  });
+}
+if (cartDownloadHtmlBtn) {
+  cartDownloadHtmlBtn.addEventListener("click", () => {
+    if (!cartItems) return;
+    const svgElements = cartItems.querySelectorAll(".cart-item-svg svg");
+    if (!svgElements.length) return;
+    const svgStrings = Array.from(svgElements).map((svg) => svg.outerHTML);
+    const html = buildCartHtmlFromSvgs(svgStrings);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a2 = document.createElement("a");
@@ -8084,15 +8086,15 @@ if (cartDownloadHtmlBtn) {
   });
 }
 updateCartCount();
-function combineCartEntries(entries) {
-  if (!entries.length) return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><text x="50" y="25" text-anchor="middle">No entries</text></svg>';
+function combineCartSvgs(svgStrings) {
+  if (!svgStrings.length) return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><text x="50" y="25" text-anchor="middle">No entries</text></svg>';
   const PER_ROW = 4;
   const H_GAP = 24;
   const V_GAP = 24;
-  const parts = entries.map((e2) => ({
-    svg: e2.svg,
-    w: extractSvgDimension(e2.svg, "width"),
-    h: extractSvgDimension(e2.svg, "height")
+  const parts = svgStrings.map((svg) => ({
+    svg,
+    w: extractSvgDimension(svg, "width"),
+    h: extractSvgDimension(svg, "height")
   }));
   const maxW = Math.max(...parts.map((p2) => p2.w));
   const maxH = Math.max(...parts.map((p2) => p2.h));
@@ -8136,6 +8138,7 @@ function refreshCartActionStates() {
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
   if (cartDownloadBtn) cartDownloadBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
+  if (cartDownloadJsonBtn) cartDownloadJsonBtn.disabled = len === 0;
 }
 updateCartCount();
 renderCartGallery();

@@ -10,8 +10,6 @@ const voicingBox = /** @type {HTMLElement} */(document.getElementById('voicing-b
 const form = /** @type {HTMLFormElement} */(document.getElementById('voicing-form'));
 const results = /** @type {HTMLElement} */(document.getElementById('results'));
 const message = /** @type {HTMLElement} */(document.getElementById('message'));
-const jsonOutput = /** @type {HTMLTextAreaElement} */(document.getElementById('json-output'));
-const copyBtn = /** @type {HTMLButtonElement} */(document.getElementById('copy-json'));
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
@@ -23,13 +21,14 @@ const cartCount = /** @type {HTMLElement|null} */(document.getElementById('cart-
 const cartEmptyBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-empty'));
 const cartDownloadBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download'));
 const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-html'));
+const cartDownloadJsonBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-json'));
 
 // Builder panel references
 const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('builder-panel'));
 const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('open-builder'));
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -302,7 +301,6 @@ function renderIntervalLabelOptions() {
 
 function clearResults() {
   results.innerHTML = '';
-  jsonOutput.value = '';
 }
 
 
@@ -316,19 +314,7 @@ function setMessage(text, type = '') {
   message.className = 'message ' + type;
 }
 
-copyBtn.addEventListener('click', async () => {
-  if (!jsonOutput.value) return;
-  try {
-    await navigator.clipboard.writeText(jsonOutput.value);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy JSON'; }, 1200);
-  } catch {
-    jsonOutput.select();
-    document.execCommand('copy');
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy JSON'; }, 1200);
-  }
-});
+
 
 /**
  * Determine whether we have enough info to generate chords.
@@ -395,10 +381,8 @@ function generateChords() {
   }
   if (count === 0) {
     setMessage('No chords produced (unexpected).', 'error');
-    jsonOutput.value = '';
   } else {
     setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
-    jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
   }
 }
@@ -461,16 +445,15 @@ function renderChord(chord, index, voicingName) {
   saveBtn.setAttribute('aria-label', `Save chord ${index + 1}`);
   
   saveBtn.addEventListener('click', () => {
-    const chordSvg = svgContainer.querySelector('svg');
-    if (!chordSvg) return;
-    
     const title = nameInput.value.trim();
-    const svg = chordSvg.outerHTML;
     const entries = loadCart();
+    const frets = Math.max(3, ...chord.map(f => f[1]));
     const newEntry = { 
       id: String(Date.now()) + Math.random().toString(36).slice(2), 
       title, 
-      svg, 
+      fingers: chord,
+      barres: [],
+      frets,
       created: Date.now() 
     };
     entries.push(newEntry);
@@ -496,12 +479,14 @@ function renderChord(chord, index, voicingName) {
   
   results.appendChild(holder);
 
-  const frets = Math.max(3, ...chord.map(f => f[1]));
-
-  new /** @type {any} */(SVGuitarChord)(svgContainer)
-    .chord({ fingers: chord, barres: [] })
-    .configure({ frets, noPosition: true,  fingerSize: 0.75, fingerTextSize: 20 })
-    .draw();
+    const frets = Math.max(3, ...chord.map(f => f[1]));
+    const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
+    
+    // Render the SVG for the current results display
+    new /** @type {any} */(SVGuitarChord)(svgContainer)
+      .chord({ fingers: chord, barres: [] })
+      .configure(config)
+      .draw();
 }
 
 // Keep submit handler for manual triggers (backward compatibility / URL state load)
@@ -542,10 +527,11 @@ if (initialState) {
 // ---- Cart + selection logic ----
 
 /** @type {string} */
-const CART_KEY = 'chordRendererCartV1';
+const CART_KEY = 'chordRendererCartV2';
 
 /**
- * @typedef {{ id:string, title:string, svg:string, created:number }} CartEntry
+ * @typedef {import('../lib/chord.js').FingerPosition} FingerPosition
+ * @typedef {{ id:string, title:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any }} CartEntry
  */
 
 /** @returns {CartEntry[]} */
@@ -554,7 +540,7 @@ function loadCart() {
     const raw = localStorage.getItem(CART_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter(e => e && typeof e.svg === 'string');
+    if (Array.isArray(parsed)) return parsed.filter(e => e && e.fingers && Array.isArray(e.fingers));
   } catch {}
   return [];
 }
@@ -618,8 +604,17 @@ function renderCartGallery() {
           <button type="button" class="delete-btn" aria-label="Delete chord">✕</button>
         </div>
       </div>
-      <div class="cart-item-svg">${entry.svg}</div>
+      <div class="cart-item-svg"></div>
     `;
+    
+    // Render the chord using svguitar from stored data
+    const svgContainer = item.querySelector('.cart-item-svg');
+    if (svgContainer) {
+      new /** @type {any} */(SVGuitarChord)(svgContainer)
+        .chord({ fingers: entry.fingers, barres: entry.barres })
+        .configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 })
+        .draw();
+    }
     
     // Add event listeners
     const upBtn = item.querySelector('.up-btn');
@@ -723,9 +718,11 @@ if (cartEmptyBtn) {
 
 if (cartDownloadBtn) {
   cartDownloadBtn.addEventListener('click', () => {
-    const entries = loadCart();
-    if (!entries.length) return;
-    const full = combineCartEntries(entries);
+    if (!cartItems) return;
+    const svgElements = cartItems.querySelectorAll('.cart-item-svg svg');
+    if (!svgElements.length) return;
+    const svgStrings = Array.from(svgElements).map(svg => svg.outerHTML);
+    const full = combineCartSvgs(svgStrings);
     const blob = new Blob([full], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -744,11 +741,11 @@ if (cartDownloadBtn) {
  */
 
 /**
- * Build printable HTML document containing all cart entry SVGs.
- * @param {CartEntry[]} entries
+ * Build printable HTML document containing SVG strings.
+ * @param {string[]} svgStrings
  * @returns {string}
  */
-function buildCartHtml(entries) {
+function buildCartHtmlFromSvgs(svgStrings) {
   /** @type {EscaperFn} */
   const esc = (s) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]||c));
   /** @type {string} */
@@ -761,18 +758,38 @@ function buildCartHtml(entries) {
     '</style></head><body>';
   out += `<header><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
   out += '<div class="chords">';
-  for (const e of entries) {
-    out += `<section class="chord">${e.svg}</section>`;
+  for (const svg of svgStrings) {
+    out += `<section class="chord">${svg}</section>`;
   }
   out += '</div></body></html>';
   return out;
 }
 
-if (cartDownloadHtmlBtn) {
-  cartDownloadHtmlBtn.addEventListener('click', () => {
+if (cartDownloadJsonBtn) {
+  cartDownloadJsonBtn.addEventListener('click', () => {
     const entries = loadCart();
     if (!entries.length) return;
-    const html = buildCartHtml(entries);
+    
+    const jsonData = JSON.stringify(entries, null, 2);
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'saved-chords.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+}
+
+if (cartDownloadHtmlBtn) {
+  cartDownloadHtmlBtn.addEventListener('click', () => {
+    if (!cartItems) return;
+    const svgElements = cartItems.querySelectorAll('.cart-item-svg svg');
+    if (!svgElements.length) return;
+    const svgStrings = Array.from(svgElements).map(svg => svg.outerHTML);
+    const html = buildCartHtmlFromSvgs(svgStrings);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -796,21 +813,21 @@ updateCartCount();
 
 
 /**
- * Combine multiple cart entry svgs in a 4-per-row grid layout.
- * @param {CartEntry[]} entries
+ * Combine multiple SVG strings in a 4-per-row grid layout.
+ * @param {string[]} svgStrings
  */
-function combineCartEntries(entries) {
-  if (!entries.length) return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><text x="50" y="25" text-anchor="middle">No entries</text></svg>';
+function combineCartSvgs(svgStrings) {
+  if (!svgStrings.length) return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><text x="50" y="25" text-anchor="middle">No entries</text></svg>';
   
   const PER_ROW = 4;
   const H_GAP = 24;
   const V_GAP = 24;
   
   // Parse dimensions for each entry
-  const parts = entries.map(e => ({ 
-    svg: e.svg, 
-    w: extractSvgDimension(e.svg, 'width'), 
-    h: extractSvgDimension(e.svg, 'height') 
+  const parts = svgStrings.map(svg => ({ 
+    svg, 
+    w: extractSvgDimension(svg, 'width'), 
+    h: extractSvgDimension(svg, 'height') 
   }));
   
   // Find max dimensions for uniform sizing
@@ -886,6 +903,7 @@ function refreshCartActionStates() {
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
   if (cartDownloadBtn) cartDownloadBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
+  if (cartDownloadJsonBtn) cartDownloadJsonBtn.disabled = len === 0;
 }
 
 // Initialize gallery and actions
