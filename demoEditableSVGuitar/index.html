@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EditableSVGuitarChord Local Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preload" href="./bundle.js" as="script" type="module">
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin:20px; line-height:1.4; }
+    h1 { margin-top:0; font-size:1.35rem; }
+    .split { display:flex; gap:32px; flex-wrap:wrap; }
+    .panel { flex:1 1 340px; min-width:300px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+    button { padding:6px 12px; border:1px solid #444; background:#f5f5f5; border-radius:4px; cursor:pointer; font-size:14px; }
+    button.primary { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+    button.danger { background:#dc3545; color:#fff; border-color:#dc3545; }
+     button:disabled { opacity:.55; cursor:not-allowed; }
+     #output { font-family:monospace; background:#111; color:#0f0; padding:10px; border-radius:4px; font-size:12px; white-space:pre; max-height:220px; overflow:auto; }
+     .note { font-size:13px; color:#555; }
+     .footer { margin-top:40px; font-size:12px; color:#666; }
+  </style>
+  <script type="module" src="./bundle.js"></script>
+</head>
+<body>
+  <h1>EditableSVGuitarChord Demo (Local svguitar)</h1>
+  <p class="note">
+    Click empty fretboard positions to add dots; click existing dots to edit or remove them.
+    The fretboard automatically adjusts to show all dots with one extra fret.
+  </p>
+  <div class="split">
+    <div class="panel">
+      <div id="editor"></div>
+      <div class="toolbar">
+        <button id="sample-c" type="button">Load C Maj (open)</button>
+        <button id="sample-g" type="button">Load G Maj (open)</button>
+        <button id="clear" type="button" class="danger">Clear</button>
+        <button id="refresh-json" type="button">Refresh JSON</button>
+        <button id="export-json" type="button" class="primary">Export JSON</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2 style="margin-top:0;font-size:1.05rem;">Current Chord JSON</h2>
+      <div id="output" aria-live="polite">{}</div>
+    </div>
+  </div>
+  <div class="footer">
+    Local demo bundling svguitar via esbuild. Use <code>npm run build</code> to refresh.
+  </div>
+</body>
+</html>
