@@ -5,6 +5,10 @@
  * @typedef {{text?: string, color?: string, className?: string}} FingerOptions
  */
 /**
+ * Default color presets for the chord editor
+ */
+export const COLOR_PRESETS: string[];
+/**
  * EditableSVGuitarChord - Wrapper around SVGuitarChord that adds interactive editing capabilities
  *
  * Features:

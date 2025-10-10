@@ -2,7 +2,7 @@
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EditableSVGuitarChord } from '../lib/editableSVGuitar.js';
+import { EditableSVGuitarChord, COLOR_PRESETS } from '../lib/editableSVGuitar.js';
 
 // Mock SVGuitarChord class for testing
 class MockSVGuitarChord {
@@ -183,5 +183,24 @@ describe('EditableSVGuitarChord (Core Functionality)', () => {
     
     assert.equal(placeholderAt1_1, undefined, 'Should not have placeholder where finger exists');
     assert.equal(placeholderAt2_2, undefined, 'Should not have placeholder where finger exists');
+  });
+});
+
+describe('COLOR_PRESETS', () => {
+  test('exports COLOR_PRESETS array', () => {
+    assert.ok(Array.isArray(COLOR_PRESETS), 'COLOR_PRESETS should be an array');
+    assert.ok(COLOR_PRESETS.length > 0, 'COLOR_PRESETS should not be empty');
+  });
+
+  test('COLOR_PRESETS contains valid hex colors', () => {
+    COLOR_PRESETS.forEach(color => {
+      assert.ok(typeof color === 'string', 'Color should be a string');
+      assert.ok(/^#[0-9a-fA-F]{6}$/.test(color), `Color ${color} should be valid hex format`);
+    });
+  });
+
+  test('COLOR_PRESETS does not contain white', () => {
+    assert.ok(!COLOR_PRESETS.includes('#ffffff'), 'COLOR_PRESETS should not contain white');
+    assert.ok(!COLOR_PRESETS.includes('#FFFFFF'), 'COLOR_PRESETS should not contain white (uppercase)');
   });
 });

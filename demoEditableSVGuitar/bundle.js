@@ -1,4 +1,22 @@
 // lib/editableSVGuitar.js
+var COLOR_PRESETS = [
+  // Top row
+  "#e74c3c",
+  "#f39c12",
+  "#f1c40f",
+  "#8b4513",
+  "#229954",
+  "#9b59b6",
+  "#3498db",
+  // Bottom row  
+  "#85c1e9",
+  "#48c9b0",
+  "#82e5aa",
+  "#000000",
+  "#555555",
+  "#999999",
+  "#cccccc"
+];
 var EditableSVGuitarChord = class {
   /**
    * @param {HTMLElement} container
@@ -53,7 +71,7 @@ var EditableSVGuitarChord = class {
     this.textInput = document.createElement("input");
     this.textInput.type = "text";
     this.textInput.maxLength = 3;
-    this.textInput.style.cssText = "width: 60px; margin-left: 5px;";
+    this.textInput.style.cssText = "width: 38px; margin-left: 5px;";
     this.textInput.addEventListener("input", () => this.updateDotText());
     textLabel.appendChild(this.textInput);
     const colorLabel = document.createElement("label");
@@ -62,37 +80,12 @@ var EditableSVGuitarChord = class {
     this.colorInput = document.createElement("input");
     this.colorInput.type = "color";
     this.colorInput.value = "#000000";
-    this.colorInput.style.cssText = "margin-left: 5px;";
+    this.colorInput.style.cssText = "margin-left: 5px; margin-bottom: 8px;";
     this.colorInput.addEventListener("input", () => this.updateDotColor());
     colorLabel.appendChild(this.colorInput);
-    const presetsDiv = document.createElement("div");
-    presetsDiv.style.cssText = "margin-bottom: 15px;";
-    const presetsLabel = document.createElement("div");
-    presetsLabel.textContent = "Quick colors:";
-    presetsLabel.style.cssText = "font-size: 12px; color: #666; margin-bottom: 5px;";
     const colorsGrid = document.createElement("div");
-    colorsGrid.style.cssText = "display: grid; grid-template-columns: repeat(8, 20px); gap: 3px;";
-    const colorPresets = [
-      // Top row
-      "#e74c3c",
-      "#f39c12",
-      "#f1c40f",
-      "#8b4513",
-      "#27ae60",
-      "#229954",
-      "#9b59b6",
-      "#3498db",
-      // Bottom row  
-      "#85c1e9",
-      "#48c9b0",
-      "#82e5aa",
-      "#000000",
-      "#555555",
-      "#999999",
-      "#cccccc",
-      "#ffffff"
-    ];
-    colorPresets.forEach((color) => {
+    colorsGrid.style.cssText = "display: grid; grid-template-columns: repeat(7, 20px); gap: 3px; margin-left: 5px;";
+    COLOR_PRESETS.forEach((color) => {
       const swatch = document.createElement("button");
       swatch.type = "button";
       swatch.style.cssText = `
@@ -103,7 +96,6 @@ var EditableSVGuitarChord = class {
         background-color: ${color};
         cursor: pointer;
         padding: 0;
-        ${color === "#ffffff" ? "border-color: #999;" : ""}
       `;
       swatch.addEventListener("click", () => {
         this.colorInput.value = color;
@@ -111,8 +103,7 @@ var EditableSVGuitarChord = class {
       });
       colorsGrid.appendChild(swatch);
     });
-    presetsDiv.appendChild(presetsLabel);
-    presetsDiv.appendChild(colorsGrid);
+    colorLabel.appendChild(colorsGrid);
     const buttonDiv = document.createElement("div");
     buttonDiv.style.cssText = "display: flex; gap: 10px; justify-content: flex-end;";
     const removeBtn = document.createElement("button");
@@ -128,7 +119,6 @@ var EditableSVGuitarChord = class {
     this.dialog.appendChild(title);
     this.dialog.appendChild(textLabel);
     this.dialog.appendChild(colorLabel);
-    this.dialog.appendChild(presetsDiv);
     this.dialog.appendChild(buttonDiv);
     document.body.appendChild(this.dialog);
     this.backdrop = document.createElement("div");
