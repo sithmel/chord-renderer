@@ -31,6 +31,7 @@ var EditableSVGuitarChord = class {
     this.isDialogOpen = false;
     this.controlsCreated = false;
     this.currentEditElement = null;
+    this.changeCallback = null;
     if (typeof document !== "undefined") {
       this.createControls();
     }
@@ -266,6 +267,7 @@ var EditableSVGuitarChord = class {
   addDot(string, fret) {
     this.chordConfig.fingers.push([string, fret, { text: "", color: "#000000" }]);
     this.redraw();
+    this.triggerChange();
   }
   /**
    * Edit an existing dot
@@ -391,6 +393,7 @@ var EditableSVGuitarChord = class {
     }
     this.currentEditFinger[2].text = this.textInput.value;
     this.redraw();
+    this.triggerChange();
   }
   /**
    * Update dot color in real-time
@@ -402,6 +405,7 @@ var EditableSVGuitarChord = class {
     }
     this.currentEditFinger[2].color = this.colorInput.value;
     this.redraw();
+    this.triggerChange();
   }
   /**
    * Save changes to the current dot
@@ -429,6 +433,7 @@ var EditableSVGuitarChord = class {
     }
     this.closeDialog();
     this.redraw();
+    this.triggerChange();
   }
   /**
    * Get current chord configuration
@@ -436,6 +441,23 @@ var EditableSVGuitarChord = class {
    */
   getChord() {
     return { ...this.chordConfig };
+  }
+  /**
+   * Register a callback for when the chord changes
+   * @param {Function} callback - Called with updated fingers array
+   * @returns {EditableSVGuitarChord}
+   */
+  onChange(callback) {
+    this.changeCallback = callback;
+    return this;
+  }
+  /**
+   * Trigger the change callback if registered
+   */
+  triggerChange() {
+    if (this.changeCallback && typeof this.changeCallback === "function") {
+      this.changeCallback([...this.chordConfig.fingers]);
+    }
   }
   /**
    * Clean up resources

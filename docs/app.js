@@ -3,6 +3,7 @@
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
 import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
+import { EditableSVGuitarChord, COLOR_PRESETS } from '../lib/editableSVGuitar.js';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
@@ -27,6 +28,7 @@ const cartDownloadJsonBtn = /** @type {HTMLButtonElement|null} */(document.getEl
 const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('builder-panel'));
 const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('open-builder'));
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
+const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
 if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
@@ -42,8 +44,8 @@ const selectedIntervals = new Set();
 /**
  * Store user overrides for interval display.
  * key: interval number
- * value: { text?: string, colored?: boolean }
- * @type {Map<number,{text?: string, colored?: boolean}>}
+ * value: { text?: string, color?: string }
+ * @type {Map<number,{text?: string, color?: string}>}
  */
 const userIntervalOptions = new Map();
 
@@ -60,7 +62,7 @@ function buildState() {
     /** @type {Record<string, any>} */
     const rec = {};
     if (opts.text !== undefined) rec.t = opts.text; // explicit empty string allowed
-    if (opts.colored) rec.c = 1;
+    if (opts.color) rec.c = opts.color;
     if (Object.keys(rec).length) o[String(interval)] = rec;
   }
   return {
@@ -128,11 +130,11 @@ function applyState(state) {
       const num = Number(k);
       if (!Number.isInteger(num)) continue;
       if (v && typeof v === 'object') {
-        /** @type {{text?: string, colored?: boolean}} */
+        /** @type {{text?: string, color?: string}} */
         const rec = {};
         if ('t' in v) rec.text = typeof v.t === 'string' ? v.t : '';
-        if (v.c === 1) rec.colored = true;
-        if (rec.text !== undefined || rec.colored) userIntervalOptions.set(num, rec);
+        if (v.c && typeof v.c === 'string') rec.color = v.c;
+        if (rec.text !== undefined || rec.color) userIntervalOptions.set(num, rec);
       }
     }
   }
@@ -275,25 +277,86 @@ function renderIntervalLabelOptions() {
       pushState();
       tryAutoGenerate();
     });
-    const colorLabel = document.createElement('label');
-    colorLabel.className = 'inline';
-    const colorCheckbox = document.createElement('input');
-    colorCheckbox.type = 'checkbox';
-    colorCheckbox.checked = existing.colored ?? false; // default now false (no color)
-    colorCheckbox.addEventListener('change', () => {
+    // Color picker: Show color swatches from COLOR_PRESETS + none option
+    const colorContainer = document.createElement('div');
+    colorContainer.className = 'color-presets';
+    
+    // "None" option (no color)
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = 'color-preset-btn none';
+    noneBtn.title = 'No color';
+    noneBtn.textContent = '×';
+    
+    // Set initial state for "none" button
+    if (!existing.color) {
+      noneBtn.classList.add('selected');
+    }
+    
+    noneBtn.addEventListener('click', () => {
       const record = userIntervalOptions.get(interval) || {};
-      record.colored = colorCheckbox.checked;
+      record.color = undefined;
       userIntervalOptions.set(interval, record);
       pushState();
       tryAutoGenerate();
+      // Update button states
+      updateColorButtonStates();
     });
-    colorLabel.appendChild(colorCheckbox);
-    const smallTxt = document.createElement('span');
-    smallTxt.textContent = 'color';
-    colorLabel.appendChild(smallTxt);
+    
+    colorContainer.appendChild(noneBtn);
+    
+    // Color preset buttons
+    const colorButtons = [];
+    for (const color of COLOR_PRESETS) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-preset-btn';
+      btn.style.background = color;
+      btn.title = `Color: ${color}`;
+      
+      // Set initial state
+      if (existing.color === color) {
+        btn.classList.add('selected');
+      }
+      
+      btn.addEventListener('click', () => {
+        const record = userIntervalOptions.get(interval) || {};
+        record.color = color;
+        userIntervalOptions.set(interval, record);
+        pushState();
+        tryAutoGenerate();
+        // Update button states
+        updateColorButtonStates();
+      });
+      
+      colorButtons.push(btn);
+      colorContainer.appendChild(btn);
+    }
+    
+    // Function to update button states
+    function updateColorButtonStates() {
+      const currentRecord = userIntervalOptions.get(interval) || {};
+      const currentColor = currentRecord.color;
+      
+      // Update "none" button
+      if (!currentColor) {
+        noneBtn.classList.add('selected');
+      } else {
+        noneBtn.classList.remove('selected');
+      }
+      
+      // Update color preset buttons
+      colorButtons.forEach((btn, index) => {
+        if (currentColor === COLOR_PRESETS[index]) {
+          btn.classList.add('selected');
+        } else {
+          btn.classList.remove('selected');
+        }
+      });
+    }
     row.appendChild(nameSpan);
     row.appendChild(input);
-    row.appendChild(colorLabel);
+    row.appendChild(colorContainer);
     intervalLabelOptionsBox.appendChild(row);
   }
 }
@@ -371,7 +434,7 @@ function generateChords() {
       return {
         className: base.className,
         text: override.text !== undefined ? override.text : base.text,
-        color: override.colored === true ? base.color : undefined,
+        color: override.color || base.color,
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
@@ -607,13 +670,27 @@ function renderCartGallery() {
       <div class="cart-item-svg"></div>
     `;
     
-    // Render the chord using svguitar from stored data
+    // Render the chord using EditableSVGuitarChord from stored data
     const svgContainer = item.querySelector('.cart-item-svg');
     if (svgContainer) {
-      new /** @type {any} */(SVGuitarChord)(svgContainer)
+      const editableChord = new /** @type {any} */(EditableSVGuitarChord)(svgContainer, SVGuitarChord)
         .chord({ fingers: entry.fingers, barres: entry.barres })
         .configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 })
         .draw();
+      
+      // Add listener for when the chord is modified
+      editableChord.onChange((updatedFingers) => {
+        // Update the cart entry with new finger positions
+        const entries = loadCart();
+        const entryIndex = entries.findIndex(e => e.id === entry.id);
+        if (entryIndex !== -1) {
+          entries[entryIndex].fingers = updatedFingers;
+          // Update frets if needed
+          const maxFret = Math.max(3, ...updatedFingers.map(f => f[1]));
+          entries[entryIndex].frets = maxFret;
+          saveCart(entries);
+        }
+      });
     }
     
     // Add event listeners
@@ -698,6 +775,36 @@ if (openBuilderBtn) {
 
 if (closeBuilderBtn) {
   closeBuilderBtn.addEventListener('click', closeBuilder);
+}
+
+// Add empty chord button listener
+if (addEmptyChordBtn) {
+  addEmptyChordBtn.addEventListener('click', () => {
+    const entries = loadCart();
+    const newEntry = { 
+      id: String(Date.now()) + Math.random().toString(36).slice(2), 
+      title: 'Empty chord', 
+      fingers: [], // empty chord has no fingers
+      barres: [],
+      frets: 3, // minimum frets for empty chord
+      created: Date.now() 
+    };
+    entries.push(newEntry);
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    
+    setMessage('Added empty editable chord to gallery.');
+    
+    // Focus the newly added cart item
+    setTimeout(() => {
+      const newItem = cartItems?.querySelector(`[data-entry-id="${newEntry.id}"]`);
+      if (newItem instanceof HTMLElement) {
+        newItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        newItem.focus();
+      }
+    }, 100);
+  });
 }
 
 // Escape key handler

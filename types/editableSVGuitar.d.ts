@@ -34,6 +34,8 @@ export class EditableSVGuitarChord {
     isDialogOpen: boolean;
     controlsCreated: boolean;
     currentEditElement: Element;
+    /** @type {Function|null} */
+    changeCallback: Function | null;
     /**
      * Create controls and containers
      */
@@ -148,6 +150,16 @@ export class EditableSVGuitarChord {
      * @returns {ChordConfig}
      */
     getChord(): ChordConfig;
+    /**
+     * Register a callback for when the chord changes
+     * @param {Function} callback - Called with updated fingers array
+     * @returns {EditableSVGuitarChord}
+     */
+    onChange(callback: Function): EditableSVGuitarChord;
+    /**
+     * Trigger the change callback if registered
+     */
+    triggerChange(): void;
     /**
      * Clean up resources
      */

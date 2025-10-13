@@ -426,7 +426,6 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 }
 
 .cart-item-svg {
-  display: flex;
   justify-content: center;
   margin: 0 0 0.75rem;
   background: #fff;
@@ -596,6 +595,44 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 .interval-label-row input[type="text"]:focus-visible { outline:none; box-shadow: var(--color-focus-ring); }
 .interval-label-row label.inline { display:inline-flex; align-items:center; gap:0.25rem; cursor:pointer; }
 .interval-label-row input[type="checkbox"] { margin:0; }
+
+/* Color preset buttons */
+.color-presets {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.color-preset-btn {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), border-width var(--transition-fast);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  min-width: auto;
+  line-height: 1;
+}
+
+.color-preset-btn.none {
+  background: white;
+  color: var(--color-text-subtle);
+}
+
+.color-preset-btn.selected {
+  border-color: #000;
+  border-width: 3px;
+}
+
+.color-preset-btn:not(.selected) {
+  border-color: var(--color-border-strong);
+  border-width: 2px;
+}
 
 /* Intro section */
 .intro {
