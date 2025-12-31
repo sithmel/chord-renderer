@@ -8,7 +8,8 @@ function bunchByPeriod(xs) {
     return xs;
   }
   const rem = xs.map((x2, index) => {
-    const remainder = (x2.position % 12 + 12) % 12;
+    const pos = x2.position === "x" ? 0 : x2.position;
+    const remainder = (pos % 12 + 12) % 12;
     return { remainder, index, x: x2 };
   });
   const sorted = rem.slice().sort((a2, b2) => a2.remainder - b2.remainder);
@@ -149,11 +150,12 @@ function* getStringSets(numberOfNNotes, stringIntervals = GUITAR_STANDARD_TUNING
 }
 function fretNormalizer(chord) {
   const minFret = Math.min(
-    ...chord.map((pos) => pos ? pos[1] : Infinity)
+    ...chord.map((pos) => pos ? pos[1] === "x" ? Infinity : pos[1] : Infinity)
   );
   if (minFret === Infinity) return chord;
   chord.forEach((pos) => {
     if (!pos) return;
+    if (pos[1] === "x") return;
     pos[1] = pos[1] - (minFret - 1);
   });
 }
@@ -8911,7 +8913,7 @@ function renderChord(chord, index, voicingName) {
   saveBtn.setAttribute("aria-label", `Save chord ${index + 1}`);
   saveBtn.addEventListener("click", () => {
     const entries = loadCart();
-    const frets2 = Math.max(3, ...chord.map((f2) => f2[1]));
+    const frets2 = Math.max(3, ...chord.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
     const newEntry = {
       id: String(Date.now()) + Math.random().toString(36).slice(2),
       fingers: chord,
@@ -8935,7 +8937,7 @@ function renderChord(chord, index, voicingName) {
   saveControls.appendChild(saveBtn);
   holder.appendChild(saveControls);
   results.appendChild(holder);
-  const frets = Math.max(3, ...chord.map((f2) => f2[1]));
+  const frets = Math.max(3, ...chord.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
   const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
   new /** @type {any} */
   SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure(config).draw();
@@ -9043,10 +9045,7 @@ function renderCartGallery() {
         const entryIndex = entries2.findIndex((e2) => e2.id === entry.id);
         if (entryIndex !== -1) {
           entries2[entryIndex].fingers = updatedFingers;
-          const maxFret = Math.max(3, ...updatedFingers.map(
-            /** @param {any} f */
-            (f2) => f2[1]
-          ));
+          const maxFret = Math.max(3, ...updatedFingers.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
           entries2[entryIndex].frets = maxFret;
           saveCart(entries2);
           updateCartCount();

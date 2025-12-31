@@ -442,7 +442,7 @@ function generateChords() {
     /**
      * Get finger options for a given interval.
      * @param {number|null} interval
-     * @returns {import('../lib/chord.js').FingerOptions}
+     * @returns {import('svguitar').FingerOptions}
      */
     const intervalToFingerOptions = (interval) => {
       if (interval === null) return {};
@@ -519,7 +519,7 @@ function renderChord(chord, index, voicingName) {
   
   saveBtn.addEventListener('click', () => {
     const entries = loadCart();
-    const frets = Math.max(3, ...chord.map(f => f[1]));
+    const frets = Math.max(3, ...chord.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
     const newEntry = { 
       id: String(Date.now()) + Math.random().toString(36).slice(2), 
       fingers: chord,
@@ -549,7 +549,7 @@ function renderChord(chord, index, voicingName) {
   
   results.appendChild(holder);
 
-    const frets = Math.max(3, ...chord.map(f => f[1]));
+    const frets = Math.max(3, ...chord.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
     const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
     
     // Render the SVG for the current results display
@@ -600,7 +600,7 @@ if (initialState) {
 const CART_KEY = 'chordRendererCartV2';
 
 /**
- * @typedef {import('../lib/chord.js').FingerPosition} FingerPosition
+ * @typedef {import('svguitar').Finger} FingerPosition
  * @typedef {{ id:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any }} CartEntry
  */
 
@@ -697,7 +697,7 @@ function renderCartGallery() {
         if (entryIndex !== -1) {
           entries[entryIndex].fingers = updatedFingers;
           // Update frets if needed
-          const maxFret = Math.max(3, ...updatedFingers.map(/** @param {any} f */ (f) => f[1]));
+          const maxFret = Math.max(3, ...updatedFingers.map((f) => (typeof f[1] === 'number' ? f[1] : 0)));
           entries[entryIndex].frets = maxFret;
           saveCart(entries);
           updateCartCount();
