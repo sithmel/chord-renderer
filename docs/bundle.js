@@ -9036,24 +9036,22 @@ function renderCartGallery() {
     `;
     const svgContainer = item.querySelector(".cart-item-svg");
     if (svgContainer) {
-      const editableChord = new /** @type {any} */
-      EditableSVGuitarChord(svgContainer, SVGuitarChord).chord({ fingers: entry.fingers, barres: entry.barres }).configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 }).draw();
-      editableChord.onChange(
-        /** @param {any} updatedFingers */
-        (updatedFingers) => {
-          const entries2 = loadCart();
-          const entryIndex = entries2.findIndex((e2) => e2.id === entry.id);
-          if (entryIndex !== -1) {
-            entries2[entryIndex].fingers = updatedFingers;
-            const maxFret = Math.max(3, ...updatedFingers.map(
-              /** @param {any} f */
-              (f2) => f2[1]
-            ));
-            entries2[entryIndex].frets = maxFret;
-            saveCart(entries2);
-          }
+      const editableChord = new EditableSVGuitarChord(svgContainer, SVGuitarChord).chord({ fingers: entry.fingers, barres: entry.barres }).configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 }).draw();
+      editableChord.onChange(() => {
+        const updatedFingers = editableChord.chordConfig.fingers;
+        const entries2 = loadCart();
+        const entryIndex = entries2.findIndex((e2) => e2.id === entry.id);
+        if (entryIndex !== -1) {
+          entries2[entryIndex].fingers = updatedFingers;
+          const maxFret = Math.max(3, ...updatedFingers.map(
+            /** @param {any} f */
+            (f2) => f2[1]
+          ));
+          entries2[entryIndex].frets = maxFret;
+          saveCart(entries2);
+          updateCartCount();
         }
-      );
+      });
     }
     const upBtn = item.querySelector(".up-btn");
     const downBtn = item.querySelector(".down-btn");

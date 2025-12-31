@@ -680,15 +680,17 @@ function renderCartGallery() {
     `;
     
     // Render the chord using EditableSVGuitarChord from stored data
+    /** @type {HTMLElement | null} */
     const svgContainer = item.querySelector('.cart-item-svg');
     if (svgContainer) {
-      const editableChord = new /** @type {any} */(EditableSVGuitarChord)(svgContainer, SVGuitarChord)
+      const editableChord = new EditableSVGuitarChord(svgContainer, SVGuitarChord)
         .chord({ fingers: entry.fingers, barres: entry.barres })
         .configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 })
         .draw();
       
       // Add listener for when the chord is modified
-      editableChord.onChange(/** @param {any} updatedFingers */ (updatedFingers) => {
+      editableChord.onChange( () => {
+        const updatedFingers = editableChord.chordConfig.fingers;
         // Update the cart entry with new finger positions
         const entries = loadCart();
         const entryIndex = entries.findIndex(e => e.id === entry.id);
@@ -698,6 +700,7 @@ function renderCartGallery() {
           const maxFret = Math.max(3, ...updatedFingers.map(/** @param {any} f */ (f) => f[1]));
           entries[entryIndex].frets = maxFret;
           saveCart(entries);
+          updateCartCount();
         }
       });
     }
