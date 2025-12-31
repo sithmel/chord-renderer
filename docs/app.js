@@ -369,8 +369,8 @@ function renderIntervalLabelOptions() {
     colorContainer.appendChild(redLabel);
     
     row.appendChild(nameSpan);
-    row.appendChild(input);
     row.appendChild(colorContainer);
+    row.appendChild(input);
     intervalLabelOptionsBox.appendChild(row);
     
     // Set initial visibility
@@ -601,7 +601,7 @@ const CART_KEY = 'chordRendererCartV2';
 
 /**
  * @typedef {import('svguitar').Finger} FingerPosition
- * @typedef {{ id:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any }} CartEntry
+ * @typedef {{ id:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any, position?: number?, title?: string? }} CartEntry
  */
 
 /** @returns {CartEntry[]} */
@@ -683,10 +683,13 @@ function renderCartGallery() {
     /** @type {HTMLElement | null} */
     const svgContainer = item.querySelector('.cart-item-svg');
     if (svgContainer) {
+      const noPosition = entry.position === undefined || entry.position === null;
       const editableChord = new EditableSVGuitarChord(svgContainer, SVGuitarChord)
-        .chord({ fingers: entry.fingers, barres: entry.barres })
-        .configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 })
-        .draw();
+        .chord({ fingers: entry.fingers, barres: entry.barres, position: entry.position || undefined, title: entry.title || '' })
+        .configure({ frets: entry.frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 })
+
+      // Initial draw
+      Promise.resolve().then(() => editableChord.draw());
       
       // Add listener for when the chord is modified
       editableChord.onChange( () => {
@@ -699,6 +702,8 @@ function renderCartGallery() {
           // Update frets if needed
           const maxFret = Math.max(3, ...updatedFingers.map((f) => (typeof f[1] === 'number' ? f[1] : 0)));
           entries[entryIndex].frets = maxFret;
+          entries[entryIndex].title = editableChord.chordConfig.title || '';
+          entries[entryIndex].position = editableChord.chordConfig.position || undefined;
           saveCart(entries);
           updateCartCount();
         }

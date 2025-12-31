@@ -8787,8 +8787,8 @@ function renderIntervalLabelOptions() {
     colorContainer.appendChild(blackLabel);
     colorContainer.appendChild(redLabel);
     row.appendChild(nameSpan);
-    row.appendChild(input);
     row.appendChild(colorContainer);
+    row.appendChild(input);
     intervalLabelOptionsBox.appendChild(row);
     updateInputVisibility();
   }
@@ -9038,7 +9038,9 @@ function renderCartGallery() {
     `;
     const svgContainer = item.querySelector(".cart-item-svg");
     if (svgContainer) {
-      const editableChord = new EditableSVGuitarChord(svgContainer, SVGuitarChord).chord({ fingers: entry.fingers, barres: entry.barres }).configure({ frets: entry.frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 }).draw();
+      const noPosition = entry.position === void 0 || entry.position === null;
+      const editableChord = new EditableSVGuitarChord(svgContainer, SVGuitarChord).chord({ fingers: entry.fingers, barres: entry.barres, position: entry.position || void 0, title: entry.title || "" }).configure({ frets: entry.frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 });
+      Promise.resolve().then(() => editableChord.draw());
       editableChord.onChange(() => {
         const updatedFingers = editableChord.chordConfig.fingers;
         const entries2 = loadCart();
@@ -9047,6 +9049,8 @@ function renderCartGallery() {
           entries2[entryIndex].fingers = updatedFingers;
           const maxFret = Math.max(3, ...updatedFingers.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
           entries2[entryIndex].frets = maxFret;
+          entries2[entryIndex].title = editableChord.chordConfig.title || "";
+          entries2[entryIndex].position = editableChord.chordConfig.position || void 0;
           saveCart(entries2);
           updateCartCount();
         }

@@ -334,7 +334,7 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 
 .cart-items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   min-height: 200px;
 }
@@ -590,8 +590,8 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 /* Interval label customisation */
 .interval-label-options { display:flex; flex-direction: column; gap:0.4rem; }
 .interval-label-row { display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; font-size:0.82rem; padding:0.35rem 0.5rem; border:1px dashed var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-alt); }
-.interval-label-row span.interval-name { font-weight:600; min-width:120px; }
-.interval-label-row input[type="text"] { width:3.2rem; font-size:0.82rem; padding:0.2rem 0.3rem; border:1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); }
+.interval-label-row span.interval-name { font-weight:600; min-width:100px; }
+.interval-label-row input[type="text"] { width:1.2rem; font-size:0.82rem; padding:0.2rem 0.3rem; border:1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); }
 .interval-label-row input[type="text"]:focus-visible { outline:none; box-shadow: var(--color-focus-ring); }
 .interval-label-row label.inline { display:inline-flex; align-items:center; gap:0.25rem; cursor:pointer; }
 .interval-label-row input[type="checkbox"] { margin:0; }
@@ -657,3 +657,8 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
   opacity: .12;
 }
 .intro p { margin: 0; font-size: 0.82rem; }
+
+.editable-svguitar-settings-dialog, .editable-svguitar-dialog {
+  color: black;
+}
+
