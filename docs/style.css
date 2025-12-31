@@ -662,3 +662,7 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
   color: black;
 }
 
+.color-checkbox-label span {
+  padding-left: 0.5em;
+
+}

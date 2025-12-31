@@ -294,47 +294,28 @@ function renderIntervalLabelOptions() {
       tryAutoGenerate();
     });
     
-    // Color picker: Show radio buttons for BLACK and RED only
+    // Color picker: Show checkbox for red color
     const colorContainer = document.createElement('div');
     colorContainer.className = 'color-presets';
     
     const currentColor = normalizeColor(existing.color || base.fingerOptions?.color);
     
-    // BLACK radio button
-    const blackLabel = document.createElement('label');
-    blackLabel.className = 'color-radio-label';
-    const blackRadio = document.createElement('input');
-    blackRadio.type = 'radio';
-    blackRadio.name = `color-${interval}`;
-    blackRadio.value = 'BLACK';
-    blackRadio.checked = currentColor === DOT_COLORS.BLACK;
-    const blackSpan = document.createElement('span');
-    blackSpan.className = 'color-swatch';
-    blackSpan.style.backgroundColor = DOT_COLORS.BLACK;
-    blackSpan.title = 'Black (allows text)';
-    blackLabel.appendChild(blackRadio);
-    blackLabel.appendChild(blackSpan);
-    
-    // RED radio button
+    // Red checkbox
     const redLabel = document.createElement('label');
-    redLabel.className = 'color-radio-label';
-    const redRadio = document.createElement('input');
-    redRadio.type = 'radio';
-    redRadio.name = `color-${interval}`;
-    redRadio.value = 'RED';
-    redRadio.checked = currentColor === DOT_COLORS.RED;
+    redLabel.className = 'color-checkbox-label';
+    const redCheckbox = document.createElement('input');
+    redCheckbox.type = 'checkbox';
+    redCheckbox.checked = currentColor === DOT_COLORS.RED;
     const redSpan = document.createElement('span');
-    redSpan.className = 'color-swatch';
-    redSpan.style.backgroundColor = DOT_COLORS.RED;
-    redSpan.title = 'Red';
-    redLabel.appendChild(redRadio);
+    redSpan.textContent = 'red';
+    redLabel.appendChild(redCheckbox);
     redLabel.appendChild(redSpan);
     
     // Update input visibility based on color selection
     const updateInputVisibility = () => {
-      const isBlack = blackRadio.checked;
-      input.style.display = isBlack ? '' : 'none';
-      if (!isBlack) {
+      const isRed = redCheckbox.checked;
+      input.style.display = isRed ? 'none' : '';
+      if (isRed) {
         // Clear text when RED is selected
         input.value = '';
         const record = userIntervalOptions.get(interval) || {};
@@ -343,29 +324,19 @@ function renderIntervalLabelOptions() {
       }
     };
     
-    blackRadio.addEventListener('change', () => {
-      if (blackRadio.checked) {
-        const record = userIntervalOptions.get(interval) || {};
-        record.color = DOT_COLORS.BLACK;
-        userIntervalOptions.set(interval, record);
-        updateInputVisibility();
-        pushState();
-        tryAutoGenerate();
-      }
-    });
-    
-    redRadio.addEventListener('change', () => {
-      if (redRadio.checked) {
-        const record = userIntervalOptions.get(interval) || {};
+    redCheckbox.addEventListener('change', () => {
+      const record = userIntervalOptions.get(interval) || {};
+      if (redCheckbox.checked) {
         record.color = DOT_COLORS.RED;
-        userIntervalOptions.set(interval, record);
-        updateInputVisibility();
-        pushState();
-        tryAutoGenerate();
+      } else {
+        record.color = DOT_COLORS.BLACK;
       }
+      userIntervalOptions.set(interval, record);
+      updateInputVisibility();
+      pushState();
+      tryAutoGenerate();
     });
     
-    colorContainer.appendChild(blackLabel);
     colorContainer.appendChild(redLabel);
     
     row.appendChild(nameSpan);
