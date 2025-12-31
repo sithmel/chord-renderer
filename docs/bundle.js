@@ -8428,6 +8428,57 @@ var EditableSVGuitarChord = class {
   }
 };
 
+// node_modules/text-guitar-chart/lib/layoutChordStrings.js
+function layoutChordStrings(strings, columns = 3, spacing = 1) {
+  const filtered = strings.filter((s2) => s2 !== "");
+  if (filtered.length === 0) {
+    return "";
+  }
+  const trimmed = filtered.map((s2) => s2.replace(/\n+$/, ""));
+  const stringLines = trimmed.map((s2) => s2.split("\n"));
+  const rows = [];
+  for (let i2 = 0; i2 < stringLines.length; i2 += columns) {
+    rows.push(stringLines.slice(i2, i2 + columns));
+  }
+  const columnWidths = new Array(columns).fill(0);
+  for (const row of rows) {
+    row.forEach((lines, colIndex) => {
+      const maxWidth = Math.max(...lines.map((line) => line.length));
+      columnWidths[colIndex] = Math.max(columnWidths[colIndex], maxWidth);
+    });
+  }
+  const outputRows = [];
+  const allWidthsEqual = columnWidths.length > 0 && columnWidths.every((w2) => w2 === columnWidths[0]);
+  const firstWidth = columnWidths[0] || 0;
+  const useFixedSpacing = allWidthsEqual && firstWidth === 1;
+  for (const row of rows) {
+    const rowHeight = Math.max(...row.map((lines) => lines.length));
+    const rowLines = [];
+    for (let lineIdx = 0; lineIdx < rowHeight; lineIdx++) {
+      const lineParts = [];
+      for (let colIdx = 0; colIdx < columns; colIdx++) {
+        const lines = colIdx < row.length ? row[colIdx] : [];
+        const line = lineIdx < lines.length ? lines[lineIdx] : "";
+        if (!useFixedSpacing && colIdx < columns - 1 && colIdx < columnWidths.length - 1) {
+          const padWidth = Math.max(columnWidths[colIdx], columnWidths[colIdx + 1]);
+          lineParts.push(line.padEnd(padWidth + spacing));
+        } else {
+          lineParts.push(line.padEnd(columnWidths[colIdx]));
+        }
+      }
+      if (useFixedSpacing) {
+        const separator = " ".repeat(spacing + 1);
+        rowLines.push(lineParts.join(separator).trimEnd());
+      } else {
+        rowLines.push(lineParts.join("").trimEnd());
+      }
+    }
+    outputRows.push(rowLines.join("\n"));
+  }
+  const rowSeparator = "\n".repeat(spacing + 1);
+  return outputRows.join(rowSeparator);
+}
+
 // docs/app.js
 var intervalBox = (
   /** @type {HTMLElement} */
@@ -8477,9 +8528,13 @@ var cartEmptyBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("cart-empty")
 );
-var cartDownloadBtn = (
+var cartDownloadAsciiBtn = (
   /** @type {HTMLButtonElement|null} */
-  document.getElementById("cart-download")
+  document.getElementById("cart-download-ascii")
+);
+var cartDownloadUnicodeBtn = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("cart-download-unicode")
 );
 var cartDownloadHtmlBtn = (
   /** @type {HTMLButtonElement|null} */
@@ -9127,23 +9182,30 @@ if (cartEmptyBtn) {
     renderCartGallery();
   });
 }
-if (cartDownloadBtn) {
-  cartDownloadBtn.addEventListener("click", () => {
+function downloadCartAsText(useUnicode) {
+  return () => {
     if (!cartItems) return;
-    const svgElements = cartItems.querySelectorAll(".cart-item-svg svg");
-    if (!svgElements.length) return;
-    const svgStrings = Array.from(svgElements).map((svg) => svg.outerHTML);
-    const full = combineCartSvgs(svgStrings);
-    const blob = new Blob([full], { type: "image/svg+xml" });
+    const entries = loadCart();
+    if (entries.length === 0) return;
+    const strings = entries.map((e2) => fingeringToString(e2, { useUnicode }));
+    const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
+    const full = layoutChordStrings(strings, columns, 2);
+    const blob = new Blob([full], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a2 = document.createElement("a");
     a2.href = url;
-    a2.download = "saved-chords.svg";
+    a2.download = "saved-chords.txt";
     document.body.appendChild(a2);
     a2.click();
     document.body.removeChild(a2);
     URL.revokeObjectURL(url);
-  });
+  };
+}
+if (cartDownloadAsciiBtn) {
+  cartDownloadAsciiBtn.addEventListener("click", downloadCartAsText(false));
+}
+if (cartDownloadUnicodeBtn) {
+  cartDownloadUnicodeBtn.addEventListener("click", downloadCartAsText(true));
 }
 function buildCartHtmlFromSvgs(svgStrings) {
   const esc = (s2) => s2.replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2] || c2);
@@ -9194,57 +9256,11 @@ if (cartDownloadHtmlBtn) {
   });
 }
 updateCartCount();
-function combineCartSvgs(svgStrings) {
-  if (!svgStrings.length) return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><text x="50" y="25" text-anchor="middle">No entries</text></svg>';
-  const PER_ROW = 4;
-  const H_GAP = 24;
-  const V_GAP = 24;
-  const parts = svgStrings.map((svg) => ({
-    svg,
-    w: extractSvgDimension(svg, "width"),
-    h: extractSvgDimension(svg, "height")
-  }));
-  const maxW = Math.max(...parts.map((p2) => p2.w));
-  const maxH = Math.max(...parts.map((p2) => p2.h));
-  const rows = Math.ceil(parts.length / PER_ROW);
-  const cellW = maxW + H_GAP;
-  const cellH = maxH + V_GAP;
-  const totalW = Math.min(PER_ROW, parts.length) * cellW - H_GAP;
-  const totalH = rows * cellH - V_GAP;
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
-  out += `
-<!-- Combined ${parts.length} chord${parts.length > 1 ? "s" : ""}; ${PER_ROW} per row -->`;
-  parts.forEach((part, i2) => {
-    const col = i2 % PER_ROW;
-    const row = Math.floor(i2 / PER_ROW);
-    const x2 = col * cellW;
-    const y2 = row * cellH;
-    out += `
-<g transform="translate(${x2},${y2})">${stripOuterSvg(part.svg)}</g>`;
-  });
-  out += "\n</svg>";
-  return out;
-}
-function extractSvgDimension(svg, attr2) {
-  const m2 = svg.match(new RegExp(attr2 + '="(\\d+(?:\\.\\d+)?)"'));
-  if (m2) return parseFloat(m2[1]);
-  const vb = svg.match(/viewBox=\"[^\"]+\"/);
-  if (vb) {
-    const nums = vb[0].match(/[-\d.]+/g);
-    if (nums && nums.length === 4) {
-      return attr2 === "width" ? parseFloat(nums[2]) : parseFloat(nums[3]);
-    }
-  }
-  return 0;
-}
-function stripOuterSvg(svg) {
-  const inner = svg.replace(/^<svg[^>]*>/i, "").replace(/<\/svg>\s*$/i, "");
-  return inner;
-}
 function refreshCartActionStates() {
   const len = loadCart().length;
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
-  if (cartDownloadBtn) cartDownloadBtn.disabled = len === 0;
+  if (cartDownloadAsciiBtn) cartDownloadAsciiBtn.disabled = len === 0;
+  if (cartDownloadUnicodeBtn) cartDownloadUnicodeBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
   if (cartDownloadJsonBtn) cartDownloadJsonBtn.disabled = len === 0;
 }

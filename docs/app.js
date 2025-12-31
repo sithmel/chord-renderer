@@ -3,7 +3,7 @@
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
 import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
-import { EditableSVGuitarChord, DOT_COLORS } from 'text-guitar-chart';
+import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings } from 'text-guitar-chart';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
@@ -20,7 +20,8 @@ const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('car
 const cartItems = /** @type {HTMLElement|null} */(document.getElementById('cart-items'));
 const cartCount = /** @type {HTMLElement|null} */(document.getElementById('cart-count'));
 const cartEmptyBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-empty'));
-const cartDownloadBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download'));
+const cartDownloadAsciiBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-ascii'));
+const cartDownloadUnicodeBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-unicode'));
 const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-html'));
 const cartDownloadJsonBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-json'));
 
@@ -810,23 +811,38 @@ if (cartEmptyBtn) {
   });
 }
 
-if (cartDownloadBtn) {
-  cartDownloadBtn.addEventListener('click', () => {
+/**
+ * 
+ * @param {boolean} useUnicode 
+ * @returns {() => void}
+ */
+function downloadCartAsText(useUnicode) {
+  return () => {
     if (!cartItems) return;
-    const svgElements = cartItems.querySelectorAll('.cart-item-svg svg');
-    if (!svgElements.length) return;
-    const svgStrings = Array.from(svgElements).map(svg => svg.outerHTML);
-    const full = combineCartSvgs(svgStrings);
-    const blob = new Blob([full], { type: 'image/svg+xml' });
+    const entries = loadCart();
+    if (entries.length === 0) return;
+    const strings = entries.map((e) => fingeringToString(e, {useUnicode}));
+    const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
+    const full = layoutChordStrings(strings, columns, 2);
+    
+    const blob = new Blob([full], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'saved-chords.svg';
+    a.download = 'saved-chords.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  });
+  }
+}
+
+if (cartDownloadAsciiBtn) {
+  cartDownloadAsciiBtn.addEventListener('click', downloadCartAsText(false));
+}
+
+if (cartDownloadUnicodeBtn) {
+  cartDownloadUnicodeBtn.addEventListener('click', downloadCartAsText(true));
 }
 
 // Build printable HTML document containing all cart entry SVGs
@@ -896,106 +912,14 @@ if (cartDownloadHtmlBtn) {
   });
 }
 
-
-
-
-
 updateCartCount();
-
-
-
-
-
-/**
- * Combine multiple SVG strings in a 4-per-row grid layout.
- * @param {string[]} svgStrings
- */
-function combineCartSvgs(svgStrings) {
-  if (!svgStrings.length) return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><text x="50" y="25" text-anchor="middle">No entries</text></svg>';
-  
-  const PER_ROW = 4;
-  const H_GAP = 24;
-  const V_GAP = 24;
-  
-  // Parse dimensions for each entry
-  const parts = svgStrings.map(svg => ({ 
-    svg, 
-    w: extractSvgDimension(svg, 'width'), 
-    h: extractSvgDimension(svg, 'height') 
-  }));
-  
-  // Find max dimensions for uniform sizing
-  const maxW = Math.max(...parts.map(p => p.w));
-  const maxH = Math.max(...parts.map(p => p.h));
-  
-  const rows = Math.ceil(parts.length / PER_ROW);
-  const cellW = maxW + H_GAP;
-  const cellH = maxH + V_GAP;
-  const totalW = Math.min(PER_ROW, parts.length) * cellW - H_GAP;
-  const totalH = rows * cellH - V_GAP;
-  
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
-  out += `\n<!-- Combined ${parts.length} chord${parts.length > 1 ? 's' : ''}; ${PER_ROW} per row -->`;
-  
-  parts.forEach((part, i) => {
-    const col = i % PER_ROW;
-    const row = Math.floor(i / PER_ROW);
-    const x = col * cellW;
-    const y = row * cellH;
-    
-    out += `\n<g transform="translate(${x},${y})">${stripOuterSvg(part.svg)}</g>`;
-  });
-  
-  out += '\n</svg>';
-  return out;
-}
-
-/**
- * @typedef {'width'|'height'} SvgDimAttr
- */
-
-/**
- * Extract numeric width/height from an SVG string.
- * Tries explicit width/height attributes first, then falls back to viewBox.
- *
- * @param {string} svg
- * @param {SvgDimAttr} attr
- * @returns {number}
- */
-function extractSvgDimension(svg, attr) {
-  const m = svg.match(new RegExp(attr + "=\"(\\d+(?:\\.\\d+)?)\""));
-  if (m) return parseFloat(m[1]);
-  const vb = svg.match(/viewBox=\"[^\"]+\"/);
-  if (vb) {
-    const nums = vb[0].match(/[-\d.]+/g);
-    if (nums && nums.length === 4) {
-      return attr === 'width' ? parseFloat(nums[2]) : parseFloat(nums[3]);
-    }
-  }
-  return 0;
-}
-
-/**
- * @typedef {string} SvgString
- */
-
-/**
- * Remove outer <svg> wrapper from an SVG string.
- * @param {SvgString} svg
- * @returns {SvgString}
- */
-function stripOuterSvg(svg) {
-  const inner = svg.replace(/^<svg[^>]*>/i, '').replace(/<\/svg>\s*$/i, '');
-  return inner;
-}
-
-
 
 // ---- Cart action state helper ----
 function refreshCartActionStates() {
   const len = loadCart().length;
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
-  if (cartDownloadBtn) cartDownloadBtn.disabled = len === 0;
+  if (cartDownloadAsciiBtn) cartDownloadAsciiBtn.disabled = len === 0;
+  if (cartDownloadUnicodeBtn) cartDownloadUnicodeBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
   if (cartDownloadJsonBtn) cartDownloadJsonBtn.disabled = len === 0;
 }
