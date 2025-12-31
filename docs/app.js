@@ -3,7 +3,7 @@
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
 import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
-import { EditableSVGuitarChord, COLOR_PRESETS } from '../lib/editableSVGuitar.js';
+import { EditableSVGuitarChord, DOT_COLORS } from 'text-guitar-chart';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
@@ -48,6 +48,20 @@ const selectedIntervals = new Set();
  * @type {Map<number,{text?: string, color?: string}>}
  */
 const userIntervalOptions = new Map();
+
+/**
+ * Normalize color values: non-black colors → BLACK, black → black, undefined/transparent → unchanged
+ * @param {string|undefined} color
+ * @returns {string|undefined}
+ */
+function normalizeColor(color) {
+  if (!color || color === 'transparent') return color;
+  const normalized = color.toLowerCase().trim();
+  if (normalized === '#000000' || normalized === '#000' || normalized === 'black') {
+    return DOT_COLORS.BLACK;
+  }
+  return DOT_COLORS.BLACK;
+}
 
 /**
  * Build current UI state for URL.
@@ -262,102 +276,105 @@ function renderIntervalLabelOptions() {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'interval-name';
     nameSpan.textContent = base.full;
+    
+    // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
     input.type = 'text';
-    input.maxLength = 3;
+    input.maxLength = 2;
     input.value = existing.text !== undefined ? existing.text : (base.fingerOptions?.text || '');
     input.setAttribute('aria-label', base.full + ' label');
     input.addEventListener('input', () => {
-      const val = input.value.trim();
-      if (val.length > 3) input.value = val.slice(0,3);
+      const val = input.value;
+      if (val.length > 2) input.value = val.slice(0, 2);
       const record = userIntervalOptions.get(interval) || {};
       // Preserve empty string to explicitly clear default label
-      record.text = input.value.trim();
+      record.text = input.value;
       userIntervalOptions.set(interval, record);
       pushState();
       tryAutoGenerate();
     });
-    // Color picker: Show color swatches from COLOR_PRESETS + none option
+    
+    // Color picker: Show radio buttons for BLACK and RED only
     const colorContainer = document.createElement('div');
     colorContainer.className = 'color-presets';
     
-    // "None" option (no color)
-    const noneBtn = document.createElement('button');
-    noneBtn.type = 'button';
-    noneBtn.className = 'color-preset-btn none';
-    noneBtn.title = 'No color';
-    noneBtn.textContent = '×';
+    const currentColor = normalizeColor(existing.color || base.fingerOptions?.color);
     
-    // Set initial state for "none" button
-    if (!existing.color) {
-      noneBtn.classList.add('selected');
-    }
+    // BLACK radio button
+    const blackLabel = document.createElement('label');
+    blackLabel.className = 'color-radio-label';
+    const blackRadio = document.createElement('input');
+    blackRadio.type = 'radio';
+    blackRadio.name = `color-${interval}`;
+    blackRadio.value = 'BLACK';
+    blackRadio.checked = currentColor === DOT_COLORS.BLACK;
+    const blackSpan = document.createElement('span');
+    blackSpan.className = 'color-swatch';
+    blackSpan.style.backgroundColor = DOT_COLORS.BLACK;
+    blackSpan.title = 'Black (allows text)';
+    blackLabel.appendChild(blackRadio);
+    blackLabel.appendChild(blackSpan);
     
-    noneBtn.addEventListener('click', () => {
-      const record = userIntervalOptions.get(interval) || {};
-      record.color = undefined;
-      userIntervalOptions.set(interval, record);
-      pushState();
-      tryAutoGenerate();
-      // Update button states
-      updateColorButtonStates();
-    });
+    // RED radio button
+    const redLabel = document.createElement('label');
+    redLabel.className = 'color-radio-label';
+    const redRadio = document.createElement('input');
+    redRadio.type = 'radio';
+    redRadio.name = `color-${interval}`;
+    redRadio.value = 'RED';
+    redRadio.checked = currentColor === DOT_COLORS.RED;
+    const redSpan = document.createElement('span');
+    redSpan.className = 'color-swatch';
+    redSpan.style.backgroundColor = DOT_COLORS.RED;
+    redSpan.title = 'Red';
+    redLabel.appendChild(redRadio);
+    redLabel.appendChild(redSpan);
     
-    colorContainer.appendChild(noneBtn);
-    
-    // Color preset buttons
-    const colorButtons = [];
-    for (const color of COLOR_PRESETS) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'color-preset-btn';
-      btn.style.background = color;
-      btn.title = `Color: ${color}`;
-      
-      // Set initial state
-      if (existing.color === color) {
-        btn.classList.add('selected');
-      }
-      
-      btn.addEventListener('click', () => {
+    // Update input visibility based on color selection
+    const updateInputVisibility = () => {
+      const isBlack = blackRadio.checked;
+      input.style.display = isBlack ? '' : 'none';
+      if (!isBlack) {
+        // Clear text when RED is selected
+        input.value = '';
         const record = userIntervalOptions.get(interval) || {};
-        record.color = color;
+        record.text = '';
         userIntervalOptions.set(interval, record);
+      }
+    };
+    
+    blackRadio.addEventListener('change', () => {
+      if (blackRadio.checked) {
+        const record = userIntervalOptions.get(interval) || {};
+        record.color = DOT_COLORS.BLACK;
+        userIntervalOptions.set(interval, record);
+        updateInputVisibility();
         pushState();
         tryAutoGenerate();
-        // Update button states
-        updateColorButtonStates();
-      });
-      
-      colorButtons.push(btn);
-      colorContainer.appendChild(btn);
-    }
-    
-    // Function to update button states
-    function updateColorButtonStates() {
-      const currentRecord = userIntervalOptions.get(interval) || {};
-      const currentColor = currentRecord.color;
-      
-      // Update "none" button
-      if (!currentColor) {
-        noneBtn.classList.add('selected');
-      } else {
-        noneBtn.classList.remove('selected');
       }
-      
-      // Update color preset buttons
-      colorButtons.forEach((btn, index) => {
-        if (currentColor === COLOR_PRESETS[index]) {
-          btn.classList.add('selected');
-        } else {
-          btn.classList.remove('selected');
-        }
-      });
-    }
+    });
+    
+    redRadio.addEventListener('change', () => {
+      if (redRadio.checked) {
+        const record = userIntervalOptions.get(interval) || {};
+        record.color = DOT_COLORS.RED;
+        userIntervalOptions.set(interval, record);
+        updateInputVisibility();
+        pushState();
+        tryAutoGenerate();
+      }
+    });
+    
+    colorContainer.appendChild(blackLabel);
+    colorContainer.appendChild(redLabel);
+    
     row.appendChild(nameSpan);
     row.appendChild(input);
     row.appendChild(colorContainer);
     intervalLabelOptionsBox.appendChild(row);
+    
+    // Set initial visibility
+    updateInputVisibility();
   }
 }
 
@@ -434,7 +451,7 @@ function generateChords() {
       return {
         className: base.className,
         text: override.text !== undefined ? override.text : base.text,
-        color: override.color || base.color,
+        color: override.color || normalizeColor(base.color),
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
@@ -494,13 +511,6 @@ function renderChord(chord, index, voicingName) {
   const saveControls = document.createElement('div');
   saveControls.className = 'chord-save-controls';
   
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'chord-name-input';
-  nameInput.placeholder = 'Optional name';
-  nameInput.maxLength = 60;
-  nameInput.setAttribute('aria-label', `Name for chord ${index + 1}`);
-  
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'chord-save-btn';
@@ -508,12 +518,10 @@ function renderChord(chord, index, voicingName) {
   saveBtn.setAttribute('aria-label', `Save chord ${index + 1}`);
   
   saveBtn.addEventListener('click', () => {
-    const title = nameInput.value.trim();
     const entries = loadCart();
     const frets = Math.max(3, ...chord.map(f => f[1]));
     const newEntry = { 
       id: String(Date.now()) + Math.random().toString(36).slice(2), 
-      title, 
       fingers: chord,
       barres: [],
       frets,
@@ -524,7 +532,7 @@ function renderChord(chord, index, voicingName) {
     updateCartCount();
     renderCartGallery();
     
-    setMessage(`Saved chord${title ? ` "${title}"` : ''}.`);
+    setMessage('Saved chord.');
     
     // Focus the newly added cart item
     setTimeout(() => {
@@ -536,7 +544,6 @@ function renderChord(chord, index, voicingName) {
     }, 100);
   });
   
-  saveControls.appendChild(nameInput);
   saveControls.appendChild(saveBtn);
   holder.appendChild(saveControls);
   
@@ -594,7 +601,7 @@ const CART_KEY = 'chordRendererCartV2';
 
 /**
  * @typedef {import('../lib/chord.js').FingerPosition} FingerPosition
- * @typedef {{ id:string, title:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any }} CartEntry
+ * @typedef {{ id:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any }} CartEntry
  */
 
 /** @returns {CartEntry[]} */
@@ -603,7 +610,10 @@ function loadCart() {
     const raw = localStorage.getItem(CART_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter(e => e && e.fingers && Array.isArray(e.fingers));
+    if (Array.isArray(parsed)) {
+      // Return saved chords as-is; colors are already user-selected values
+      return parsed.filter(e => e && e.fingers && Array.isArray(e.fingers));
+    }
   } catch {}
   return [];
 }
@@ -660,7 +670,6 @@ function renderCartGallery() {
     
     item.innerHTML = `
       <div class="cart-item-header">
-        <h3 class="cart-item-title">${escapeHtml(entry.title || 'Untitled')}</h3>
         <div class="cart-item-actions">
           <button type="button" class="reorder-btn up-btn" ${index === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
           <button type="button" class="reorder-btn down-btn" ${index === entries.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
@@ -679,14 +688,14 @@ function renderCartGallery() {
         .draw();
       
       // Add listener for when the chord is modified
-      editableChord.onChange((updatedFingers) => {
+      editableChord.onChange(/** @param {any} updatedFingers */ (updatedFingers) => {
         // Update the cart entry with new finger positions
         const entries = loadCart();
         const entryIndex = entries.findIndex(e => e.id === entry.id);
         if (entryIndex !== -1) {
           entries[entryIndex].fingers = updatedFingers;
           // Update frets if needed
-          const maxFret = Math.max(3, ...updatedFingers.map(f => f[1]));
+          const maxFret = Math.max(3, ...updatedFingers.map(/** @param {any} f */ (f) => f[1]));
           entries[entryIndex].frets = maxFret;
           saveCart(entries);
         }
@@ -783,7 +792,6 @@ if (addEmptyChordBtn) {
     const entries = loadCart();
     const newEntry = { 
       id: String(Date.now()) + Math.random().toString(36).slice(2), 
-      title: 'Empty chord', 
       fingers: [], // empty chord has no fingers
       barres: [],
       frets: 3, // minimum frets for empty chord

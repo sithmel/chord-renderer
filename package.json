@@ -10,8 +10,7 @@
     "test:watch": "node --test --watch test/*.test.js",
     "build:types": "tsc",
     "build": "node ./scripts/build.js",
-    "serve": "npx http-server -p 8080 docs",
-    "serve:demo": "npx http-server -p 8080 demoEditableSVGuitar"
+    "serve": "npx http-server -p 8080 docs"
   },
   "keywords": [
     "guitar",
@@ -28,16 +27,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/username/chord-renderer.git"
+    "url": "git+https://github.com/sithmel/chord-renderer.git"
   },
   "bugs": {
-    "url": "https://github.com/username/chord-renderer/issues"
+    "url": "https://github.com/sithmel/chord-renderer/issues"
   },
-  "homepage": "https://github.com/username/chord-renderer#readme",
+  "homepage": "https://github.com/sithmel/chord-renderer#readme",
   "devDependencies": {
-    "esbuild": "^0.25.10",
-    "jsdom": "^27.0.0",
-    "svguitar": "^2.4.1",
-    "typescript": "^5.9.2"
+    "esbuild": "^0.27.2",
+    "jsdom": "^27.4.0",
+    "svguitar": "^2.5.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "text-guitar-chart": "^0.0.3"
   }
 }
