@@ -9187,7 +9187,7 @@ function downloadCartAsText(useUnicode) {
     if (!cartItems) return;
     const entries = loadCart();
     if (entries.length === 0) return;
-    const strings = entries.map((e2) => fingeringToString(e2, { useUnicode }));
+    const strings = entries.map((e2) => fingeringToString(cartEntryToChord(e2), { useUnicode }));
     const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
     const full = layoutChordStrings(strings, columns, 2);
     const blob = new Blob([full], { type: "text/plain" });
@@ -9206,6 +9206,15 @@ if (cartDownloadAsciiBtn) {
 }
 if (cartDownloadUnicodeBtn) {
   cartDownloadUnicodeBtn.addEventListener("click", downloadCartAsText(true));
+}
+function cartEntryToChord(cart) {
+  var _a, _b;
+  return {
+    fingers: cart.fingers,
+    barres: cart.barres,
+    position: (_a = cart.position) != null ? _a : void 0,
+    title: (_b = cart.title) != null ? _b : ""
+  };
 }
 async function getSVGFromFingering(fingering) {
   const container = document.createElement("div");
@@ -9252,7 +9261,7 @@ if (cartDownloadHtmlBtn) {
   cartDownloadHtmlBtn.addEventListener("click", async () => {
     const entries = loadCart();
     if (!entries.length) return;
-    const svgStrings = await Promise.all(entries.map(getSVGFromFingering));
+    const svgStrings = await Promise.all(entries.map((c2) => getSVGFromFingering(cartEntryToChord(c2))));
     const html = buildCartHtmlFromSvgs(svgStrings);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);

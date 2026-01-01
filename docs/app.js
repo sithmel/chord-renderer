@@ -821,7 +821,7 @@ function downloadCartAsText(useUnicode) {
     if (!cartItems) return;
     const entries = loadCart();
     if (entries.length === 0) return;
-    const strings = entries.map((e) => fingeringToString(e, {useUnicode}));
+    const strings = entries.map((e) => fingeringToString(cartEntryToChord(e), {useUnicode}));
     const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
     const full = layoutChordStrings(strings, columns, 2);
     
@@ -849,6 +849,20 @@ if (cartDownloadUnicodeBtn) {
 /**
  * @typedef {(s:string) => string} EscaperFn
  */
+
+/**
+ * 
+ * @param {CartEntry} cart
+ * @returns {import('svguitar').Chord} 
+ */
+function cartEntryToChord(cart) {
+  return {
+    fingers: cart.fingers,
+    barres: cart.barres,
+    position: cart.position ?? undefined,
+    title: cart.title ?? '',
+  };
+}
 
 /**
  * @param {import('svguitar').Chord} fingering
@@ -916,7 +930,7 @@ if (cartDownloadHtmlBtn) {
   cartDownloadHtmlBtn.addEventListener('click', async () => {
     const entries = loadCart();
     if (!entries.length) return;
-    const svgStrings = await Promise.all(entries.map(getSVGFromFingering));
+    const svgStrings = await Promise.all(entries.map((c) => getSVGFromFingering(cartEntryToChord(c))));
 
     const html = buildCartHtmlFromSvgs(svgStrings);
     const blob = new Blob([html], { type: 'text/html' });
