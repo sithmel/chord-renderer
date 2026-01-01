@@ -25,6 +25,12 @@ const cartDownloadUnicodeBtn = /** @type {HTMLButtonElement|null} */(document.ge
 const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-html'));
 const cartDownloadJsonBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-json'));
 
+// Export overlay references
+const exportOverlay = /** @type {HTMLElement|null} */(document.getElementById('export-overlay'));
+const exportOverlayText = /** @type {HTMLElement|null} */(document.getElementById('export-overlay-text'));
+const exportOverlayClose = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-close'));
+const exportOverlayCopy = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-copy'));
+
 // Builder panel references
 const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('builder-panel'));
 const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('open-builder'));
@@ -811,12 +817,86 @@ if (cartEmptyBtn) {
   });
 }
 
+// ---- Export overlay functions ----
+
+/**
+ * Show the export overlay with given content
+ * @param {string} content 
+ */
+function showExportOverlay(content) {
+  if (!exportOverlay || !exportOverlayText) return;
+  exportOverlayText.textContent = content;
+  exportOverlay.hidden = false;
+  exportOverlay.setAttribute('aria-hidden', 'false');
+  // Reset copy button state
+  if (exportOverlayCopy) {
+    exportOverlayCopy.textContent = 'Copy to Clipboard';
+    exportOverlayCopy.classList.remove('copied');
+  }
+}
+
+/**
+ * Close the export overlay
+ */
+function closeExportOverlay() {
+  if (!exportOverlay) return;
+  exportOverlay.hidden = true;
+  exportOverlay.setAttribute('aria-hidden', 'true');
+}
+
+/**
+ * Copy overlay content to clipboard
+ */
+async function copyExportToClipboard() {
+  if (!exportOverlayText || !exportOverlayCopy) return;
+  const content = exportOverlayText.textContent || '';
+  try {
+    await navigator.clipboard.writeText(content);
+    exportOverlayCopy.textContent = 'Copied!';
+    exportOverlayCopy.classList.add('copied');
+    setTimeout(() => {
+      if (exportOverlayCopy) {
+        exportOverlayCopy.textContent = 'Copy to Clipboard';
+        exportOverlayCopy.classList.remove('copied');
+      }
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    alert('Failed to copy to clipboard. Please select and copy manually.');
+  }
+}
+
+// Export overlay event listeners
+if (exportOverlayClose) {
+  exportOverlayClose.addEventListener('click', closeExportOverlay);
+}
+
+if (exportOverlayCopy) {
+  exportOverlayCopy.addEventListener('click', copyExportToClipboard);
+}
+
+// Close overlay on backdrop click
+if (exportOverlay) {
+  exportOverlay.addEventListener('click', (e) => {
+    if (e.target === exportOverlay) {
+      closeExportOverlay();
+    }
+  });
+}
+
+// Close overlay on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && exportOverlay && !exportOverlay.hidden) {
+    closeExportOverlay();
+  }
+});
+
 /**
  * 
  * @param {boolean} useUnicode 
  * @returns {() => void}
  */
-function downloadCartAsText(useUnicode) {
+function exportCartAsText(useUnicode) {
   return () => {
     if (!cartItems) return;
     const entries = loadCart();
@@ -824,25 +904,16 @@ function downloadCartAsText(useUnicode) {
     const strings = entries.map((e) => fingeringToString(cartEntryToChord(e), {useUnicode}));
     const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
     const full = layoutChordStrings(strings, columns, 2);
-    
-    const blob = new Blob([full], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'saved-chords.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    showExportOverlay(full);
   }
 }
 
 if (cartDownloadAsciiBtn) {
-  cartDownloadAsciiBtn.addEventListener('click', downloadCartAsText(false));
+  cartDownloadAsciiBtn.addEventListener('click', exportCartAsText(false));
 }
 
 if (cartDownloadUnicodeBtn) {
-  cartDownloadUnicodeBtn.addEventListener('click', downloadCartAsText(true));
+  cartDownloadUnicodeBtn.addEventListener('click', exportCartAsText(true));
 }
 
 // Build printable HTML document containing all cart entry SVGs
@@ -914,15 +985,7 @@ if (cartDownloadJsonBtn) {
     if (!entries.length) return;
     
     const jsonData = JSON.stringify(entries, null, 2);
-    const blob = new Blob([jsonData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'saved-chords.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    showExportOverlay(jsonData);
   });
 }
 

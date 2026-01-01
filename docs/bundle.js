@@ -8544,6 +8544,22 @@ var cartDownloadJsonBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("cart-download-json")
 );
+var exportOverlay = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("export-overlay")
+);
+var exportOverlayText = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("export-overlay-text")
+);
+var exportOverlayClose = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("export-overlay-close")
+);
+var exportOverlayCopy = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("export-overlay-copy")
+);
 var builderPanel = (
   /** @type {HTMLElement|null} */
   document.getElementById("builder-panel")
@@ -9182,7 +9198,58 @@ if (cartEmptyBtn) {
     renderCartGallery();
   });
 }
-function downloadCartAsText(useUnicode) {
+function showExportOverlay(content) {
+  if (!exportOverlay || !exportOverlayText) return;
+  exportOverlayText.textContent = content;
+  exportOverlay.hidden = false;
+  exportOverlay.setAttribute("aria-hidden", "false");
+  if (exportOverlayCopy) {
+    exportOverlayCopy.textContent = "Copy to Clipboard";
+    exportOverlayCopy.classList.remove("copied");
+  }
+}
+function closeExportOverlay() {
+  if (!exportOverlay) return;
+  exportOverlay.hidden = true;
+  exportOverlay.setAttribute("aria-hidden", "true");
+}
+async function copyExportToClipboard() {
+  if (!exportOverlayText || !exportOverlayCopy) return;
+  const content = exportOverlayText.textContent || "";
+  try {
+    await navigator.clipboard.writeText(content);
+    exportOverlayCopy.textContent = "Copied!";
+    exportOverlayCopy.classList.add("copied");
+    setTimeout(() => {
+      if (exportOverlayCopy) {
+        exportOverlayCopy.textContent = "Copy to Clipboard";
+        exportOverlayCopy.classList.remove("copied");
+      }
+    }, 2e3);
+  } catch (err) {
+    console.error("Failed to copy to clipboard:", err);
+    alert("Failed to copy to clipboard. Please select and copy manually.");
+  }
+}
+if (exportOverlayClose) {
+  exportOverlayClose.addEventListener("click", closeExportOverlay);
+}
+if (exportOverlayCopy) {
+  exportOverlayCopy.addEventListener("click", copyExportToClipboard);
+}
+if (exportOverlay) {
+  exportOverlay.addEventListener("click", (e2) => {
+    if (e2.target === exportOverlay) {
+      closeExportOverlay();
+    }
+  });
+}
+document.addEventListener("keydown", (e2) => {
+  if (e2.key === "Escape" && exportOverlay && !exportOverlay.hidden) {
+    closeExportOverlay();
+  }
+});
+function exportCartAsText(useUnicode) {
   return () => {
     if (!cartItems) return;
     const entries = loadCart();
@@ -9190,22 +9257,14 @@ function downloadCartAsText(useUnicode) {
     const strings = entries.map((e2) => fingeringToString(cartEntryToChord(e2), { useUnicode }));
     const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
     const full = layoutChordStrings(strings, columns, 2);
-    const blob = new Blob([full], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a2 = document.createElement("a");
-    a2.href = url;
-    a2.download = "saved-chords.txt";
-    document.body.appendChild(a2);
-    a2.click();
-    document.body.removeChild(a2);
-    URL.revokeObjectURL(url);
+    showExportOverlay(full);
   };
 }
 if (cartDownloadAsciiBtn) {
-  cartDownloadAsciiBtn.addEventListener("click", downloadCartAsText(false));
+  cartDownloadAsciiBtn.addEventListener("click", exportCartAsText(false));
 }
 if (cartDownloadUnicodeBtn) {
-  cartDownloadUnicodeBtn.addEventListener("click", downloadCartAsText(true));
+  cartDownloadUnicodeBtn.addEventListener("click", exportCartAsText(true));
 }
 function cartEntryToChord(cart) {
   var _a, _b;
@@ -9246,15 +9305,7 @@ if (cartDownloadJsonBtn) {
     const entries = loadCart();
     if (!entries.length) return;
     const jsonData = JSON.stringify(entries, null, 2);
-    const blob = new Blob([jsonData], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a2 = document.createElement("a");
-    a2.href = url;
-    a2.download = "saved-chords.json";
-    document.body.appendChild(a2);
-    a2.click();
-    document.body.removeChild(a2);
-    URL.revokeObjectURL(url);
+    showExportOverlay(jsonData);
   });
 }
 if (cartDownloadHtmlBtn) {

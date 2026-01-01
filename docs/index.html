@@ -87,6 +87,23 @@
       <div id="results" class="results" aria-live="polite"></div>
     </div>
   </aside>
+
+  <div id="export-overlay" class="export-overlay" role="dialog" aria-labelledby="export-overlay-title" aria-hidden="true" hidden>
+    <div class="export-overlay-backdrop"></div>
+    <div class="export-overlay-content">
+      <header class="export-overlay-header">
+        <h2 id="export-overlay-title">Export Content</h2>
+        <button id="export-overlay-close" type="button" class="close-button" aria-label="Close export overlay">×</button>
+      </header>
+      <div class="export-overlay-body">
+        <pre id="export-overlay-text" class="export-text"></pre>
+      </div>
+      <footer class="export-overlay-footer">
+        <button id="export-overlay-copy" type="button" class="primary">Copy to Clipboard</button>
+      </footer>
+    </div>
+  </div>
+
   <footer class="site-footer">
     <p class="meta">© 2025 <span class="author">Maurizio Lupo</span> · <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a></p>
   </footer>
