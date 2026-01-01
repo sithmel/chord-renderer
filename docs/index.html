@@ -38,9 +38,14 @@
       <div class="gallery-actions">
         <button type="button" id="cart-empty" class="secondary" disabled>Empty All</button>
         <button type="button" id="cart-download-html" disabled>Export HTML</button>
-        <button type="button" id="cart-download-unicode" class="secondary" disabled>Export Text (unicode)</button>
-        <button type="button" id="cart-download-ascii" class="secondary" disabled>Export Text (ascii)</button>
-        <button type="button" id="cart-download-json" class="secondary" disabled>Export JSON</button>
+        <div class="show-as-wrapper">
+          <button type="button" id="show-as-btn" class="secondary" aria-haspopup="true" aria-expanded="false" aria-controls="show-as-menu" disabled>Show as ▾</button>
+          <div id="show-as-menu" role="menu" aria-label="Show as menu" hidden>
+            <button type="button" role="menuitem" data-format="ascii">ASCII</button>
+            <button type="button" role="menuitem" data-format="unicode">Unicode</button>
+            <button type="button" role="menuitem" data-format="json">JSON</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="cart-items" class="cart-items">
@@ -100,6 +105,25 @@
       </div>
       <footer class="export-overlay-footer">
         <button id="export-overlay-copy" type="button" class="primary">Copy to Clipboard</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="title-modal" class="title-modal" role="dialog" aria-labelledby="title-modal-title" aria-hidden="true" hidden>
+    <div class="title-modal-backdrop"></div>
+    <div class="title-modal-content">
+      <header class="title-modal-header">
+        <h2 id="title-modal-title">Export HTML</h2>
+        <button id="title-modal-close" type="button" class="close-button" aria-label="Close dialog">×</button>
+      </header>
+      <div class="title-modal-body">
+        <label for="html-title-input" class="title-label">Enter a title for your chord collection:</label>
+        <input type="text" id="html-title-input" class="title-input" maxlength="50" placeholder="My Chords" />
+        <div class="char-counter" aria-live="polite"><span id="char-count">50</span> characters remaining</div>
+      </div>
+      <footer class="title-modal-footer">
+        <button id="title-modal-cancel" type="button" class="secondary">Cancel</button>
+        <button id="title-modal-export" type="button" class="primary">Export</button>
       </footer>
     </div>
   </div>

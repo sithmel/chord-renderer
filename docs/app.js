@@ -20,16 +20,25 @@ const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('car
 const cartItems = /** @type {HTMLElement|null} */(document.getElementById('cart-items'));
 const cartCount = /** @type {HTMLElement|null} */(document.getElementById('cart-count'));
 const cartEmptyBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-empty'));
-const cartDownloadAsciiBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-ascii'));
-const cartDownloadUnicodeBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-unicode'));
 const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-html'));
-const cartDownloadJsonBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-json'));
+
+// Show as menu references
+const showAsBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('show-as-btn'));
+const showAsMenu = /** @type {HTMLElement|null} */(document.getElementById('show-as-menu'));
 
 // Export overlay references
 const exportOverlay = /** @type {HTMLElement|null} */(document.getElementById('export-overlay'));
 const exportOverlayText = /** @type {HTMLElement|null} */(document.getElementById('export-overlay-text'));
 const exportOverlayClose = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-close'));
 const exportOverlayCopy = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-copy'));
+
+// Title modal references
+const titleModal = /** @type {HTMLElement|null} */(document.getElementById('title-modal'));
+const titleModalClose = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-close'));
+const titleModalCancel = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-cancel'));
+const titleModalExport = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-export'));
+const htmlTitleInput = /** @type {HTMLInputElement|null} */(document.getElementById('html-title-input'));
+const charCount = /** @type {HTMLElement|null} */(document.getElementById('char-count'));
 
 // Builder panel references
 const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('builder-panel'));
@@ -845,6 +854,52 @@ function closeExportOverlay() {
 }
 
 /**
+ * Show the title input modal
+ */
+function showTitleModal() {
+  if (!titleModal || !htmlTitleInput) return;
+  titleModal.hidden = false;
+  titleModal.setAttribute('aria-hidden', 'false');
+  htmlTitleInput.value = '';
+  if (charCount) charCount.textContent = '50';
+  htmlTitleInput.focus();
+}
+
+/**
+ * Close the title input modal
+ */
+function closeTitleModal() {
+  if (!titleModal) return;
+  titleModal.hidden = true;
+  titleModal.setAttribute('aria-hidden', 'true');
+  if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.focus();
+}
+
+/**
+ * Slugify a title for use in filename
+ * @param {string} title
+ * @returns {string}
+ */
+function slugify(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_') || 'saved-chords';
+}
+
+/**
+ * Truncate title with ellipsis if needed
+ * @param {string} title
+ * @param {number} maxLength
+ * @returns {string}
+ */
+function truncateTitle(title, maxLength) {
+  if (title.length <= maxLength) return title;
+  return title.slice(0, maxLength) + '...';
+}
+
+/**
  * Copy overlay content to clipboard
  */
 async function copyExportToClipboard() {
@@ -908,12 +963,99 @@ function exportCartAsText(useUnicode) {
   }
 }
 
-if (cartDownloadAsciiBtn) {
-  cartDownloadAsciiBtn.addEventListener('click', exportCartAsText(false));
+/**
+ * Export cart as JSON
+ */
+function exportCartAsJson() {
+  const entries = loadCart();
+  if (!entries.length) return;
+  const jsonData = JSON.stringify(entries, null, 2);
+  showExportOverlay(jsonData);
 }
 
-if (cartDownloadUnicodeBtn) {
-  cartDownloadUnicodeBtn.addEventListener('click', exportCartAsText(true));
+// Show as menu handlers
+if (showAsBtn && showAsMenu) {
+  // Toggle menu on button click
+  showAsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isExpanded = showAsBtn.getAttribute('aria-expanded') === 'true';
+    if (isExpanded) {
+      closeShowAsMenu();
+    } else {
+      openShowAsMenu();
+    }
+  });
+
+  // Handle menu item clicks
+  const menuItems = showAsMenu.querySelectorAll('[role="menuitem"]');
+  menuItems.forEach((item) => {
+    item.addEventListener('click', () => {
+      const format = item.getAttribute('data-format');
+      closeShowAsMenu();
+      
+      if (format === 'ascii') {
+        exportCartAsText(false)();
+      } else if (format === 'unicode') {
+        exportCartAsText(true)();
+      } else if (format === 'json') {
+        exportCartAsJson();
+      }
+    });
+  });
+
+  // Keyboard navigation
+  showAsMenu.addEventListener('keydown', (e) => {
+    const items = Array.from(showAsMenu.querySelectorAll('[role="menuitem"]'));
+    const currentIndex = items.indexOf(/** @type {HTMLElement} */(document.activeElement));
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = (currentIndex + 1) % items.length;
+      /** @type {HTMLElement} */(items[nextIndex]).focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = (currentIndex - 1 + items.length) % items.length;
+      /** @type {HTMLElement} */(items[prevIndex]).focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeShowAsMenu();
+      if (showAsBtn) showAsBtn.focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      /** @type {HTMLElement} */(document.activeElement)?.click();
+    }
+  });
+
+  // Close menu on outside click
+  document.addEventListener('click', (e) => {
+    if (showAsMenu && !showAsMenu.hidden && showAsBtn) {
+      const target = /** @type {Node} */(e.target);
+      if (!showAsMenu.contains(target) && !showAsBtn.contains(target)) {
+        closeShowAsMenu();
+      }
+    }
+  });
+}
+
+/**
+ * Open the Show as menu
+ */
+function openShowAsMenu() {
+  if (!showAsBtn || !showAsMenu) return;
+  showAsMenu.hidden = false;
+  showAsBtn.setAttribute('aria-expanded', 'true');
+  // Focus first menu item
+  const firstItem = /** @type {HTMLElement|null} */(showAsMenu.querySelector('[role="menuitem"]'));
+  if (firstItem) firstItem.focus();
+}
+
+/**
+ * Close the Show as menu
+ */
+function closeShowAsMenu() {
+  if (!showAsBtn || !showAsMenu) return;
+  showAsMenu.hidden = true;
+  showAsBtn.setAttribute('aria-expanded', 'false');
 }
 
 // Build printable HTML document containing all cart entry SVGs
@@ -959,18 +1101,19 @@ async function getSVGFromFingering(fingering) {
 /**
  * Build printable HTML document containing SVG strings.
  * @param {string[]} svgStrings
+ * @param {string} [title] - Optional title for the document
  * @returns {string}
  */
-function buildCartHtmlFromSvgs(svgStrings) {
+function buildCartHtmlFromSvgs(svgStrings, title) {
   /** @type {string} */
-  const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, ' UTC');
+  const displayTitle = title ? truncateTitle(title, 50) : 'Saved Chords Export';
   /** @type {string} */
   let out = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />';
-  out += '<title>Saved Chords Export</title><meta name="viewport" content="width=device-width,initial-scale=1" />';
+  out += `<title>${displayTitle}</title><meta name="viewport" content="width=device-width,initial-scale=1" />`;
   out += '<style>' +
-    ':root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text)}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px}.meta{font-size:.6rem;color:#555;margin:0}.chord-item svg{display:block;margin:0 auto;max-width:100%;height:auto}@media print{body{background:#fff}section.chord{box-shadow:none;background:#fff}}.chord-container{display:grid;grid-template-columns:repeat(4,1fr);max-width:100%;gap:20px;align-items:start;justify-content:center}.chord-item{margin:auto}.chord-container:has(.chord-item:nth-last-child(1)){grid-template-columns:repeat(1,1fr)}.chord-container:has(.chord-item:nth-last-child(2)){grid-template-columns:repeat(2,1fr)}.chord-container:has(.chord-item:nth-last-child(3)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(4)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(5)),.chord-container:has(.chord-item:nth-last-child(6)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(7)),.chord-container:has(.chord-item:nth-last-child(8)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(9)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(10)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(1))>.chord-item{width:33%}.chord-container:has(.chord-item:nth-last-child(2))>.chord-item{width:50%}.chord-container:has(.chord-item:nth-last-child(3))>.chord-item{width:100%};' +
+    ':root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text)}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem}h1{margin:.2rem 0 .1rem;letter-spacing:.5px}.meta{font-size:.6rem;color:#555;margin:0}.chord-item svg{display:block;margin:0 auto;max-width:100%;height:auto}@media print{body{background:#fff}section.chord{box-shadow:none;background:#fff}}.chord-container{display:grid;grid-template-columns:repeat(4,1fr);max-width:100%;gap:20px;align-items:start;justify-content:center}.chord-item{margin:auto}.chord-container:has(.chord-item:nth-last-child(1)){grid-template-columns:repeat(1,1fr)}.chord-container:has(.chord-item:nth-last-child(2)){grid-template-columns:repeat(2,1fr)}.chord-container:has(.chord-item:nth-last-child(3)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(4)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(5)),.chord-container:has(.chord-item:nth-last-child(6)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(7)),.chord-container:has(.chord-item:nth-last-child(8)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(9)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(10)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(1))>.chord-item{width:33%}.chord-container:has(.chord-item:nth-last-child(2))>.chord-item{width:50%}.chord-container:has(.chord-item:nth-last-child(3))>.chord-item{width:100%};' +
     '</style></head><body>';
-  out += `<header><p class="meta">Chord Export by Drop voicings visualizer ${timestamp}: ${window.location.origin + window.location.pathname}</p></header>`;
+  out += `<header><h1>${displayTitle}</h1><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
   out += '<div class="chord-container">';
   for (const svg of svgStrings) {
     out += `<section class="chord-item">${svg}</section>`;
@@ -979,32 +1122,77 @@ function buildCartHtmlFromSvgs(svgStrings) {
   return out;
 }
 
-if (cartDownloadJsonBtn) {
-  cartDownloadJsonBtn.addEventListener('click', () => {
+if (cartDownloadHtmlBtn) {
+  cartDownloadHtmlBtn.addEventListener('click', () => {
     const entries = loadCart();
     if (!entries.length) return;
-    
-    const jsonData = JSON.stringify(entries, null, 2);
-    showExportOverlay(jsonData);
+    showTitleModal();
   });
 }
 
-if (cartDownloadHtmlBtn) {
-  cartDownloadHtmlBtn.addEventListener('click', async () => {
+// Title modal event handlers
+if (htmlTitleInput && charCount) {
+  htmlTitleInput.addEventListener('input', () => {
+    const remaining = 50 - htmlTitleInput.value.length;
+    charCount.textContent = String(remaining);
+  });
+}
+
+if (titleModalClose) {
+  titleModalClose.addEventListener('click', closeTitleModal);
+}
+
+if (titleModalCancel) {
+  titleModalCancel.addEventListener('click', closeTitleModal);
+}
+
+if (titleModalExport && htmlTitleInput) {
+  titleModalExport.addEventListener('click', async () => {
     const entries = loadCart();
     if (!entries.length) return;
+    
+    const title = htmlTitleInput.value.trim();
+    const filename = slugify(title) + '.html';
+    
+    closeTitleModal();
+    
     const svgStrings = await Promise.all(entries.map((c) => getSVGFromFingering(cartEntryToChord(c))));
-
-    const html = buildCartHtmlFromSvgs(svgStrings);
+    const html = buildCartHtmlFromSvgs(svgStrings, title);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'saved-chords.html';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+}
+
+// Focus trap for title modal
+if (titleModal) {
+  titleModal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeTitleModal();
+      return;
+    }
+    
+    if (e.key === 'Tab') {
+      const focusableElements = titleModal.querySelectorAll(
+        'button:not([disabled]), input:not([disabled])'
+      );
+      const firstElement = /** @type {HTMLElement} */(focusableElements[0]);
+      const lastElement = /** @type {HTMLElement} */(focusableElements[focusableElements.length - 1]);
+      
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
   });
 }
 
@@ -1014,10 +1202,8 @@ updateCartCount();
 function refreshCartActionStates() {
   const len = loadCart().length;
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
-  if (cartDownloadAsciiBtn) cartDownloadAsciiBtn.disabled = len === 0;
-  if (cartDownloadUnicodeBtn) cartDownloadUnicodeBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
-  if (cartDownloadJsonBtn) cartDownloadJsonBtn.disabled = len === 0;
+  if (showAsBtn) showAsBtn.disabled = len === 0;
 }
 
 // Initialize gallery and actions

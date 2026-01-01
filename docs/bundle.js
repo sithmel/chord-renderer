@@ -8528,21 +8528,17 @@ var cartEmptyBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("cart-empty")
 );
-var cartDownloadAsciiBtn = (
-  /** @type {HTMLButtonElement|null} */
-  document.getElementById("cart-download-ascii")
-);
-var cartDownloadUnicodeBtn = (
-  /** @type {HTMLButtonElement|null} */
-  document.getElementById("cart-download-unicode")
-);
 var cartDownloadHtmlBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("cart-download-html")
 );
-var cartDownloadJsonBtn = (
+var showAsBtn = (
   /** @type {HTMLButtonElement|null} */
-  document.getElementById("cart-download-json")
+  document.getElementById("show-as-btn")
+);
+var showAsMenu = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("show-as-menu")
 );
 var exportOverlay = (
   /** @type {HTMLElement|null} */
@@ -8559,6 +8555,30 @@ var exportOverlayClose = (
 var exportOverlayCopy = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("export-overlay-copy")
+);
+var titleModal = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("title-modal")
+);
+var titleModalClose = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("title-modal-close")
+);
+var titleModalCancel = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("title-modal-cancel")
+);
+var titleModalExport = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("title-modal-export")
+);
+var htmlTitleInput = (
+  /** @type {HTMLInputElement|null} */
+  document.getElementById("html-title-input")
+);
+var charCount = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("char-count")
 );
 var builderPanel = (
   /** @type {HTMLElement|null} */
@@ -9213,6 +9233,27 @@ function closeExportOverlay() {
   exportOverlay.hidden = true;
   exportOverlay.setAttribute("aria-hidden", "true");
 }
+function showTitleModal() {
+  if (!titleModal || !htmlTitleInput) return;
+  titleModal.hidden = false;
+  titleModal.setAttribute("aria-hidden", "false");
+  htmlTitleInput.value = "";
+  if (charCount) charCount.textContent = "50";
+  htmlTitleInput.focus();
+}
+function closeTitleModal() {
+  if (!titleModal) return;
+  titleModal.hidden = true;
+  titleModal.setAttribute("aria-hidden", "true");
+  if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.focus();
+}
+function slugify(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").replace(/_+/g, "_") || "saved-chords";
+}
+function truncateTitle(title, maxLength) {
+  if (title.length <= maxLength) return title;
+  return title.slice(0, maxLength) + "...";
+}
 async function copyExportToClipboard() {
   if (!exportOverlayText || !exportOverlayCopy) return;
   const content = exportOverlayText.textContent || "";
@@ -9260,11 +9301,86 @@ function exportCartAsText(useUnicode) {
     showExportOverlay(full);
   };
 }
-if (cartDownloadAsciiBtn) {
-  cartDownloadAsciiBtn.addEventListener("click", exportCartAsText(false));
+function exportCartAsJson() {
+  const entries = loadCart();
+  if (!entries.length) return;
+  const jsonData = JSON.stringify(entries, null, 2);
+  showExportOverlay(jsonData);
 }
-if (cartDownloadUnicodeBtn) {
-  cartDownloadUnicodeBtn.addEventListener("click", exportCartAsText(true));
+if (showAsBtn && showAsMenu) {
+  showAsBtn.addEventListener("click", (e2) => {
+    e2.stopPropagation();
+    const isExpanded = showAsBtn.getAttribute("aria-expanded") === "true";
+    if (isExpanded) {
+      closeShowAsMenu();
+    } else {
+      openShowAsMenu();
+    }
+  });
+  const menuItems = showAsMenu.querySelectorAll('[role="menuitem"]');
+  menuItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const format = item.getAttribute("data-format");
+      closeShowAsMenu();
+      if (format === "ascii") {
+        exportCartAsText(false)();
+      } else if (format === "unicode") {
+        exportCartAsText(true)();
+      } else if (format === "json") {
+        exportCartAsJson();
+      }
+    });
+  });
+  showAsMenu.addEventListener("keydown", (e2) => {
+    var _a;
+    const items = Array.from(showAsMenu.querySelectorAll('[role="menuitem"]'));
+    const currentIndex = items.indexOf(
+      /** @type {HTMLElement} */
+      document.activeElement
+    );
+    if (e2.key === "ArrowDown") {
+      e2.preventDefault();
+      const nextIndex = (currentIndex + 1) % items.length;
+      items[nextIndex].focus();
+    } else if (e2.key === "ArrowUp") {
+      e2.preventDefault();
+      const prevIndex = (currentIndex - 1 + items.length) % items.length;
+      items[prevIndex].focus();
+    } else if (e2.key === "Escape") {
+      e2.preventDefault();
+      closeShowAsMenu();
+      if (showAsBtn) showAsBtn.focus();
+    } else if (e2.key === "Enter" || e2.key === " ") {
+      e2.preventDefault();
+      (_a = document.activeElement) == null ? void 0 : _a.click();
+    }
+  });
+  document.addEventListener("click", (e2) => {
+    if (showAsMenu && !showAsMenu.hidden && showAsBtn) {
+      const target = (
+        /** @type {Node} */
+        e2.target
+      );
+      if (!showAsMenu.contains(target) && !showAsBtn.contains(target)) {
+        closeShowAsMenu();
+      }
+    }
+  });
+}
+function openShowAsMenu() {
+  if (!showAsBtn || !showAsMenu) return;
+  showAsMenu.hidden = false;
+  showAsBtn.setAttribute("aria-expanded", "true");
+  const firstItem = (
+    /** @type {HTMLElement|null} */
+    showAsMenu.querySelector('[role="menuitem"]')
+  );
+  if (firstItem) firstItem.focus();
+}
+function closeShowAsMenu() {
+  if (!showAsBtn || !showAsMenu) return;
+  showAsMenu.hidden = true;
+  showAsBtn.setAttribute("aria-expanded", "false");
 }
 function cartEntryToChord(cart) {
   var _a, _b;
@@ -9287,12 +9403,12 @@ async function getSVGFromFingering(fingering) {
   document.body.removeChild(container);
   return content;
 }
-function buildCartHtmlFromSvgs(svgStrings) {
-  const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/T/, " ").replace(/\..+/, " UTC");
+function buildCartHtmlFromSvgs(svgStrings, title) {
+  const displayTitle = title ? truncateTitle(title, 50) : "Saved Chords Export";
   let out = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />';
-  out += '<title>Saved Chords Export</title><meta name="viewport" content="width=device-width,initial-scale=1" />';
-  out += "<style>:root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text)}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px}.meta{font-size:.6rem;color:#555;margin:0}.chord-item svg{display:block;margin:0 auto;max-width:100%;height:auto}@media print{body{background:#fff}section.chord{box-shadow:none;background:#fff}}.chord-container{display:grid;grid-template-columns:repeat(4,1fr);max-width:100%;gap:20px;align-items:start;justify-content:center}.chord-item{margin:auto}.chord-container:has(.chord-item:nth-last-child(1)){grid-template-columns:repeat(1,1fr)}.chord-container:has(.chord-item:nth-last-child(2)){grid-template-columns:repeat(2,1fr)}.chord-container:has(.chord-item:nth-last-child(3)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(4)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(5)),.chord-container:has(.chord-item:nth-last-child(6)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(7)),.chord-container:has(.chord-item:nth-last-child(8)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(9)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(10)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(1))>.chord-item{width:33%}.chord-container:has(.chord-item:nth-last-child(2))>.chord-item{width:50%}.chord-container:has(.chord-item:nth-last-child(3))>.chord-item{width:100%};</style></head><body>";
-  out += `<header><p class="meta">Chord Export by Drop voicings visualizer ${timestamp}: ${window.location.origin + window.location.pathname}</p></header>`;
+  out += `<title>${displayTitle}</title><meta name="viewport" content="width=device-width,initial-scale=1" />`;
+  out += "<style>:root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text)}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem}h1{margin:.2rem 0 .1rem;letter-spacing:.5px}.meta{font-size:.6rem;color:#555;margin:0}.chord-item svg{display:block;margin:0 auto;max-width:100%;height:auto}@media print{body{background:#fff}section.chord{box-shadow:none;background:#fff}}.chord-container{display:grid;grid-template-columns:repeat(4,1fr);max-width:100%;gap:20px;align-items:start;justify-content:center}.chord-item{margin:auto}.chord-container:has(.chord-item:nth-last-child(1)){grid-template-columns:repeat(1,1fr)}.chord-container:has(.chord-item:nth-last-child(2)){grid-template-columns:repeat(2,1fr)}.chord-container:has(.chord-item:nth-last-child(3)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(4)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(5)),.chord-container:has(.chord-item:nth-last-child(6)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(7)),.chord-container:has(.chord-item:nth-last-child(8)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(9)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(10)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(1))>.chord-item{width:33%}.chord-container:has(.chord-item:nth-last-child(2))>.chord-item{width:50%}.chord-container:has(.chord-item:nth-last-child(3))>.chord-item{width:100%};</style></head><body>";
+  out += `<header><h1>${displayTitle}</h1><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
   out += '<div class="chord-container">';
   for (const svg of svgStrings) {
     out += `<section class="chord-item">${svg}</section>`;
@@ -9300,39 +9416,79 @@ function buildCartHtmlFromSvgs(svgStrings) {
   out += "</div></body></html>";
   return out;
 }
-if (cartDownloadJsonBtn) {
-  cartDownloadJsonBtn.addEventListener("click", () => {
+if (cartDownloadHtmlBtn) {
+  cartDownloadHtmlBtn.addEventListener("click", () => {
     const entries = loadCart();
     if (!entries.length) return;
-    const jsonData = JSON.stringify(entries, null, 2);
-    showExportOverlay(jsonData);
+    showTitleModal();
   });
 }
-if (cartDownloadHtmlBtn) {
-  cartDownloadHtmlBtn.addEventListener("click", async () => {
+if (htmlTitleInput && charCount) {
+  htmlTitleInput.addEventListener("input", () => {
+    const remaining = 50 - htmlTitleInput.value.length;
+    charCount.textContent = String(remaining);
+  });
+}
+if (titleModalClose) {
+  titleModalClose.addEventListener("click", closeTitleModal);
+}
+if (titleModalCancel) {
+  titleModalCancel.addEventListener("click", closeTitleModal);
+}
+if (titleModalExport && htmlTitleInput) {
+  titleModalExport.addEventListener("click", async () => {
     const entries = loadCart();
     if (!entries.length) return;
+    const title = htmlTitleInput.value.trim();
+    const filename = slugify(title) + ".html";
+    closeTitleModal();
     const svgStrings = await Promise.all(entries.map((c2) => getSVGFromFingering(cartEntryToChord(c2))));
-    const html = buildCartHtmlFromSvgs(svgStrings);
+    const html = buildCartHtmlFromSvgs(svgStrings, title);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a2 = document.createElement("a");
     a2.href = url;
-    a2.download = "saved-chords.html";
+    a2.download = filename;
     document.body.appendChild(a2);
     a2.click();
     document.body.removeChild(a2);
     URL.revokeObjectURL(url);
   });
 }
+if (titleModal) {
+  titleModal.addEventListener("keydown", (e2) => {
+    if (e2.key === "Escape") {
+      closeTitleModal();
+      return;
+    }
+    if (e2.key === "Tab") {
+      const focusableElements = titleModal.querySelectorAll(
+        "button:not([disabled]), input:not([disabled])"
+      );
+      const firstElement = (
+        /** @type {HTMLElement} */
+        focusableElements[0]
+      );
+      const lastElement = (
+        /** @type {HTMLElement} */
+        focusableElements[focusableElements.length - 1]
+      );
+      if (e2.shiftKey && document.activeElement === firstElement) {
+        e2.preventDefault();
+        lastElement.focus();
+      } else if (!e2.shiftKey && document.activeElement === lastElement) {
+        e2.preventDefault();
+        firstElement.focus();
+      }
+    }
+  });
+}
 updateCartCount();
 function refreshCartActionStates() {
   const len = loadCart().length;
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
-  if (cartDownloadAsciiBtn) cartDownloadAsciiBtn.disabled = len === 0;
-  if (cartDownloadUnicodeBtn) cartDownloadUnicodeBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
-  if (cartDownloadJsonBtn) cartDownloadJsonBtn.disabled = len === 0;
+  if (showAsBtn) showAsBtn.disabled = len === 0;
 }
 updateCartCount();
 renderCartGallery();
