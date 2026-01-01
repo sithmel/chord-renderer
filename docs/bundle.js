@@ -8790,7 +8790,7 @@ function renderVoicings() {
   }
 }
 function renderIntervalLabelOptions() {
-  var _a, _b;
+  var _a;
   intervalLabelOptionsBox.innerHTML = "";
   if (selectedIntervals.size === 0) return;
   const sorted = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
@@ -8804,8 +8804,8 @@ function renderIntervalLabelOptions() {
     nameSpan.textContent = base.full;
     const input = document.createElement("input");
     input.type = "text";
-    input.maxLength = 2;
-    input.value = existing.text !== void 0 ? existing.text : ((_a = base.fingerOptions) == null ? void 0 : _a.text) || "";
+    input.maxLength = 1;
+    input.value = existing.text !== void 0 ? existing.text : "";
     input.setAttribute("aria-label", base.full + " label");
     input.addEventListener("input", () => {
       const val = input.value;
@@ -8818,7 +8818,7 @@ function renderIntervalLabelOptions() {
     });
     const colorContainer = document.createElement("div");
     colorContainer.className = "color-presets";
-    const currentColor = normalizeColor(existing.color || ((_b = base.fingerOptions) == null ? void 0 : _b.color));
+    const currentColor = normalizeColor(existing.color || ((_a = base.fingerOptions) == null ? void 0 : _a.color));
     const redLabel = document.createElement("label");
     redLabel.className = "color-checkbox-label";
     const redCheckbox = document.createElement("input");
@@ -8920,7 +8920,7 @@ function generateChords() {
       const override = userIntervalOptions.get(interval) || {};
       return {
         className: base.className,
-        text: override.text !== void 0 ? override.text : base.text,
+        text: override.text !== void 0 ? override.text : "",
         color: override.color || normalizeColor(base.color)
       };
     };

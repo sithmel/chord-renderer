@@ -296,8 +296,8 @@ function renderIntervalLabelOptions() {
     // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
     input.type = 'text';
-    input.maxLength = 2;
-    input.value = existing.text !== undefined ? existing.text : (base.fingerOptions?.text || '');
+    input.maxLength = 1;
+    input.value = existing.text !== undefined ? existing.text : '';
     input.setAttribute('aria-label', base.full + ' label');
     input.addEventListener('input', () => {
       const val = input.value;
@@ -437,7 +437,7 @@ function generateChords() {
       const override = userIntervalOptions.get(interval) || {};
       return {
         className: base.className,
-        text: override.text !== undefined ? override.text : base.text,
+        text: override.text !== undefined ? override.text : '',
         color: override.color || normalizeColor(base.color),
       };
     };
