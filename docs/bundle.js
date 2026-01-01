@@ -9207,16 +9207,27 @@ if (cartDownloadAsciiBtn) {
 if (cartDownloadUnicodeBtn) {
   cartDownloadUnicodeBtn.addEventListener("click", downloadCartAsText(true));
 }
+async function getSVGFromFingering(fingering) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const noPosition = fingering.position === void 0 || fingering.position === null;
+  const frets = Math.max(3, ...fingering.fingers.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
+  const svguitar = new SVGuitarChord(container).chord({ fingers: fingering.fingers, barres: fingering.barres, position: fingering.position || void 0, title: fingering.title || "" }).configure({ frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 });
+  await Promise.resolve().then(() => svguitar.draw());
+  const svg = container.querySelector("svg");
+  const content = svg ? svg.outerHTML : "";
+  document.body.removeChild(container);
+  return content;
+}
 function buildCartHtmlFromSvgs(svgStrings) {
-  const esc = (s2) => s2.replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2] || c2);
   const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/T/, " ").replace(/\..+/, " UTC");
   let out = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />';
   out += '<title>Saved Chords Export</title><meta name="viewport" content="width=device-width,initial-scale=1" />';
-  out += "<style>:root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb;}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text);}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem;}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px;}.meta{font-size:.6rem;color:#555;margin:0;}.chords{display:flex;flex-direction:column;gap:1.2rem;}section.chord{padding:.75rem .9rem .9rem;page-break-inside:avoid;break-inside:avoid;}section.chord h2{font-size:.8rem;margin:0 0 .5rem;text-align:center;letter-spacing:.4px;}section.chord svg{display:block;margin:0 auto;max-width:100%;height:auto;}@media print{body{background:#fff;}section.chord{box-shadow:none;background:#fff;}}</style></head><body>";
-  out += `<header><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
-  out += '<div class="chords">';
+  out += "<style>:root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text)}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px}.meta{font-size:.6rem;color:#555;margin:0}.chord-item svg{display:block;margin:0 auto;max-width:100%;height:auto}@media print{body{background:#fff}section.chord{box-shadow:none;background:#fff}}.chord-container{display:grid;grid-template-columns:repeat(4,1fr);max-width:100%;gap:20px;align-items:start;justify-content:center}.chord-item{margin:auto}.chord-container:has(.chord-item:nth-last-child(1)){grid-template-columns:repeat(1,1fr)}.chord-container:has(.chord-item:nth-last-child(2)){grid-template-columns:repeat(2,1fr)}.chord-container:has(.chord-item:nth-last-child(3)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(4)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(5)),.chord-container:has(.chord-item:nth-last-child(6)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(7)),.chord-container:has(.chord-item:nth-last-child(8)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(9)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(10)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(1))>.chord-item{width:33%}.chord-container:has(.chord-item:nth-last-child(2))>.chord-item{width:50%}.chord-container:has(.chord-item:nth-last-child(3))>.chord-item{width:100%};</style></head><body>";
+  out += `<header><p class="meta">Chord Export by Drop voicings visualizer ${timestamp}: ${window.location.origin + window.location.pathname}</p></header>`;
+  out += '<div class="chord-container">';
   for (const svg of svgStrings) {
-    out += `<section class="chord">${svg}</section>`;
+    out += `<section class="chord-item">${svg}</section>`;
   }
   out += "</div></body></html>";
   return out;
@@ -9238,11 +9249,10 @@ if (cartDownloadJsonBtn) {
   });
 }
 if (cartDownloadHtmlBtn) {
-  cartDownloadHtmlBtn.addEventListener("click", () => {
-    if (!cartItems) return;
-    const svgElements = cartItems.querySelectorAll(".cart-item-svg svg");
-    if (!svgElements.length) return;
-    const svgStrings = Array.from(svgElements).map((svg) => svg.outerHTML);
+  cartDownloadHtmlBtn.addEventListener("click", async () => {
+    const entries = loadCart();
+    if (!entries.length) return;
+    const svgStrings = await Promise.all(entries.map(getSVGFromFingering));
     const html = buildCartHtmlFromSvgs(svgStrings);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
