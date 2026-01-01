@@ -12,6 +12,7 @@ const root = resolve(__dirname, '..');
 const publicDir = resolve(root, 'docs');
 
 async function run() {
+  // Build main docs bundle
   await build({
     entryPoints: [resolve(publicDir, 'app.js')],
     bundle: true,
@@ -22,10 +23,12 @@ async function run() {
     outfile: resolve(publicDir, 'bundle.js'),
     logLevel: 'info',
   });
+    
   // Simple size note
   const size = readFileSync(resolve(publicDir, 'bundle.js')).length;
   writeFileSync(resolve(publicDir, 'bundle.size.txt'), `${size} bytes`);
   console.log(`Demo bundle written: ${size} bytes`);
+  
 }
 
 run().catch((err) => { console.error(err); process.exit(1); });

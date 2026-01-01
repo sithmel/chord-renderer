@@ -1,6 +1,9 @@
 //@ts-check
+// NEW LAYOUT: Main page displays saved individual chords gallery with inline previews.
+// Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
 import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
+import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings } from 'text-guitar-chart';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
@@ -8,22 +11,42 @@ const voicingBox = /** @type {HTMLElement} */(document.getElementById('voicing-b
 const form = /** @type {HTMLFormElement} */(document.getElementById('voicing-form'));
 const results = /** @type {HTMLElement} */(document.getElementById('results'));
 const message = /** @type {HTMLElement} */(document.getElementById('message'));
-const jsonOutput = /** @type {HTMLTextAreaElement} */(document.getElementById('json-output'));
-const copyBtn = /** @type {HTMLButtonElement} */(document.getElementById('copy-json'));
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
-const titleInput = /** @type {HTMLInputElement|null} */(document.getElementById('result-title'));
-const addToCartBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-to-cart'));
-const cartToggleBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-toggle'));
-const cartDropdown = /** @type {HTMLElement|null} */(document.getElementById('cart-dropdown'));
-const cartList = /** @type {HTMLElement|null} */(document.getElementById('cart-list'));
+
+// New DOM references for gallery layout
+const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('cart-gallery'));
+const cartItems = /** @type {HTMLElement|null} */(document.getElementById('cart-items'));
 const cartCount = /** @type {HTMLElement|null} */(document.getElementById('cart-count'));
 const cartEmptyBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-empty'));
-const cartDownloadBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download'));
 const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('cart-download-html'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !jsonOutput || !copyBtn || !intervalLabelOptionsBox) {
+// Show as menu references
+const showAsBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('show-as-btn'));
+const showAsMenu = /** @type {HTMLElement|null} */(document.getElementById('show-as-menu'));
+
+// Export overlay references
+const exportOverlay = /** @type {HTMLElement|null} */(document.getElementById('export-overlay'));
+const exportOverlayText = /** @type {HTMLElement|null} */(document.getElementById('export-overlay-text'));
+const exportOverlayClose = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-close'));
+const exportOverlayCopy = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-copy'));
+
+// Title modal references
+const titleModal = /** @type {HTMLElement|null} */(document.getElementById('title-modal'));
+const titleModalClose = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-close'));
+const titleModalCancel = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-cancel'));
+const titleModalExport = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-export'));
+const htmlTitleInput = /** @type {HTMLInputElement|null} */(document.getElementById('html-title-input'));
+const charCount = /** @type {HTMLElement|null} */(document.getElementById('char-count'));
+
+// Builder panel references
+const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('builder-panel'));
+const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('open-builder'));
+const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
+const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
+
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -37,10 +60,24 @@ const selectedIntervals = new Set();
 /**
  * Store user overrides for interval display.
  * key: interval number
- * value: { text?: string, colored?: boolean }
- * @type {Map<number,{text?: string, colored?: boolean}>}
+ * value: { text?: string, color?: string }
+ * @type {Map<number,{text?: string, color?: string}>}
  */
 const userIntervalOptions = new Map();
+
+/**
+ * Normalize color values: non-black colors → BLACK, black → black, undefined/transparent → unchanged
+ * @param {string|undefined} color
+ * @returns {string|undefined}
+ */
+function normalizeColor(color) {
+  if (!color || color === 'transparent') return color;
+  const normalized = color.toLowerCase().trim();
+  if (normalized === '#000000' || normalized === '#000' || normalized === 'black') {
+    return DOT_COLORS.BLACK;
+  }
+  return DOT_COLORS.BLACK;
+}
 
 /**
  * Build current UI state for URL.
@@ -55,7 +92,7 @@ function buildState() {
     /** @type {Record<string, any>} */
     const rec = {};
     if (opts.text !== undefined) rec.t = opts.text; // explicit empty string allowed
-    if (opts.colored) rec.c = 1;
+    if (opts.color) rec.c = opts.color;
     if (Object.keys(rec).length) o[String(interval)] = rec;
   }
   return {
@@ -123,11 +160,11 @@ function applyState(state) {
       const num = Number(k);
       if (!Number.isInteger(num)) continue;
       if (v && typeof v === 'object') {
-        /** @type {{text?: string, colored?: boolean}} */
+        /** @type {{text?: string, color?: string}} */
         const rec = {};
         if ('t' in v) rec.text = typeof v.t === 'string' ? v.t : '';
-        if (v.c === 1) rec.colored = true;
-        if (rec.text !== undefined || rec.colored) userIntervalOptions.set(num, rec);
+        if (v.c && typeof v.c === 'string') rec.color = v.c;
+        if (rec.text !== undefined || rec.color) userIntervalOptions.set(num, rec);
       }
     }
   }
@@ -255,118 +292,85 @@ function renderIntervalLabelOptions() {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'interval-name';
     nameSpan.textContent = base.full;
+    
+    // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
     input.type = 'text';
-    input.maxLength = 3;
+    input.maxLength = 2;
     input.value = existing.text !== undefined ? existing.text : (base.fingerOptions?.text || '');
     input.setAttribute('aria-label', base.full + ' label');
     input.addEventListener('input', () => {
-      const val = input.value.trim();
-      if (val.length > 3) input.value = val.slice(0,3);
+      const val = input.value;
+      if (val.length > 2) input.value = val.slice(0, 2);
       const record = userIntervalOptions.get(interval) || {};
       // Preserve empty string to explicitly clear default label
-      record.text = input.value.trim();
+      record.text = input.value;
       userIntervalOptions.set(interval, record);
       pushState();
       tryAutoGenerate();
     });
-    const colorLabel = document.createElement('label');
-    colorLabel.className = 'inline';
-    const colorCheckbox = document.createElement('input');
-    colorCheckbox.type = 'checkbox';
-    colorCheckbox.checked = existing.colored ?? false; // default now false (no color)
-    colorCheckbox.addEventListener('change', () => {
+    
+    // Color picker: Show checkbox for red color
+    const colorContainer = document.createElement('div');
+    colorContainer.className = 'color-presets';
+    
+    const currentColor = normalizeColor(existing.color || base.fingerOptions?.color);
+    
+    // Red checkbox
+    const redLabel = document.createElement('label');
+    redLabel.className = 'color-checkbox-label';
+    const redCheckbox = document.createElement('input');
+    redCheckbox.type = 'checkbox';
+    redCheckbox.checked = currentColor === DOT_COLORS.RED;
+    const redSpan = document.createElement('span');
+    redSpan.textContent = 'red';
+    redLabel.appendChild(redCheckbox);
+    redLabel.appendChild(redSpan);
+    
+    // Update input visibility based on color selection
+    const updateInputVisibility = () => {
+      const isRed = redCheckbox.checked;
+      input.style.display = isRed ? 'none' : '';
+      if (isRed) {
+        // Clear text when RED is selected
+        input.value = '';
+        const record = userIntervalOptions.get(interval) || {};
+        record.text = '';
+        userIntervalOptions.set(interval, record);
+      }
+    };
+    
+    redCheckbox.addEventListener('change', () => {
       const record = userIntervalOptions.get(interval) || {};
-      record.colored = colorCheckbox.checked;
+      if (redCheckbox.checked) {
+        record.color = DOT_COLORS.RED;
+      } else {
+        record.color = DOT_COLORS.BLACK;
+      }
       userIntervalOptions.set(interval, record);
+      updateInputVisibility();
       pushState();
       tryAutoGenerate();
     });
-    colorLabel.appendChild(colorCheckbox);
-    const smallTxt = document.createElement('span');
-    smallTxt.textContent = 'color';
-    colorLabel.appendChild(smallTxt);
+    
+    colorContainer.appendChild(redLabel);
+    
     row.appendChild(nameSpan);
+    row.appendChild(colorContainer);
     row.appendChild(input);
-    row.appendChild(colorLabel);
     intervalLabelOptionsBox.appendChild(row);
+    
+    // Set initial visibility
+    updateInputVisibility();
   }
 }
 
-function updateResultToolVisibility() {
-  const hasChords = !!results.querySelector('.chord-block');
-  const tools = document.querySelector('.result-tools');
-  if (tools) {
-    if (hasChords) tools.removeAttribute('hidden');
-    else tools.setAttribute('hidden', '');
-  }
-  const exportBox = document.getElementById('export-box');
-  if (exportBox) {
-    if (hasChords) exportBox.removeAttribute('hidden');
-    else exportBox.setAttribute('hidden', '');
-  }
-}
 
 function clearResults() {
   results.innerHTML = '';
-  jsonOutput.value = '';
-  if (addToCartBtn) { addToCartBtn.disabled = true; }
-  updateResultToolVisibility();
 }
 
-/**
- * Build a combined SVG of all rendered chord diagrams.
- * Layout: 4 per row with spacing.
- * @returns {string|null}
- */
-function buildCombinedSvg() {
-  const chordSvgs = /** @type {NodeListOf<SVGSVGElement>} */(results.querySelectorAll('.chord-block svg'));
-  if (!chordSvgs.length) return null;
-  const PER_ROW = 4;
-  const H_GAP = 24;
-  const V_GAP = 24;
-  /** @type {{w:number,h:number,el:SVGSVGElement}[]} */
-  const items = [];
-  let maxW = 0, maxH = 0;
-  for (const el of chordSvgs) {
-    let w = parseFloat(el.getAttribute('width') || '');
-    let h = parseFloat(el.getAttribute('height') || '');
-    const vb = el.getAttribute('viewBox');
-    if ((!w || !h) && vb) {
-      const p = vb.trim().split(/\s+/);
-      if (p.length === 4) {
-        const vw = parseFloat(p[2]);
-        const vh = parseFloat(p[3]);
-        if (!w) w = vw;
-        if (!h) h = vh;
-      }
-    }
-    if (!w) w = 120;
-    if (!h) h = 140;
-    if (w > maxW) maxW = w;
-    if (h > maxH) maxH = h;
-    items.push({ w, h, el });
-  }
-  const count = items.length;
-  const rows = Math.ceil(count / PER_ROW);
-  const cellW = maxW + H_GAP;
-  const cellH = maxH + V_GAP;
-  const totalW = Math.min(PER_ROW, count) * cellW - H_GAP;
-  const totalH = rows * cellH - V_GAP;
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
-  out += `\n<!-- Combined ${count} chord diagram${count>1?'s':''}; ${PER_ROW} per row -->\n`;
-  items.forEach((item, i) => {
-    const col = i % PER_ROW;
-    const row = Math.floor(i / PER_ROW);
-    const x = col * cellW;
-    const y = row * cellH;
-    const src = item.el;
-    const viewBox = src.getAttribute('viewBox') || `0 0 ${item.w} ${item.h}`;
-    out += `<g transform="translate(${x},${y})"><svg viewBox="${viewBox}" width="${item.w}" height="${item.h}">${src.innerHTML}</svg></g>`;
-  });
-  out += '\n</svg>\n';
-  return out;
-}
+
 
 /**
  * @param {string} text
@@ -377,19 +381,7 @@ function setMessage(text, type = '') {
   message.className = 'message ' + type;
 }
 
-copyBtn.addEventListener('click', async () => {
-  if (!jsonOutput.value) return;
-  try {
-    await navigator.clipboard.writeText(jsonOutput.value);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy JSON'; }, 1200);
-  } catch {
-    jsonOutput.select();
-    document.execCommand('copy');
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy JSON'; }, 1200);
-  }
-});
+
 
 /**
  * Determine whether we have enough info to generate chords.
@@ -437,7 +429,7 @@ function generateChords() {
     /**
      * Get finger options for a given interval.
      * @param {number|null} interval
-     * @returns {import('../lib/chord.js').FingerOptions}
+     * @returns {import('svguitar').FingerOptions}
      */
     const intervalToFingerOptions = (interval) => {
       if (interval === null) return {};
@@ -446,7 +438,7 @@ function generateChords() {
       return {
         className: base.className,
         text: override.text !== undefined ? override.text : base.text,
-        color: override.colored === true ? base.color : undefined,
+        color: override.color || normalizeColor(base.color),
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
@@ -456,13 +448,9 @@ function generateChords() {
   }
   if (count === 0) {
     setMessage('No chords produced (unexpected).', 'error');
-    jsonOutput.value = '';
   } else {
     setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
-    jsonOutput.value = JSON.stringify(chordShapes, null, 2);
     pushState();
-    enableChordSelection();
-    updateResultToolVisibility();
   }
 }
 
@@ -505,14 +493,57 @@ function renderChord(chord, index, voicingName) {
 
   const svgContainer = document.createElement('div');
   holder.appendChild(svgContainer);
+  
+  // Add per-chord save controls
+  const saveControls = document.createElement('div');
+  saveControls.className = 'chord-save-controls';
+  
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'chord-save-btn';
+  saveBtn.textContent = 'Save';
+  saveBtn.setAttribute('aria-label', `Save chord ${index + 1}`);
+  
+  saveBtn.addEventListener('click', () => {
+    const entries = loadCart();
+    const frets = Math.max(3, ...chord.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
+    const newEntry = { 
+      id: String(Date.now()) + Math.random().toString(36).slice(2), 
+      fingers: chord,
+      barres: [],
+      frets,
+      created: Date.now() 
+    };
+    entries.push(newEntry);
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    
+    setMessage('Saved chord.');
+    
+    // Focus the newly added cart item
+    setTimeout(() => {
+      const newItem = cartItems?.querySelector(`[data-entry-id="${newEntry.id}"]`);
+      if (newItem instanceof HTMLElement) {
+        newItem.focus();
+        newItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+    }, 100);
+  });
+  
+  saveControls.appendChild(saveBtn);
+  holder.appendChild(saveControls);
+  
   results.appendChild(holder);
 
-  const frets = Math.max(3, ...chord.map(f => f[1]));
-
-  new /** @type {any} */(SVGuitarChord)(svgContainer)
-    .chord({ fingers: chord, barres: [] })
-    .configure({ frets, noPosition: true,  fingerSize: 0.75, fingerTextSize: 20 })
-    .draw();
+    const frets = Math.max(3, ...chord.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
+    const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
+    
+    // Render the SVG for the current results display
+    new /** @type {any} */(SVGuitarChord)(svgContainer)
+      .chord({ fingers: chord, barres: [] })
+      .configure(config)
+      .draw();
 }
 
 // Keep submit handler for manual triggers (backward compatibility / URL state load)
@@ -553,10 +584,11 @@ if (initialState) {
 // ---- Cart + selection logic ----
 
 /** @type {string} */
-const CART_KEY = 'chordRendererCartV1';
+const CART_KEY = 'chordRendererCartV2';
 
 /**
- * @typedef {{ id:string, title:string, svg:string, created:number }} CartEntry
+ * @typedef {import('svguitar').Finger} FingerPosition
+ * @typedef {{ id:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any, position?: number?, title?: string? }} CartEntry
  */
 
 /** @returns {CartEntry[]} */
@@ -565,7 +597,10 @@ function loadCart() {
     const raw = localStorage.getItem(CART_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter(e => e && typeof e.svg === 'string');
+    if (Array.isArray(parsed)) {
+      // Return saved chords as-is; colors are already user-selected values
+      return parsed.filter(e => e && e.fingers && Array.isArray(e.fingers));
+    }
   } catch {}
   return [];
 }
@@ -594,151 +629,433 @@ function moveCartEntry(id, delta) {
 function updateCartCount() {
   const len = loadCart().length;
   if (cartCount) cartCount.textContent = String(len);
-  if (cartToggleBtn) {
-    cartToggleBtn.setAttribute('aria-label', `Cart (${len} item${len !== 1 ? 's' : ''})`);
-    if (len === 0) {
-      cartToggleBtn.setAttribute('aria-disabled', 'true');
-      cartToggleBtn.disabled = true; // prevent opening when empty
-    } else {
-      cartToggleBtn.removeAttribute('aria-disabled');
-      cartToggleBtn.disabled = false;
-    }
-  }
-  // Also keep action buttons in sync if helper present
-  if (typeof refreshCartActionStates === 'function') {
-    try { refreshCartActionStates(); } catch {}
-  }
+  refreshCartActionStates();
 }
 
-function renderCartList() {
-  if (!cartList) return;
-  cartList.innerHTML = '';
+function renderCartGallery() {
+  if (!cartItems) return;
+  
   const entries = loadCart();
-  entries.forEach((entry, index) => {
-    const li = document.createElement('li');
-    const upBtn = document.createElement('button');
-    upBtn.type = 'button';
-    upBtn.textContent = '↑';
-    upBtn.className = 'reorder-btn';
-    upBtn.disabled = index === 0;
-    upBtn.setAttribute('aria-label', 'Move up');
-    upBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      moveCartEntry(entry.id, -1);
-      renderCartList();
-    });
-    li.appendChild(upBtn);
-
-    const downBtn = document.createElement('button');
-    downBtn.type = 'button';
-    downBtn.textContent = '↓';
-    downBtn.className = 'reorder-btn';
-    downBtn.disabled = index === entries.length - 1;
-    downBtn.setAttribute('aria-label', 'Move down');
-    downBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      moveCartEntry(entry.id, 1);
-      renderCartList();
-    });
-    li.appendChild(downBtn);
-
-    const titleSpan = document.createElement('span');
-    titleSpan.textContent = entry.title || 'Untitled';
-    li.appendChild(titleSpan);
-
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.textContent = '✕';
-    delBtn.setAttribute('aria-label', 'Remove');
-    delBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const newer = loadCart().filter(e => e.id !== entry.id);
-      saveCart(newer);
-      updateCartCount();
-      renderCartList();
-    });
-    li.appendChild(delBtn);
-
-    cartList.appendChild(li);
-  });
-}
-
-/**
- * Toggle the cart dropdown visibility.
- *
- * @typedef {Object} ToggleCartOptions
- * @property {boolean} [open]
- */
-
-/**
- * Toggle cart.
- * @param {boolean} [open] - when provided, force open/close; otherwise toggle.
- * @returns {void}
- */
-function toggleCart(open) {
-  if (!cartDropdown || !cartToggleBtn) return;
-  /** @type {boolean} */
-  const empty = loadCart().length === 0;
-  /** @type {boolean} */
-  const shouldOpen = open !== undefined ? open : cartDropdown.hasAttribute('hidden');
-  if (shouldOpen && empty) {
-    // Do not open when empty; provide subtle feedback
-    cartToggleBtn.setAttribute('aria-expanded', 'false');
+  
+  if (entries.length === 0) {
+    cartItems.innerHTML = `
+      <div class="empty-state">
+        <p>No individual chords saved yet.</p>
+        <p>Click "Create New Chord" above to get started!</p>
+      </div>
+    `;
     return;
   }
-  if (shouldOpen) {
-    cartDropdown.removeAttribute('hidden');
-    cartToggleBtn.setAttribute('aria-expanded', 'true');
-    renderCartList();
-    /** @type {HTMLElement|null} */
-    const firstAction = cartDropdown.querySelector('button, [href], input, [tabindex]');
-    if (firstAction instanceof HTMLElement) firstAction.focus();
-  } else {
-    cartDropdown.setAttribute('hidden', '');
-    cartToggleBtn.setAttribute('aria-expanded', 'false');
+  
+  cartItems.innerHTML = '';
+  
+  entries.forEach((entry, index) => {
+    const item = document.createElement('div');
+    item.className = 'cart-item';
+    item.tabIndex = -1;
+    item.setAttribute('data-entry-id', entry.id);
+    
+    item.innerHTML = `
+      <div class="cart-item-header">
+        <div class="cart-item-actions">
+          <button type="button" class="reorder-btn up-btn" ${index === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
+          <button type="button" class="reorder-btn down-btn" ${index === entries.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+          <button type="button" class="delete-btn" aria-label="Delete chord">✕</button>
+        </div>
+      </div>
+      <div class="cart-item-svg"></div>
+    `;
+    
+    // Render the chord using EditableSVGuitarChord from stored data
+    /** @type {HTMLElement | null} */
+    const svgContainer = item.querySelector('.cart-item-svg');
+    if (svgContainer) {
+      const noPosition = entry.position === undefined || entry.position === null;
+      const editableChord = new EditableSVGuitarChord(svgContainer, SVGuitarChord)
+        .chord({ fingers: entry.fingers, barres: entry.barres, position: entry.position || undefined, title: entry.title || '' })
+        .configure({ frets: entry.frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 })
+
+      // Initial draw
+      Promise.resolve().then(() => editableChord.draw());
+      
+      // Add listener for when the chord is modified
+      editableChord.onChange( () => {
+        const updatedFingers = editableChord.chordConfig.fingers;
+        // Update the cart entry with new finger positions
+        const entries = loadCart();
+        const entryIndex = entries.findIndex(e => e.id === entry.id);
+        if (entryIndex !== -1) {
+          entries[entryIndex].fingers = updatedFingers;
+          // Update frets if needed
+          const maxFret = Math.max(3, ...updatedFingers.map((f) => (typeof f[1] === 'number' ? f[1] : 0)));
+          entries[entryIndex].frets = maxFret;
+          entries[entryIndex].title = editableChord.chordConfig.title || '';
+          entries[entryIndex].position = editableChord.chordConfig.position || undefined;
+          saveCart(entries);
+          updateCartCount();
+        }
+      });
+    }
+    
+    // Add event listeners
+    const upBtn = item.querySelector('.up-btn');
+    const downBtn = item.querySelector('.down-btn');
+    const deleteBtn = item.querySelector('.delete-btn');
+    
+    if (upBtn) {
+      upBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moveCartEntry(entry.id, -1);
+        renderCartGallery();
+        updateCartCount();
+        // Focus the moved item
+        const movedItem = cartItems?.querySelector(`[data-entry-id="${entry.id}"]`);
+        if (movedItem instanceof HTMLElement) movedItem.focus();
+      });
+    }
+    
+    if (downBtn) {
+      downBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moveCartEntry(entry.id, 1);
+        renderCartGallery();
+        updateCartCount();
+        // Focus the moved item
+        const movedItem = cartItems?.querySelector(`[data-entry-id="${entry.id}"]`);
+        if (movedItem instanceof HTMLElement) movedItem.focus();
+      });
+    }
+    
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm('Delete this chord?')) return;
+        const newer = loadCart().filter(e => e.id !== entry.id);
+        saveCart(newer);
+        renderCartGallery();
+        updateCartCount();
+        // Focus the gallery container
+        if (cartGallery instanceof HTMLElement) cartGallery.focus();
+      });
+    }
+    
+    cartItems.appendChild(item);
+  });
+}
+
+/** @param {string} text */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Builder panel functionality
+function openBuilder() {
+  if (!builderPanel) return;
+  builderPanel.classList.add('open');
+  builderPanel.setAttribute('aria-hidden', 'false');
+  
+  // Focus the first focusable element in the panel
+  const firstFocusable = builderPanel.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (firstFocusable instanceof HTMLElement) {
+    firstFocusable.focus();
   }
 }
 
-if (cartToggleBtn) {
-  cartToggleBtn.addEventListener('click', (e) => {
-    // Only toggle when the toggle button itself is clicked
-    toggleCart();
-  });
-  document.addEventListener('click', (e) => {
-    if (!cartDropdown || !cartToggleBtn) return;
-    if (cartDropdown.hasAttribute('hidden')) return;
-    const t = e.target;
-    if (!(t instanceof Node)) return;
-    // If clicking inside dropdown (including its buttons), do nothing
-    if (cartDropdown.contains(t) || cartToggleBtn.contains(t)) return;
-    toggleCart(false);
+function closeBuilder() {
+  if (!builderPanel) return;
+  builderPanel.classList.remove('open');
+  builderPanel.setAttribute('aria-hidden', 'true');
+  
+  // Return focus to the open builder button
+  if (openBuilderBtn) openBuilderBtn.focus();
+}
+
+// Event listeners for builder panel
+if (openBuilderBtn) {
+  openBuilderBtn.addEventListener('click', openBuilder);
+}
+
+if (closeBuilderBtn) {
+  closeBuilderBtn.addEventListener('click', closeBuilder);
+}
+
+// Add empty chord button listener
+if (addEmptyChordBtn) {
+  addEmptyChordBtn.addEventListener('click', () => {
+    const entries = loadCart();
+    const newEntry = { 
+      id: String(Date.now()) + Math.random().toString(36).slice(2), 
+      fingers: [], // empty chord has no fingers
+      barres: [],
+      frets: 3, // minimum frets for empty chord
+      created: Date.now() 
+    };
+    entries.push(newEntry);
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    
+    setMessage('Added empty editable chord to gallery.');
+    
+    // Focus the newly added cart item
+    setTimeout(() => {
+      const newItem = cartItems?.querySelector(`[data-entry-id="${newEntry.id}"]`);
+      if (newItem instanceof HTMLElement) {
+        newItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        newItem.focus();
+      }
+    }, 100);
   });
 }
+
+// Escape key handler
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && builderPanel && builderPanel.classList.contains('open')) {
+    closeBuilder();
+  }
+});
 
 if (cartEmptyBtn) {
   cartEmptyBtn.addEventListener('click', () => {
-    if (!confirm('Empty cart?')) return;
+    if (!confirm('Empty all saved chords?')) return;
     saveCart([]);
     updateCartCount();
-    renderCartList();
+    renderCartGallery();
   });
 }
 
-if (cartDownloadBtn) {
-  cartDownloadBtn.addEventListener('click', () => {
-    const entries = loadCart();
-    if (!entries.length) return;
-    const full = combineCartEntries(entries);
-    const blob = new Blob([full], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'chord-groups.svg';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+// ---- Export overlay functions ----
+
+/**
+ * Show the export overlay with given content
+ * @param {string} content 
+ */
+function showExportOverlay(content) {
+  if (!exportOverlay || !exportOverlayText) return;
+  exportOverlayText.textContent = content;
+  exportOverlay.hidden = false;
+  exportOverlay.setAttribute('aria-hidden', 'false');
+  // Reset copy button state
+  if (exportOverlayCopy) {
+    exportOverlayCopy.textContent = 'Copy to Clipboard';
+    exportOverlayCopy.classList.remove('copied');
+  }
+}
+
+/**
+ * Close the export overlay
+ */
+function closeExportOverlay() {
+  if (!exportOverlay) return;
+  exportOverlay.hidden = true;
+  exportOverlay.setAttribute('aria-hidden', 'true');
+}
+
+/**
+ * Show the title input modal
+ */
+function showTitleModal() {
+  if (!titleModal || !htmlTitleInput) return;
+  titleModal.hidden = false;
+  titleModal.setAttribute('aria-hidden', 'false');
+  htmlTitleInput.value = '';
+  if (charCount) charCount.textContent = '50';
+  htmlTitleInput.focus();
+}
+
+/**
+ * Close the title input modal
+ */
+function closeTitleModal() {
+  if (!titleModal) return;
+  titleModal.hidden = true;
+  titleModal.setAttribute('aria-hidden', 'true');
+  if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.focus();
+}
+
+/**
+ * Slugify a title for use in filename
+ * @param {string} title
+ * @returns {string}
+ */
+function slugify(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_') || 'saved-chords';
+}
+
+/**
+ * Truncate title with ellipsis if needed
+ * @param {string} title
+ * @param {number} maxLength
+ * @returns {string}
+ */
+function truncateTitle(title, maxLength) {
+  if (title.length <= maxLength) return title;
+  return title.slice(0, maxLength) + '...';
+}
+
+/**
+ * Copy overlay content to clipboard
+ */
+async function copyExportToClipboard() {
+  if (!exportOverlayText || !exportOverlayCopy) return;
+  const content = exportOverlayText.textContent || '';
+  try {
+    await navigator.clipboard.writeText(content);
+    exportOverlayCopy.textContent = 'Copied!';
+    exportOverlayCopy.classList.add('copied');
+    setTimeout(() => {
+      if (exportOverlayCopy) {
+        exportOverlayCopy.textContent = 'Copy to Clipboard';
+        exportOverlayCopy.classList.remove('copied');
+      }
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    alert('Failed to copy to clipboard. Please select and copy manually.');
+  }
+}
+
+// Export overlay event listeners
+if (exportOverlayClose) {
+  exportOverlayClose.addEventListener('click', closeExportOverlay);
+}
+
+if (exportOverlayCopy) {
+  exportOverlayCopy.addEventListener('click', copyExportToClipboard);
+}
+
+// Close overlay on backdrop click
+if (exportOverlay) {
+  exportOverlay.addEventListener('click', (e) => {
+    if (e.target === exportOverlay) {
+      closeExportOverlay();
+    }
   });
+}
+
+// Close overlay on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && exportOverlay && !exportOverlay.hidden) {
+    closeExportOverlay();
+  }
+});
+
+/**
+ * 
+ * @param {boolean} useUnicode 
+ * @returns {() => void}
+ */
+function exportCartAsText(useUnicode) {
+  return () => {
+    if (!cartItems) return;
+    const entries = loadCart();
+    if (entries.length === 0) return;
+    const strings = entries.map((e) => fingeringToString(cartEntryToChord(e), {useUnicode}));
+    const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
+    const full = layoutChordStrings(strings, columns, 2);
+    showExportOverlay(full);
+  }
+}
+
+/**
+ * Export cart as JSON
+ */
+function exportCartAsJson() {
+  const entries = loadCart();
+  if (!entries.length) return;
+  const jsonData = JSON.stringify(entries, null, 2);
+  showExportOverlay(jsonData);
+}
+
+// Show as menu handlers
+if (showAsBtn && showAsMenu) {
+  // Toggle menu on button click
+  showAsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isExpanded = showAsBtn.getAttribute('aria-expanded') === 'true';
+    if (isExpanded) {
+      closeShowAsMenu();
+    } else {
+      openShowAsMenu();
+    }
+  });
+
+  // Handle menu item clicks
+  const menuItems = showAsMenu.querySelectorAll('[role="menuitem"]');
+  menuItems.forEach((item) => {
+    item.addEventListener('click', () => {
+      const format = item.getAttribute('data-format');
+      closeShowAsMenu();
+      
+      if (format === 'ascii') {
+        exportCartAsText(false)();
+      } else if (format === 'unicode') {
+        exportCartAsText(true)();
+      } else if (format === 'json') {
+        exportCartAsJson();
+      }
+    });
+  });
+
+  // Keyboard navigation
+  showAsMenu.addEventListener('keydown', (e) => {
+    const items = Array.from(showAsMenu.querySelectorAll('[role="menuitem"]'));
+    const currentIndex = items.indexOf(/** @type {HTMLElement} */(document.activeElement));
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = (currentIndex + 1) % items.length;
+      /** @type {HTMLElement} */(items[nextIndex]).focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = (currentIndex - 1 + items.length) % items.length;
+      /** @type {HTMLElement} */(items[prevIndex]).focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeShowAsMenu();
+      if (showAsBtn) showAsBtn.focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      /** @type {HTMLElement} */(document.activeElement)?.click();
+    }
+  });
+
+  // Close menu on outside click
+  document.addEventListener('click', (e) => {
+    if (showAsMenu && !showAsMenu.hidden && showAsBtn) {
+      const target = /** @type {Node} */(e.target);
+      if (!showAsMenu.contains(target) && !showAsBtn.contains(target)) {
+        closeShowAsMenu();
+      }
+    }
+  });
+}
+
+/**
+ * Open the Show as menu
+ */
+function openShowAsMenu() {
+  if (!showAsBtn || !showAsMenu) return;
+  showAsMenu.hidden = false;
+  showAsBtn.setAttribute('aria-expanded', 'true');
+  // Focus first menu item
+  const firstItem = /** @type {HTMLElement|null} */(showAsMenu.querySelector('[role="menuitem"]'));
+  if (firstItem) firstItem.focus();
+}
+
+/**
+ * Close the Show as menu
+ */
+function closeShowAsMenu() {
+  if (!showAsBtn || !showAsMenu) return;
+  showAsMenu.hidden = true;
+  showAsBtn.setAttribute('aria-expanded', 'false');
 }
 
 // Build printable HTML document containing all cart entry SVGs
@@ -747,25 +1064,59 @@ if (cartDownloadBtn) {
  */
 
 /**
- * Build printable HTML document containing all cart entry SVGs.
- * @param {CartEntry[]} entries
+ * 
+ * @param {CartEntry} cart
+ * @returns {import('svguitar').Chord} 
+ */
+function cartEntryToChord(cart) {
+  return {
+    fingers: cart.fingers,
+    barres: cart.barres,
+    position: cart.position ?? undefined,
+    title: cart.title ?? '',
+  };
+}
+
+/**
+ * @param {import('svguitar').Chord} fingering
+ * @returns {Promise<string>} SVG string
+ */
+async function getSVGFromFingering(fingering) {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const noPosition = fingering.position === undefined || fingering.position === null;
+  const frets = Math.max(3, ...fingering.fingers.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
+  const svguitar = new SVGuitarChord(container)
+    .chord({ fingers: fingering.fingers, barres: fingering.barres, position: fingering.position || undefined, title: fingering.title || '' })
+    .configure({ frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 });
+
+  await Promise.resolve().then(() => svguitar.draw());
+  const svg = container.querySelector('svg');
+
+  const content =  svg ? svg.outerHTML : '';
+  document.body.removeChild(container);
+  return content;
+}
+
+/**
+ * Build printable HTML document containing SVG strings.
+ * @param {string[]} svgStrings
+ * @param {string} [title] - Optional title for the document
  * @returns {string}
  */
-function buildCartHtml(entries) {
-  /** @type {EscaperFn} */
-  const esc = (s) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]||c));
+function buildCartHtmlFromSvgs(svgStrings, title) {
   /** @type {string} */
-  const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, ' UTC');
+  const displayTitle = title ? truncateTitle(title, 50) : 'Saved Chords Export';
   /** @type {string} */
   let out = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />';
-  out += '<title>Chord Groups Export</title><meta name="viewport" content="width=device-width,initial-scale=1" />';
+  out += `<title>${displayTitle}</title><meta name="viewport" content="width=device-width,initial-scale=1" />`;
   out += '<style>' +
-    ':root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb;}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text);}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem;}h1{font-size:1.05rem;margin:.2rem 0 .1rem;letter-spacing:.5px;}.meta{font-size:.6rem;color:#555;margin:0;}.groups{display:flex;flex-direction:column;gap:1.2rem;}section.group{padding:.75rem .9rem .9rem;page-break-inside:avoid;break-inside:avoid;}section.group h2{font-size:.8rem;margin:0 0 .5rem;text-align:center;letter-spacing:.4px;}section.group svg{display:block;margin:0 auto;max-width:100%;height:auto;}@media print{body{background:#fff;}section.group{box-shadow:none;background:#fff;}}' +
+    ':root{--border:#ccc;--text:#222;--bg:#fff;--accent:#2563eb}body{font-family:system-ui,sans-serif;margin:1rem auto 2rem;max-width:960px;line-height:1.35;background:var(--bg);color:var(--text)}header{margin:0 0 1.25rem;border-bottom:2px solid var(--border);padding:0 0 .6rem}h1{margin:.2rem 0 .1rem;letter-spacing:.5px}.meta{font-size:.6rem;color:#555;margin:0}.chord-item svg{display:block;margin:0 auto;max-width:100%;height:auto}@media print{body{background:#fff}section.chord{box-shadow:none;background:#fff}}.chord-container{display:grid;grid-template-columns:repeat(4,1fr);max-width:100%;gap:20px;align-items:start;justify-content:center}.chord-item{margin:auto}.chord-container:has(.chord-item:nth-last-child(1)){grid-template-columns:repeat(1,1fr)}.chord-container:has(.chord-item:nth-last-child(2)){grid-template-columns:repeat(2,1fr)}.chord-container:has(.chord-item:nth-last-child(3)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(4)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(5)),.chord-container:has(.chord-item:nth-last-child(6)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(7)),.chord-container:has(.chord-item:nth-last-child(8)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(9)){grid-template-columns:repeat(3,1fr)}.chord-container:has(.chord-item:nth-last-child(10)){grid-template-columns:repeat(4,1fr)}.chord-container:has(.chord-item:nth-last-child(1))>.chord-item{width:33%}.chord-container:has(.chord-item:nth-last-child(2))>.chord-item{width:50%}.chord-container:has(.chord-item:nth-last-child(3))>.chord-item{width:100%};' +
     '</style></head><body>';
-  out += `<header><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
-  out += '<div class="groups">';
-  for (const e of entries) {
-    out += `<section class="group">${e.svg}</section>`;
+  out += `<header><h1>${displayTitle}</h1><p class="meta">Chord Export by Drop voicings visualizer: ${window.location.origin + window.location.pathname}</p></header>`;
+  out += '<div class="chord-container">';
+  for (const svg of svgStrings) {
+    out += `<section class="chord-item">${svg}</section>`;
   }
   out += '</div></body></html>';
   return out;
@@ -775,12 +1126,43 @@ if (cartDownloadHtmlBtn) {
   cartDownloadHtmlBtn.addEventListener('click', () => {
     const entries = loadCart();
     if (!entries.length) return;
-    const html = buildCartHtml(entries);
+    showTitleModal();
+  });
+}
+
+// Title modal event handlers
+if (htmlTitleInput && charCount) {
+  htmlTitleInput.addEventListener('input', () => {
+    const remaining = 50 - htmlTitleInput.value.length;
+    charCount.textContent = String(remaining);
+  });
+}
+
+if (titleModalClose) {
+  titleModalClose.addEventListener('click', closeTitleModal);
+}
+
+if (titleModalCancel) {
+  titleModalCancel.addEventListener('click', closeTitleModal);
+}
+
+if (titleModalExport && htmlTitleInput) {
+  titleModalExport.addEventListener('click', async () => {
+    const entries = loadCart();
+    if (!entries.length) return;
+    
+    const title = htmlTitleInput.value.trim();
+    const filename = slugify(title) + '.html';
+    
+    closeTitleModal();
+    
+    const svgStrings = await Promise.all(entries.map((c) => getSVGFromFingering(cartEntryToChord(c))));
+    const html = buildCartHtmlFromSvgs(svgStrings, title);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'chord-groups.html';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -788,204 +1170,43 @@ if (cartDownloadHtmlBtn) {
   });
 }
 
-/**
- * Enable chord selection checkboxes and Add to cart button.
- */
-function enableChordSelection() {
-  const blocks = /** @type {NodeListOf<HTMLElement>} */(results.querySelectorAll('.chord-block'));
-  let first = true;
-  blocks.forEach((b, i) => {
-    let sel = b.querySelector('.chord-select');
-    if (!sel) {
-      const wrap = document.createElement('label');
-      wrap.className = 'chord-select';
-      wrap.innerHTML = `<input type="checkbox" checked aria-label="Select chord ${i+1}" />`;
-      b.appendChild(wrap);
+// Focus trap for title modal
+if (titleModal) {
+  titleModal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeTitleModal();
+      return;
     }
-  });
-  refreshAddToCartState();
-}
-
-function getSelectedChordSvgs() {
-  /** @type {SVGSVGElement[]} */
-  const out = [];
-  const blocks = /** @type {NodeListOf<HTMLElement>} */(results.querySelectorAll('.chord-block'));
-  blocks.forEach((b) => {
-    const cb = /** @type {HTMLInputElement|null} */(b.querySelector('.chord-select input'));
-    if (cb && cb.checked) {
-      const svg = b.querySelector('svg');
-      if (svg) out.push(svg);
+    
+    if (e.key === 'Tab') {
+      const focusableElements = titleModal.querySelectorAll(
+        'button:not([disabled]), input:not([disabled])'
+      );
+      const firstElement = /** @type {HTMLElement} */(focusableElements[0]);
+      const lastElement = /** @type {HTMLElement} */(focusableElements[focusableElements.length - 1]);
+      
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
     }
-  });
-  return out;
-}
-
-function refreshAddToCartState() {
-  if (!addToCartBtn) return;
-  const svgs = getSelectedChordSvgs();
-  addToCartBtn.disabled = svgs.length === 0;
-}
-
-results.addEventListener('change', (e) => {
-  const t = /** @type {HTMLElement} */(e.target);
-  if (t && t.matches('.chord-select input')) refreshAddToCartState();
-});
-results.addEventListener('click', (e) => {
-  const t = /** @type {HTMLElement} */(e.target);
-  if (!t) return;
-  const block = t.closest('.chord-block');
-  if (!block) return;
-  // Avoid toggling if the click originated on the checkbox itself
-  if (t.closest('.chord-select')) return;
-  const cb = /** @type {HTMLInputElement|null} */(block.querySelector('.chord-select input'));
-  if (cb) {
-    cb.checked = !cb.checked;
-    refreshAddToCartState();
-  }
-});
-
-if (addToCartBtn) {
-  addToCartBtn.addEventListener('click', () => {
-    const selected = getSelectedChordSvgs();
-    if (!selected.length) return;
-    const title = titleInput ? titleInput.value.trim() || 'Chord Group' : 'Chord Group';
-    const svg = buildPartialGroupSvg(selected, title);
-    const entries = loadCart();
-    entries.push({ id: String(Date.now()) + Math.random().toString(36).slice(2), title, svg, created: Date.now() });
-    saveCart(entries);
-    updateCartCount();
-    setMessage('Added group to cart.');
-    if (cartDropdown && !cartDropdown.hasAttribute('hidden')) renderCartList();
   });
 }
 
 updateCartCount();
 
-/**
- * Build an SVG for selected chord svgs (with title) 4 per row.
- * @param {SVGSVGElement[]} svgs
- * @param {string} title
- */
-function buildPartialGroupSvg(svgs, title) {
-  const PER_ROW = 4;
-  const H_GAP = 24; const V_GAP = 24;
-  /** @type {{w:number,h:number,inner:string}[]} */
-  const items = [];
-  let maxW = 0, maxH = 0;
-  for (const el of svgs) {
-    let w = parseFloat(el.getAttribute('width') || '');
-    let h = parseFloat(el.getAttribute('height') || '');
-    const vb = el.getAttribute('viewBox');
-    if ((!w || !h) && vb) {
-      const p = vb.trim().split(/\s+/);
-      if (p.length === 4) {
-        const vw = parseFloat(p[2]);
-        const vh = parseFloat(p[3]);
-        if (!w) w = vw; if (!h) h = vh;
-      }
-    }
-    if (!w) w = 120; if (!h) h = 140;
-    if (w > maxW) maxW = w; if (h > maxH) maxH = h;
-    items.push({ w, h, inner: el.innerHTML });
-  }
-  const count = items.length;
-  const rows = Math.ceil(count / PER_ROW);
-  const cellW = maxW + H_GAP; const cellH = maxH + V_GAP;
-  // Always reserve space for full PER_ROW columns to keep uniform width across groups.
-  const totalW = PER_ROW * cellW - H_GAP;
-  const titleH = 40; // extra space for title text
-  const totalH = rows * cellH - V_GAP + titleH;
-  // Center the used columns if fewer than PER_ROW
-  const usedCols = Math.min(PER_ROW, count);
-  const usedWidth = usedCols * cellW - H_GAP;
-  const offsetX = (totalW - usedWidth) / 2;
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
-  out += `\n<text x="50%" y="20" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600">${escapeSvgText(title)}</text>`;
-  items.forEach((item, i) => {
-    const col = i % PER_ROW; const row = Math.floor(i / PER_ROW);
-    const x = offsetX + col * cellW; const y = row * cellH + titleH;
-    out += `<g transform="translate(${x},${y})"><svg viewBox="0 0 ${item.w} ${item.h}" width="${item.w}" height="${item.h}">${item.inner}</svg></g>`;
-  });
-  out += '\n</svg>'; return out;
-}
-
-/** @param {string} t */
-function escapeSvgText(t) { return t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]||c)); }
-
-/**
- * Combine multiple cart entry svgs vertically.
- * @param {CartEntry[]} entries
- */
-function combineCartEntries(entries) {
-  // First parse widths & heights
-  const parts = entries.map(e => ({ svg: e.svg, w: extractSvgDimension(e.svg, 'width'), h: extractSvgDimension(e.svg, 'height') }));
-  const totalW = Math.max(...parts.map(p => p.w));
-  let y = 0; let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" viewBox="0 0 ${totalW} ${parts.reduce((a,p)=>a+p.h,0)}">`;
-  parts.forEach(p => {
-    out += `\n<g transform="translate(0,${y})">${stripOuterSvg(p.svg)}</g>`; y += p.h;
-  });
-  out += '\n</svg>';
-  return out;
-}
-
-/**
- * @typedef {'width'|'height'} SvgDimAttr
- */
-
-/**
- * Extract numeric width/height from an SVG string.
- * Tries explicit width/height attributes first, then falls back to viewBox.
- *
- * @param {string} svg
- * @param {SvgDimAttr} attr
- * @returns {number}
- */
-function extractSvgDimension(svg, attr) {
-  const m = svg.match(new RegExp(attr + "=\"(\\d+(?:\\.\\d+)?)\""));
-  if (m) return parseFloat(m[1]);
-  const vb = svg.match(/viewBox=\"[^\"]+\"/);
-  if (vb) {
-    const nums = vb[0].match(/[-\d.]+/g);
-    if (nums && nums.length === 4) {
-      return attr === 'width' ? parseFloat(nums[2]) : parseFloat(nums[3]);
-    }
-  }
-  return 0;
-}
-
-/**
- * @typedef {string} SvgString
- */
-
-/**
- * Remove outer <svg> wrapper from an SVG string.
- * @param {SvgString} svg
- * @returns {SvgString}
- */
-function stripOuterSvg(svg) {
-  const inner = svg.replace(/^<svg[^>]*>/i, '').replace(/<\/svg>\s*$/i, '');
-  return inner;
-}
-
-// Title input default fallback
-if (titleInput) {
-  if (!titleInput.value) titleInput.value = 'Chord Group';
-}
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && cartDropdown && !cartDropdown.hasAttribute('hidden')) {
-    toggleCart(false);
-    cartToggleBtn?.focus();
-  }
-});
-
-// ---- Cart action state helper (PDF export removed) ----
+// ---- Cart action state helper ----
 function refreshCartActionStates() {
   const len = loadCart().length;
   if (cartEmptyBtn) cartEmptyBtn.disabled = len === 0;
-  if (cartDownloadBtn) cartDownloadBtn.disabled = len === 0;
   if (cartDownloadHtmlBtn) cartDownloadHtmlBtn.disabled = len === 0;
+  if (showAsBtn) showAsBtn.disabled = len === 0;
 }
 
-// Ensure initial state reflects available cart actions
+// Initialize gallery and actions
+updateCartCount();
+renderCartGallery();
 refreshCartActionStates();
