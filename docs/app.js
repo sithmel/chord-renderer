@@ -14,6 +14,7 @@ const message = /** @type {HTMLElement} */(document.getElementById('message'));
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
+const chordTitleInput = /** @type {HTMLInputElement} */(document.getElementById('chord-title-input'));
 
 // New DOM references for gallery layout
 const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('cart-gallery'));
@@ -46,7 +47,7 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -64,6 +65,9 @@ const selectedIntervals = new Set();
  * @type {Map<number,{text?: string, color?: string}>}
  */
 const userIntervalOptions = new Map();
+
+/** Custom chord title (empty string is valid; reset to voicingName when voicing changes) */
+let customChordTitle = '';
 
 /**
  * Normalize color values: non-black colors → BLACK, black → black, undefined/transparent → unchanged
@@ -100,6 +104,7 @@ function buildState() {
     v: voicingInput ? voicingInput.value : undefined,
     s: stringSetInput ? stringSetInput.value : undefined,
     o,
+    t: customChordTitle || undefined,
   };
 }
 
@@ -185,6 +190,14 @@ function applyState(state) {
   }
   // After applying all, ensure label options reflect overrides
   renderIntervalLabelOptions();
+  // Apply chord title
+  if (state.t && typeof state.t === 'string') {
+    customChordTitle = state.t;
+    chordTitleInput.value = state.t;
+  } else {
+    customChordTitle = '';
+    chordTitleInput.value = '';
+  }
 }
 
 function renderIntervals() {
@@ -524,7 +537,7 @@ function renderChord(chord, index, voicingName) {
       barres: [],
       frets,
       created: Date.now(),
-      title: voicingName,
+      title: customChordTitle,
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -553,7 +566,7 @@ function renderChord(chord, index, voicingName) {
     
     // Render the SVG for the current results display
     new /** @type {any} */(SVGuitarChord)(svgContainer)
-      .chord({ fingers: chord, barres: [], title: voicingName })
+      .chord({ fingers: chord, barres: [], title: customChordTitle })
       .configure(config)
       .draw();
 }
@@ -567,6 +580,10 @@ form.addEventListener('submit', (e) => {
 // Clear & auto generate on voicing or string set changes
 voicingBox.addEventListener('change', (e) => {
   if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') {
+    // Reset chord title to new voicing name when voicing changes
+    const voicingInput = /** @type {HTMLInputElement} */(e.target);
+    customChordTitle = voicingInput.value;
+    chordTitleInput.value = voicingInput.value;
     pushState();
     tryAutoGenerate();
   }
@@ -576,6 +593,13 @@ stringSetBox.addEventListener('change', (e) => {
     pushState();
     tryAutoGenerate();
   }
+});
+
+// Update customChordTitle when user edits the chord name input
+chordTitleInput.addEventListener('input', () => {
+  customChordTitle = chordTitleInput.value;
+  pushState();
+  tryAutoGenerate();
 });
 
 // Initial render

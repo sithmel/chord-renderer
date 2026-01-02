@@ -8512,6 +8512,10 @@ var intervalLabelOptionsBox = (
   /** @type {HTMLElement} */
   document.getElementById("interval-label-options")
 );
+var chordTitleInput = (
+  /** @type {HTMLInputElement} */
+  document.getElementById("chord-title-input")
+);
 var cartGallery = (
   /** @type {HTMLElement|null} */
   document.getElementById("cart-gallery")
@@ -8596,7 +8600,7 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput) {
   throw new Error("Required DOM elements not found");
 }
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase()).sort((a2, b2) => (
@@ -8606,6 +8610,7 @@ var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUppe
 ));
 var selectedIntervals = /* @__PURE__ */ new Set();
 var userIntervalOptions = /* @__PURE__ */ new Map();
+var customChordTitle = "";
 function normalizeColor(color) {
   if (!color || color === "transparent") return color;
   const normalized = color.toLowerCase().trim();
@@ -8635,7 +8640,8 @@ function buildState() {
     i: intervalsArray,
     v: voicingInput ? voicingInput.value : void 0,
     s: stringSetInput ? stringSetInput.value : void 0,
-    o: o2
+    o: o2,
+    t: customChordTitle || void 0
   };
 }
 function pushState() {
@@ -8701,6 +8707,13 @@ function applyState(state) {
     if (stringSetInput) stringSetInput.checked = true;
   }
   renderIntervalLabelOptions();
+  if (state.t && typeof state.t === "string") {
+    customChordTitle = state.t;
+    chordTitleInput.value = state.t;
+  } else {
+    customChordTitle = "";
+    chordTitleInput.value = "";
+  }
 }
 function renderIntervals() {
   intervalBox.innerHTML = "";
@@ -8990,7 +9003,7 @@ function renderChord(chord, index, voicingName) {
       barres: [],
       frets: frets2,
       created: Date.now(),
-      title: index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`
+      title: customChordTitle
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -9011,7 +9024,7 @@ function renderChord(chord, index, voicingName) {
   const frets = Math.max(3, ...chord.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
   const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}` }).configure(config).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: customChordTitle }).configure(config).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();
@@ -9022,6 +9035,12 @@ voicingBox.addEventListener("change", (e2) => {
     /** @type {HTMLElement} */
     e2.target.tagName === "INPUT"
   ) {
+    const voicingInput = (
+      /** @type {HTMLInputElement} */
+      e2.target
+    );
+    customChordTitle = voicingInput.value;
+    chordTitleInput.value = voicingInput.value;
     pushState();
     tryAutoGenerate();
   }
@@ -9034,6 +9053,11 @@ stringSetBox.addEventListener("change", (e2) => {
     pushState();
     tryAutoGenerate();
   }
+});
+chordTitleInput.addEventListener("input", () => {
+  customChordTitle = chordTitleInput.value;
+  pushState();
+  tryAutoGenerate();
 });
 renderIntervals();
 renderVoicings();

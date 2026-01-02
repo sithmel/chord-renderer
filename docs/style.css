@@ -596,6 +596,23 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 .interval-label-row label.inline { display:inline-flex; align-items:center; gap:0.25rem; cursor:pointer; }
 .interval-label-row input[type="checkbox"] { margin:0; }
 
+/* Chord title input */
+.chord-title-input { 
+  width: 100%; 
+  font-size: 0.9rem; 
+  padding: 0.5rem; 
+  border: 1px solid var(--color-border); 
+  border-radius: var(--radius-sm); 
+  background: var(--color-surface); 
+  color: var(--color-text); 
+  font-family: inherit;
+}
+.chord-title-input:focus-visible { 
+  outline: none; 
+  border-color: var(--color-focus); 
+  box-shadow: 0 0 0 3px var(--color-focus-ring); 
+}
+
 /* Color preset buttons */
 .color-presets {
   display: flex;
