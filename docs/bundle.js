@@ -8972,10 +8972,6 @@ function tryAutoGenerate() {
 function renderChord(chord, index, voicingName) {
   const holder = document.createElement("div");
   holder.className = "chord-block";
-  const title = document.createElement("div");
-  title.className = "chord-title";
-  title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
-  holder.appendChild(title);
   const svgContainer = document.createElement("div");
   holder.appendChild(svgContainer);
   const saveControls = document.createElement("div");
@@ -8993,7 +8989,8 @@ function renderChord(chord, index, voicingName) {
       fingers: chord,
       barres: [],
       frets: frets2,
-      created: Date.now()
+      created: Date.now(),
+      title: index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -9014,7 +9011,7 @@ function renderChord(chord, index, voicingName) {
   const frets = Math.max(3, ...chord.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
   const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [] }).configure(config).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}` }).configure(config).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();

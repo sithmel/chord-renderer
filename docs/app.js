@@ -453,7 +453,7 @@ function generateChords() {
         }
       }
     }
-    
+
     // Sort chord array by string number descending (6 to 1) for consistency
     chord.sort((a, b) => b[0] - a[0]);
     
@@ -501,10 +501,6 @@ function tryAutoGenerate() {
 function renderChord(chord, index, voicingName) {
   const holder = document.createElement('div');
   holder.className = 'chord-block';
-  const title = document.createElement('div');
-  title.className = 'chord-title';
-  title.textContent = index === 0 ? `${voicingName} (root)` : `${voicingName} inv ${index}`;
-  holder.appendChild(title);
 
   const svgContainer = document.createElement('div');
   holder.appendChild(svgContainer);
@@ -527,7 +523,8 @@ function renderChord(chord, index, voicingName) {
       fingers: chord,
       barres: [],
       frets,
-      created: Date.now() 
+      created: Date.now(),
+      title: voicingName,
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -542,7 +539,7 @@ function renderChord(chord, index, voicingName) {
       if (newItem instanceof HTMLElement) {
         newItem.focus();
         newItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
+      }
     }, 100);
   });
   
@@ -556,7 +553,7 @@ function renderChord(chord, index, voicingName) {
     
     // Render the SVG for the current results display
     new /** @type {any} */(SVGuitarChord)(svgContainer)
-      .chord({ fingers: chord, barres: [] })
+      .chord({ fingers: chord, barres: [], title: voicingName })
       .configure(config)
       .draw();
 }
