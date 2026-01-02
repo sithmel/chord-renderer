@@ -8925,6 +8925,15 @@ function generateChords() {
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
+    for (let i2 = 0; i2 < stringSetBits.length; i2++) {
+      if (!stringSetBits[i2]) {
+        const stringNumber = 6 - i2;
+        if (!chord.find((f2) => f2[0] === stringNumber)) {
+          chord.push([stringNumber, "x"]);
+        }
+      }
+    }
+    chord.sort((a2, b2) => b2[0] - a2[0]);
     chordShapes.push(chord);
     renderChord(chord, count, voicingName);
     count++;

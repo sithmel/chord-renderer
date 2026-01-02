@@ -442,6 +442,21 @@ function generateChords() {
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
+    
+    // Add muted string markers for inactive strings
+    for (let i = 0; i < stringSetBits.length; i++) {
+      if (!stringSetBits[i]) {
+        const stringNumber = 6 - i; // Convert index to guitar string numbering
+        // Only add if not already present (safety check)
+        if (!chord.find(f => f[0] === stringNumber)) {
+          chord.push([stringNumber, 'x']);
+        }
+      }
+    }
+    
+    // Sort chord array by string number descending (6 to 1) for consistency
+    chord.sort((a, b) => b[0] - a[0]);
+    
     chordShapes.push(chord);
     renderChord(chord, count, voicingName);
     count++;
