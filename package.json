@@ -1,6 +1,6 @@
 {
   "name": "chord-renderer",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "A JavaScript library for working with guitar chords, voicings, and inversions",
   "main": "lib/chord.js",
   "types": "types/chord.d.ts",
