@@ -675,7 +675,7 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 }
 .intro p { margin: 0; font-size: 0.82rem; }
 
-.editable-svguitar-settings-dialog, .editable-svguitar-dialog {
+.editable-svguitar-settings-dialog, .editable-svguitar-dialog, .editable-svguitar-open-string-dialog {
   color: black;
 }
 

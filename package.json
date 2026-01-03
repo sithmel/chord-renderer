@@ -40,6 +40,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "text-guitar-chart": "^0.0.3"
+    "text-guitar-chart": "^0.1.1"
   }
 }

@@ -13,10 +13,7 @@ export function stringToInterval(str: string): Interval | null;
 export function getStringSets(numberOfNNotes: number, stringIntervals?: Array<number>): Generator<Array<boolean>>;
 /**
  * @typedef {number} Finger - 1 to 6 (1 is high E)
- * @typedef {number} Fret
- * @typedef {{text?: string, color?: string, className?: string}} FingerOptions
- * @typedef {[Finger, Fret, FingerOptions?]} FingerPosition
- * @typedef {Array<FingerPosition>} Chord
+ * @typedef {Array<import("svguitar").Finger>} Chord
  * @typedef {Array<Interval>} Notes
  */
 /**
@@ -48,10 +45,10 @@ export function intervalDistanceFromNotes(notes: Array<number | null>): Array<nu
  * @param {Notes} notes
  * @param {Array<boolean>} stringSet
  * @param {Array<number>} stringIntervals - Intervals of the open strings from the lowest string to the highest string
- * @param {(interval: number | null) => FingerOptions} intervalToFingerOptions - Function to get finger options for a given interval
+ * @param {(interval: number | null) => import("svguitar").FingerOptions} intervalToFingerOptions - Function to get finger options for a given interval
  * @returns {Chord} - The chord representation of the voicing
  */
-export function notesToChord(notes: Notes, stringSet: Array<boolean>, intervalToFingerOptions?: (interval: number | null) => FingerOptions, stringIntervals?: Array<number>): Chord;
+export function notesToChord(notes: Notes, stringSet: Array<boolean>, intervalToFingerOptions?: (interval: number | null) => import("svguitar").FingerOptions, stringIntervals?: Array<number>): Chord;
 /**
  * Get all inversions of a given voicing.
  * An inversion is created by moving the lowest note up an octave.
@@ -131,12 +128,5 @@ export const VOICING: {
  * - 1 to 6 (1 is high E)
  */
 export type Finger = number;
-export type Fret = number;
-export type FingerOptions = {
-    text?: string;
-    color?: string;
-    className?: string;
-};
-export type FingerPosition = [Finger, Fret, FingerOptions?];
-export type Chord = Array<FingerPosition>;
+export type Chord = Array<import("svguitar").Finger>;
 export type Notes = Array<Interval>;
