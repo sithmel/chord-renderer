@@ -3,7 +3,7 @@
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
 import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
-import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings } from 'text-guitar-chart';
+import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings, splitStringInRectangles, stringToFingering } from 'text-guitar-chart';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
@@ -27,6 +27,10 @@ const cartDownloadHtmlBtn = /** @type {HTMLButtonElement|null} */(document.getEl
 const showAsBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('show-as-btn'));
 const showAsMenu = /** @type {HTMLElement|null} */(document.getElementById('show-as-menu'));
 
+// Import from menu references
+const importFromBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('import-from-btn'));
+const importFromMenu = /** @type {HTMLElement|null} */(document.getElementById('import-from-menu'));
+
 // Export overlay references
 const exportOverlay = /** @type {HTMLElement|null} */(document.getElementById('export-overlay'));
 const exportOverlayText = /** @type {HTMLElement|null} */(document.getElementById('export-overlay-text'));
@@ -40,6 +44,13 @@ const titleModalCancel = /** @type {HTMLButtonElement|null} */(document.getEleme
 const titleModalExport = /** @type {HTMLButtonElement|null} */(document.getElementById('title-modal-export'));
 const htmlTitleInput = /** @type {HTMLInputElement|null} */(document.getElementById('html-title-input'));
 const charCount = /** @type {HTMLElement|null} */(document.getElementById('char-count'));
+
+// Import overlay references
+const importOverlay = /** @type {HTMLElement|null} */(document.getElementById('import-overlay'));
+const importOverlayClose = /** @type {HTMLButtonElement|null} */(document.getElementById('import-overlay-close'));
+const importOverlayImport = /** @type {HTMLButtonElement|null} */(document.getElementById('import-overlay-import'));
+const importTextarea = /** @type {HTMLTextAreaElement|null} */(document.getElementById('import-textarea'));
+const importMessage = /** @type {HTMLElement|null} */(document.getElementById('import-message'));
 
 // Builder panel references
 const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('builder-panel'));
@@ -1073,6 +1084,97 @@ if (showAsBtn && showAsMenu) {
   });
 }
 
+// Import from menu handlers
+if (importFromBtn && importFromMenu) {
+  // Toggle menu on button click
+  importFromBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isExpanded = importFromBtn.getAttribute('aria-expanded') === 'true';
+    if (isExpanded) {
+      closeImportFromMenu();
+    } else {
+      openImportFromMenu();
+    }
+  });
+
+  // Handle menu item clicks
+  const menuItems = importFromMenu.querySelectorAll('[role="menuitem"]');
+  menuItems.forEach((item) => {
+    item.addEventListener('click', () => {
+      const format = item.getAttribute('data-format');
+      closeImportFromMenu();
+      if (format === 'text' || format === 'json') {
+        showImportOverlay(format);
+      }
+    });
+  });
+
+  // Keyboard navigation
+  importFromMenu.addEventListener('keydown', (e) => {
+    const items = Array.from(importFromMenu.querySelectorAll('[role="menuitem"]'));
+    const currentIndex = items.indexOf(/** @type {HTMLElement} */(document.activeElement));
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = (currentIndex + 1) % items.length;
+      /** @type {HTMLElement} */(items[nextIndex]).focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = (currentIndex - 1 + items.length) % items.length;
+      /** @type {HTMLElement} */(items[prevIndex]).focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeImportFromMenu();
+      if (importFromBtn) importFromBtn.focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      /** @type {HTMLElement} */(document.activeElement)?.click();
+    }
+  });
+
+  // Close menu on outside click
+  document.addEventListener('click', (e) => {
+    if (importFromMenu && !importFromMenu.hidden && importFromBtn) {
+      const target = /** @type {Node} */(e.target);
+      if (!importFromMenu.contains(target) && !importFromBtn.contains(target)) {
+        closeImportFromMenu();
+      }
+    }
+  });
+}
+
+// Import overlay event handlers
+if (importOverlayClose) {
+  importOverlayClose.addEventListener('click', closeImportOverlay);
+}
+
+if (importOverlayImport && importOverlay) {
+  importOverlayImport.addEventListener('click', () => {
+    const format = importOverlay.getAttribute('data-import-format');
+    if (format === 'json') {
+      importFromJson();
+    } else if (format === 'text') {
+      importFromText();
+    }
+  });
+}
+
+// Import overlay keyboard handlers
+if (importOverlay) {
+  importOverlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeImportOverlay();
+      return;
+    }
+  });
+
+  // Close overlay on backdrop click
+  const importBackdrop = importOverlay.querySelector('.import-overlay-backdrop');
+  if (importBackdrop) {
+    importBackdrop.addEventListener('click', closeImportOverlay);
+  }
+}
+
 /**
  * Open the Show as menu
  */
@@ -1092,6 +1194,184 @@ function closeShowAsMenu() {
   if (!showAsBtn || !showAsMenu) return;
   showAsMenu.hidden = true;
   showAsBtn.setAttribute('aria-expanded', 'false');
+}
+
+// ---- Import from menu functions ----
+
+/**
+ * Open the Import from menu
+ */
+function openImportFromMenu() {
+  if (!importFromBtn || !importFromMenu) return;
+  importFromMenu.hidden = false;
+  importFromBtn.setAttribute('aria-expanded', 'true');
+  const firstItem = /** @type {HTMLElement|null} */(importFromMenu.querySelector('[role="menuitem"]'));
+  if (firstItem) firstItem.focus();
+}
+
+/**
+ * Close the Import from menu
+ */
+function closeImportFromMenu() {
+  if (!importFromBtn || !importFromMenu) return;
+  importFromMenu.hidden = true;
+  importFromBtn.setAttribute('aria-expanded', 'false');
+}
+
+/**
+ * Show the import overlay with given format
+ * @param {'text'|'json'} format
+ */
+function showImportOverlay(format) {
+  if (!importOverlay || !importTextarea || !importMessage) return;
+  importOverlay.setAttribute('data-import-format', format);
+  importTextarea.value = '';
+  importMessage.textContent = '';
+  importMessage.className = 'import-message';
+  if (format === 'json') {
+    importTextarea.placeholder = 'Paste JSON array here...';
+  } else {
+    importTextarea.placeholder = 'Paste ASCII or Unicode chord charts here...';
+  }
+  importOverlay.hidden = false;
+  importOverlay.setAttribute('aria-hidden', 'false');
+  importTextarea.focus();
+}
+
+/**
+ * Close the import overlay
+ */
+function closeImportOverlay() {
+  if (!importOverlay) return;
+  importOverlay.hidden = true;
+  importOverlay.setAttribute('aria-hidden', 'true');
+  if (importFromBtn) importFromBtn.focus();
+}
+
+/**
+ * Import chords from JSON format
+ */
+function importFromJson() {
+  if (!importTextarea || !importMessage) return;
+  const text = importTextarea.value.trim();
+  if (!text) {
+    importMessage.textContent = 'Please paste JSON data to import.';
+    importMessage.className = 'import-message error';
+    return;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) {
+      importMessage.textContent = 'Invalid format: expected a JSON array.';
+      importMessage.className = 'import-message error';
+      return;
+    }
+    const entries = loadCart();
+    let imported = 0;
+    let skipped = 0;
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') {
+        skipped++;
+        continue;
+      }
+      if (!Array.isArray(item.fingers) || !Array.isArray(item.barres) || typeof item.frets !== 'number') {
+        skipped++;
+        continue;
+      }
+      const newEntry = {
+        id: String(Date.now()) + Math.random().toString(36).slice(2),
+        created: Date.now(),
+        fingers: item.fingers,
+        barres: item.barres || [],
+        frets: item.frets,
+        position: item.position,
+        title: item.title || ''
+      };
+      entries.push(newEntry);
+      imported++;
+    }
+    if (imported === 0) {
+      importMessage.textContent = 'No valid chords found in JSON data.';
+      importMessage.className = 'import-message error';
+      return;
+    }
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    const msg = skipped > 0
+      ? `Imported ${imported} chord${imported > 1 ? 's' : ''} successfully (${skipped} invalid).`
+      : `Imported ${imported} chord${imported > 1 ? 's' : ''} successfully.`;
+    importMessage.textContent = msg;
+    importMessage.className = 'import-message success';
+    setTimeout(() => {
+      closeImportOverlay();
+    }, 1500);
+  } catch (err) {
+    importMessage.textContent = 'Invalid JSON format: ' + (err instanceof Error ? err.message : String(err));
+    importMessage.className = 'import-message error';
+  }
+}
+
+/**
+ * Import chords from text format (ASCII/Unicode)
+ */
+function importFromText() {
+  if (!importTextarea || !importMessage) return;
+  const text = importTextarea.value.trim();
+  if (!text) {
+    importMessage.textContent = 'Please paste text chord diagrams to import.';
+    importMessage.className = 'import-message error';
+    return;
+  }
+  try {
+    const chordStrings = splitStringInRectangles(text);
+    if (chordStrings.length === 0) {
+      importMessage.textContent = 'No chord diagrams found in text.';
+      importMessage.className = 'import-message error';
+      return;
+    }
+    const entries = loadCart();
+    let imported = 0;
+    let skipped = 0;
+    for (const chordStr of chordStrings) {
+      const chord = stringToFingering(chordStr);
+      if (!chord) {
+        skipped++;
+        continue;
+      }
+      const frets = Math.max(3, ...chord.fingers.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
+      const newEntry = {
+        id: String(Date.now()) + Math.random().toString(36).slice(2),
+        created: Date.now(),
+        fingers: chord.fingers,
+        barres: chord.barres || [],
+        frets,
+        position: chord.position,
+        title: chord.title || ''
+      };
+      entries.push(newEntry);
+      imported++;
+    }
+    if (imported === 0) {
+      importMessage.textContent = 'No valid chords could be parsed from text.';
+      importMessage.className = 'import-message error';
+      return;
+    }
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    const msg = skipped > 0
+      ? `Imported ${imported} chord${imported > 1 ? 's' : ''} successfully (${skipped} invalid).`
+      : `Imported ${imported} chord${imported > 1 ? 's' : ''} successfully.`;
+    importMessage.textContent = msg;
+    importMessage.className = 'import-message success';
+    setTimeout(() => {
+      closeImportOverlay();
+    }, 1500);
+  } catch (err) {
+    importMessage.textContent = 'Error parsing text: ' + (err instanceof Error ? err.message : String(err));
+    importMessage.className = 'import-message error';
+  }
 }
 
 // Build printable HTML document containing all cart entry SVGs

@@ -948,3 +948,188 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 #show-as-menu button[role="menuitem"]:not(:last-child) {
   border-bottom: 1px solid var(--color-border);
 }
+
+/* Import from dropdown menu (mirrors show-as) */
+.import-from-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+#import-from-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  min-width: 140px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+#import-from-menu[hidden] {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+#import-from-menu button[role="menuitem"] {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+#import-from-menu button[role="menuitem"]:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+}
+
+#import-from-menu button[role="menuitem"]:last-child {
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+#import-from-menu button[role="menuitem"]:hover,
+#import-from-menu button[role="menuitem"]:focus {
+  background: var(--color-surface-alt);
+  outline: none;
+}
+
+#import-from-menu button[role="menuitem"]:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Import overlay (mirrors export-overlay) */
+.import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn var(--transition-smooth);
+}
+
+.import-overlay[hidden] {
+  display: none;
+}
+
+.import-overlay:not([hidden]) {
+  display: flex;
+  animation: fadeIn var(--transition-smooth);
+}
+
+.import-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+.import-overlay-content {
+  position: relative;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp var(--transition-smooth);
+}
+
+.import-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.import-overlay-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.import-overlay-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.import-textarea {
+  flex: 1;
+  min-height: 350px;
+  padding: 1rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text);
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow: auto;
+}
+
+.import-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.import-message {
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+}
+
+.import-message:empty {
+  display: none;
+}
+
+.import-message.error {
+  background: #fee;
+  color: #c33;
+  border: 1px solid #fcc;
+}
+
+.import-message.success {
+  background: #efe;
+  color: #3c3;
+  border: 1px solid #cfc;
+}
+
+.import-overlay-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.import-overlay-footer button {
+  min-width: 100px;
+}

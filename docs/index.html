@@ -37,12 +37,19 @@
         <h2>Saved Chords (<span id="cart-count">0</span>)</h2>
       <div class="gallery-actions">
         <button type="button" id="cart-empty" class="secondary" disabled>Empty All</button>
-        <button type="button" id="cart-download-html" disabled>Export HTML</button>
+        <button type="button" id="cart-download-html" disabled>Save as HTML</button>
         <div class="show-as-wrapper">
-          <button type="button" id="show-as-btn" class="secondary" aria-haspopup="true" aria-expanded="false" aria-controls="show-as-menu" disabled>Show as ▾</button>
+          <button type="button" id="show-as-btn" class="secondary" aria-haspopup="true" aria-expanded="false" aria-controls="show-as-menu" disabled>Export as ▾</button>
           <div id="show-as-menu" role="menu" aria-label="Show as menu" hidden>
             <button type="button" role="menuitem" data-format="ascii">ASCII</button>
             <button type="button" role="menuitem" data-format="unicode">Unicode</button>
+            <button type="button" role="menuitem" data-format="json">JSON</button>
+          </div>
+        </div>
+        <div class="import-from-wrapper">
+          <button type="button" id="import-from-btn" class="secondary" aria-haspopup="true" aria-expanded="false" aria-controls="import-from-menu">Import from ▾</button>
+          <div id="import-from-menu" role="menu" aria-label="Import from menu" hidden>
+            <button type="button" role="menuitem" data-format="text">Text</button>
             <button type="button" role="menuitem" data-format="json">JSON</button>
           </div>
         </div>
@@ -130,6 +137,23 @@
       <footer class="title-modal-footer">
         <button id="title-modal-cancel" type="button" class="secondary">Cancel</button>
         <button id="title-modal-export" type="button" class="primary">Export</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="import-overlay" class="import-overlay" role="dialog" aria-labelledby="import-overlay-title" aria-hidden="true" hidden>
+    <div class="import-overlay-backdrop"></div>
+    <div class="import-overlay-content">
+      <header class="import-overlay-header">
+        <h2 id="import-overlay-title">Import Chords</h2>
+        <button id="import-overlay-close" type="button" class="close-button" aria-label="Close import overlay">×</button>
+      </header>
+      <div class="import-overlay-body">
+        <textarea id="import-textarea" class="import-textarea" placeholder="Paste JSON or text chord diagrams here..."></textarea>
+        <div id="import-message" class="import-message" aria-live="polite"></div>
+      </div>
+      <footer class="import-overlay-footer">
+        <button id="import-overlay-import" type="button" class="primary">Import</button>
       </footer>
     </div>
   </div>

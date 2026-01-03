@@ -8701,6 +8701,235 @@ var EditableSVGuitarChord = class {
   }
 };
 
+// node_modules/text-guitar-chart/lib/stringToFingering.js
+var ASCII_VERTICAL = "|";
+var ASCII_DASH = "-";
+var ASCII_EQUALS = "=";
+var ASCII_OPEN = "o";
+var ASCII_MUTED = "x";
+var ASCII_ROOT = "*";
+var UNICODE_VERTICAL = "\u2502";
+var UNICODE_OPEN = "\u25CB";
+var UNICODE_MUTED = "\xD7";
+var UNICODE_ROOT = "\u25CF";
+var UNICODE_BOX_CHARS = "\u2552\u2550\u2564\u2555\u251C\u2500\u253C\u2524\u2514\u2534\u2518\u250C\u252C\u2510";
+function isUnicodeFormat(str) {
+  return str.includes(UNICODE_VERTICAL) || str.includes(UNICODE_OPEN) || str.includes(UNICODE_ROOT) || str.includes(UNICODE_MUTED) || [...UNICODE_BOX_CHARS].some((c2) => str.includes(c2));
+}
+function findUnicodeGridBoundaries(lines, firstGridRowIdx) {
+  const firstLine = lines[firstGridRowIdx];
+  let minPos = Infinity;
+  let maxPos = -1;
+  for (let j2 = 0; j2 < firstLine.length; j2++) {
+    const char = firstLine[j2];
+    if (char === UNICODE_VERTICAL || "\u2552\u2564\u2555\u251C\u253C\u2524\u2514\u2534\u2518\u2550\u2500\u250C\u252C\u2510".includes(char)) {
+      if (j2 < minPos) minPos = j2;
+      if (j2 > maxPos) maxPos = j2;
+    }
+  }
+  if (minPos === Infinity || maxPos === -1) {
+    return { startCol: 0, endCol: 0, numStrings: 0 };
+  }
+  const numStrings = Math.floor((maxPos - minPos) / 2) + 1;
+  return { startCol: minPos, endCol: maxPos, numStrings };
+}
+function unicodeCharPosToStringNum(charPos, startCol, numStrings) {
+  const offset = charPos - startCol;
+  if (offset < 0 || offset % 2 !== 0) return -1;
+  const idx = offset / 2;
+  if (idx >= numStrings) return -1;
+  return numStrings - idx;
+}
+function findAsciiGridBoundaries(lines, firstGridRowIdx) {
+  const firstLine = lines[firstGridRowIdx];
+  let minPos = Infinity;
+  let maxPos = -1;
+  let inSequence = false;
+  let seqStart = -1;
+  for (let j2 = 0; j2 < firstLine.length; j2++) {
+    const char = firstLine[j2];
+    const isGridChar = char === ASCII_VERTICAL || char === ASCII_DASH || char === ASCII_EQUALS;
+    if (isGridChar && !inSequence) {
+      inSequence = true;
+      seqStart = j2;
+    } else if (!isGridChar && inSequence) {
+      inSequence = false;
+      const seqEnd = j2 - 1;
+      if (seqStart < minPos) minPos = seqStart;
+      if (seqEnd > maxPos) maxPos = seqEnd;
+    }
+  }
+  if (inSequence) {
+    const seqEnd = firstLine.length - 1;
+    if (seqStart < minPos) minPos = seqStart;
+    if (seqEnd > maxPos) maxPos = seqEnd;
+  }
+  if (minPos === Infinity || maxPos === -1) {
+    return { startCol: 0, endCol: 0, numStrings: 0 };
+  }
+  const numStrings = maxPos - minPos + 1;
+  return { startCol: minPos, endCol: maxPos, numStrings };
+}
+function asciiCharPosToStringNumber(charPos, startCol, numStrings) {
+  const offset = charPos - startCol;
+  if (offset < 0 || offset >= numStrings) return -1;
+  return numStrings - offset;
+}
+function isGridRow(line, isUnicode) {
+  if (isUnicode) {
+    let count = 0;
+    for (const char of line) {
+      if (char === UNICODE_VERTICAL || "\u2552\u2564\u2555\u251C\u253C\u2524\u2514\u2534\u2518\u250C\u252C\u2510".includes(char)) count++;
+    }
+    return count >= 2;
+  } else {
+    const hasDashes = /-{4,}/.test(line);
+    const hasEquals = /={4,}/.test(line);
+    if (hasDashes || hasEquals) return true;
+    const pipeCount = (line.match(/\|/g) || []).length;
+    return pipeCount >= 4;
+  }
+}
+function stringToFingering(fingeringStr, options = {}) {
+  const { redColor = "#e74c3c", blackColor = "#000000" } = options;
+  if (!fingeringStr || fingeringStr.trim() === "") {
+    return null;
+  }
+  const lines = fingeringStr.split("\n");
+  const isUnicode = isUnicodeFormat(fingeringStr);
+  const openChar = isUnicode ? UNICODE_OPEN : ASCII_OPEN;
+  const mutedChar = isUnicode ? UNICODE_MUTED : ASCII_MUTED;
+  const rootChar = isUnicode ? UNICODE_ROOT : ASCII_ROOT;
+  const fingers = [];
+  let title;
+  let position2;
+  let firstGridRowIdx = -1;
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    if (isGridRow(lines[i2], isUnicode)) {
+      firstGridRowIdx = i2;
+      break;
+    }
+  }
+  if (firstGridRowIdx === -1) {
+    return null;
+  }
+  let startCol = 0;
+  let numStrings = 6;
+  if (isUnicode) {
+    const bounds = findUnicodeGridBoundaries(lines, firstGridRowIdx);
+    startCol = bounds.startCol;
+    numStrings = bounds.numStrings;
+    if (numStrings === 0) {
+      return { fingers: [], barres: [] };
+    }
+    const firstGridLine = lines[firstGridRowIdx];
+    if (firstGridLine.includes("\u2552") && firstGridLine.includes("\u2550")) {
+      position2 = 1;
+    }
+  } else {
+    const bounds = findAsciiGridBoundaries(lines, firstGridRowIdx);
+    startCol = bounds.startCol;
+    numStrings = bounds.numStrings;
+    if (numStrings === 0) {
+      return { fingers: [], barres: [] };
+    }
+    const firstGridLine = lines[firstGridRowIdx];
+    if (/={4,}/.test(firstGridLine)) {
+      position2 = 1;
+    }
+  }
+  const getStringNumber = (charPos) => {
+    if (isUnicode) {
+      return unicodeCharPosToStringNum(charPos, startCol, numStrings);
+    } else {
+      return asciiCharPosToStringNumber(charPos, startCol, numStrings);
+    }
+  };
+  for (let i2 = 0; i2 < firstGridRowIdx - 1; i2++) {
+    const line = lines[i2];
+    const nextLine = lines[i2 + 1];
+    const trimmed = line.trim();
+    if (trimmed === "") continue;
+    const asciiSeparatorPattern = /^[\s#]+$/;
+    const unicodeSeparatorPattern = /^[\s‾]+$/;
+    const nextTrimmed = nextLine.trim();
+    if (asciiSeparatorPattern.test(nextTrimmed) || unicodeSeparatorPattern.test(nextTrimmed)) {
+      title = trimmed;
+      break;
+    }
+  }
+  if (title === void 0) {
+    title = "";
+  }
+  const indicatorLineIdx = firstGridRowIdx - 1;
+  if (indicatorLineIdx >= 0) {
+    const indicatorLine = lines[indicatorLineIdx];
+    for (let i2 = 0; i2 < indicatorLine.length; i2++) {
+      const char = indicatorLine[i2];
+      const stringNum = getStringNumber(i2);
+      if (stringNum <= 0) continue;
+      if (char === openChar || !isUnicode && char === ASCII_OPEN) {
+        fingers.push([stringNum, 0, { text: "", color: blackColor }]);
+      } else if (char === mutedChar || !isUnicode && char === ASCII_MUTED) {
+        fingers.push([stringNum, "x", { text: "", color: blackColor }]);
+      } else if (/\S/.test(char)) {
+        const isStructural = char === ASCII_VERTICAL || char === ASCII_DASH || char === ASCII_EQUALS || char === UNICODE_VERTICAL || char === "\u2500" || char === "\u2550" || [...UNICODE_BOX_CHARS].includes(char);
+        if (!isStructural) {
+          fingers.push([stringNum, 0, { text: char, color: blackColor }]);
+        }
+      }
+    }
+  }
+  let fretNumber = 1;
+  let isFirstFretRow = true;
+  for (let lineIdx = firstGridRowIdx; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx];
+    let isFretRow = false;
+    if (isUnicode) {
+      const relativePos = lineIdx - firstGridRowIdx;
+      isFretRow = relativePos % 2 === 1;
+    } else {
+      isFretRow = lineIdx > firstGridRowIdx;
+    }
+    if (!isFretRow) continue;
+    if (isFirstFretRow) {
+      const beforeGrid = line.substring(0, startCol).trim();
+      const posMatch = beforeGrid.match(/^(\d{1,2})$/);
+      if (posMatch) {
+        position2 = parseInt(posMatch[1], 10);
+      }
+      isFirstFretRow = false;
+    }
+    for (let i2 = 0; i2 < line.length; i2++) {
+      const char = line[i2];
+      const stringNum = getStringNumber(i2);
+      if (stringNum <= 0) continue;
+      if (isUnicode) {
+        if (char === UNICODE_VERTICAL || "\u2552\u2550\u2564\u2555\u251C\u2500\u253C\u2524\u2514\u2534\u2518\u250C\u252C\u2510".includes(char) || char === " ") continue;
+      } else {
+        if (char === ASCII_VERTICAL || char === " ") continue;
+      }
+      if (char === rootChar) {
+        fingers.push([stringNum, fretNumber, { text: "", color: redColor }]);
+      } else if (char === UNICODE_OPEN || char === ASCII_OPEN) {
+        fingers.push([stringNum, fretNumber, { text: "", color: blackColor }]);
+      } else if (/\S/.test(char)) {
+        fingers.push([stringNum, fretNumber, { text: char, color: blackColor }]);
+      }
+    }
+    fretNumber++;
+  }
+  const result = {
+    fingers,
+    barres: [],
+    title
+  };
+  if (position2 !== void 0) {
+    result.position = position2;
+  }
+  return result;
+}
+
 // node_modules/text-guitar-chart/lib/layoutChordStrings.js
 function layoutChordStrings(strings, columns = 3, spacing = 1) {
   const filtered = strings.filter((s2) => s2 !== "");
@@ -8750,6 +8979,78 @@ function layoutChordStrings(strings, columns = 3, spacing = 1) {
   }
   const rowSeparator = "\n".repeat(spacing + 1);
   return outputRows.join(rowSeparator);
+}
+
+// node_modules/text-guitar-chart/lib/splitStringInRectangles.js
+function splitStringInRectangles(str) {
+  if (!str || str.trim() === "") {
+    return [];
+  }
+  const grid = str.split("\n").map((line) => line.split(""));
+  const result = [];
+  const directions = [
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, -1],
+    [0, 1],
+    [1, -1],
+    [1, 0],
+    [1, 1]
+  ];
+  function bfs(startRow, startCol) {
+    const queue = [[startRow, startCol]];
+    const positions = [[startRow, startCol]];
+    let minRow = startRow;
+    let maxRow = startRow;
+    let minCol = startCol;
+    let maxCol = startCol;
+    grid[startRow][startCol] = " ";
+    while (queue.length > 0) {
+      const [row, col] = queue.shift();
+      for (const [dr, dc] of directions) {
+        const newRow = row + dr;
+        const newCol = col + dc;
+        if (newRow >= 0 && newRow < grid.length && newCol >= 0 && newCol < grid[newRow].length) {
+          if (grid[newRow][newCol] !== " ") {
+            queue.push([newRow, newCol]);
+            positions.push([newRow, newCol]);
+            minRow = Math.min(minRow, newRow);
+            maxRow = Math.max(maxRow, newRow);
+            minCol = Math.min(minCol, newCol);
+            maxCol = Math.max(maxCol, newCol);
+            grid[newRow][newCol] = " ";
+          }
+        }
+      }
+    }
+    return { minRow, maxRow, minCol, maxCol, positions };
+  }
+  function extractRectangle(bounds) {
+    const { minRow, maxRow, minCol, maxCol, positions } = bounds;
+    const height2 = maxRow - minRow + 1;
+    const width2 = maxCol - minCol + 1;
+    const rectGrid = Array(height2).fill(null).map(() => Array(width2).fill(" "));
+    for (const [row, col] of positions) {
+      const relRow = row - minRow;
+      const relCol = col - minCol;
+      const lines = str.split("\n");
+      if (row < lines.length && col < lines[row].length) {
+        rectGrid[relRow][relCol] = lines[row][col];
+      }
+    }
+    return rectGrid.map((row) => row.join("")).join("\n");
+  }
+  for (let row = 0; row < grid.length; row++) {
+    for (let col = 0; col < grid[row].length; col++) {
+      if (grid[row][col] !== " ") {
+        const bounds = bfs(row, col);
+        const rectangle = extractRectangle(bounds);
+        result.push(rectangle);
+      }
+    }
+  }
+  return result;
 }
 
 // docs/app.js
@@ -8817,6 +9118,14 @@ var showAsMenu = (
   /** @type {HTMLElement|null} */
   document.getElementById("show-as-menu")
 );
+var importFromBtn = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("import-from-btn")
+);
+var importFromMenu = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("import-from-menu")
+);
 var exportOverlay = (
   /** @type {HTMLElement|null} */
   document.getElementById("export-overlay")
@@ -8856,6 +9165,26 @@ var htmlTitleInput = (
 var charCount = (
   /** @type {HTMLElement|null} */
   document.getElementById("char-count")
+);
+var importOverlay = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("import-overlay")
+);
+var importOverlayClose = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("import-overlay-close")
+);
+var importOverlayImport = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("import-overlay-import")
+);
+var importTextarea = (
+  /** @type {HTMLTextAreaElement|null} */
+  document.getElementById("import-textarea")
+);
+var importMessage = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("import-message")
 );
 var builderPanel = (
   /** @type {HTMLElement|null} */
@@ -9670,6 +9999,87 @@ if (showAsBtn && showAsMenu) {
     }
   });
 }
+if (importFromBtn && importFromMenu) {
+  importFromBtn.addEventListener("click", (e2) => {
+    e2.stopPropagation();
+    const isExpanded = importFromBtn.getAttribute("aria-expanded") === "true";
+    if (isExpanded) {
+      closeImportFromMenu();
+    } else {
+      openImportFromMenu();
+    }
+  });
+  const menuItems = importFromMenu.querySelectorAll('[role="menuitem"]');
+  menuItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const format = item.getAttribute("data-format");
+      closeImportFromMenu();
+      if (format === "text" || format === "json") {
+        showImportOverlay(format);
+      }
+    });
+  });
+  importFromMenu.addEventListener("keydown", (e2) => {
+    var _a;
+    const items = Array.from(importFromMenu.querySelectorAll('[role="menuitem"]'));
+    const currentIndex = items.indexOf(
+      /** @type {HTMLElement} */
+      document.activeElement
+    );
+    if (e2.key === "ArrowDown") {
+      e2.preventDefault();
+      const nextIndex = (currentIndex + 1) % items.length;
+      items[nextIndex].focus();
+    } else if (e2.key === "ArrowUp") {
+      e2.preventDefault();
+      const prevIndex = (currentIndex - 1 + items.length) % items.length;
+      items[prevIndex].focus();
+    } else if (e2.key === "Escape") {
+      e2.preventDefault();
+      closeImportFromMenu();
+      if (importFromBtn) importFromBtn.focus();
+    } else if (e2.key === "Enter" || e2.key === " ") {
+      e2.preventDefault();
+      (_a = document.activeElement) == null ? void 0 : _a.click();
+    }
+  });
+  document.addEventListener("click", (e2) => {
+    if (importFromMenu && !importFromMenu.hidden && importFromBtn) {
+      const target = (
+        /** @type {Node} */
+        e2.target
+      );
+      if (!importFromMenu.contains(target) && !importFromBtn.contains(target)) {
+        closeImportFromMenu();
+      }
+    }
+  });
+}
+if (importOverlayClose) {
+  importOverlayClose.addEventListener("click", closeImportOverlay);
+}
+if (importOverlayImport && importOverlay) {
+  importOverlayImport.addEventListener("click", () => {
+    const format = importOverlay.getAttribute("data-import-format");
+    if (format === "json") {
+      importFromJson();
+    } else if (format === "text") {
+      importFromText();
+    }
+  });
+}
+if (importOverlay) {
+  importOverlay.addEventListener("keydown", (e2) => {
+    if (e2.key === "Escape") {
+      closeImportOverlay();
+      return;
+    }
+  });
+  const importBackdrop = importOverlay.querySelector(".import-overlay-backdrop");
+  if (importBackdrop) {
+    importBackdrop.addEventListener("click", closeImportOverlay);
+  }
+}
 function openShowAsMenu() {
   if (!showAsBtn || !showAsMenu) return;
   showAsMenu.hidden = false;
@@ -9684,6 +10094,156 @@ function closeShowAsMenu() {
   if (!showAsBtn || !showAsMenu) return;
   showAsMenu.hidden = true;
   showAsBtn.setAttribute("aria-expanded", "false");
+}
+function openImportFromMenu() {
+  if (!importFromBtn || !importFromMenu) return;
+  importFromMenu.hidden = false;
+  importFromBtn.setAttribute("aria-expanded", "true");
+  const firstItem = (
+    /** @type {HTMLElement|null} */
+    importFromMenu.querySelector('[role="menuitem"]')
+  );
+  if (firstItem) firstItem.focus();
+}
+function closeImportFromMenu() {
+  if (!importFromBtn || !importFromMenu) return;
+  importFromMenu.hidden = true;
+  importFromBtn.setAttribute("aria-expanded", "false");
+}
+function showImportOverlay(format) {
+  if (!importOverlay || !importTextarea || !importMessage) return;
+  importOverlay.setAttribute("data-import-format", format);
+  importTextarea.value = "";
+  importMessage.textContent = "";
+  importMessage.className = "import-message";
+  if (format === "json") {
+    importTextarea.placeholder = "Paste JSON array here...";
+  } else {
+    importTextarea.placeholder = "Paste ASCII or Unicode chord charts here...";
+  }
+  importOverlay.hidden = false;
+  importOverlay.setAttribute("aria-hidden", "false");
+  importTextarea.focus();
+}
+function closeImportOverlay() {
+  if (!importOverlay) return;
+  importOverlay.hidden = true;
+  importOverlay.setAttribute("aria-hidden", "true");
+  if (importFromBtn) importFromBtn.focus();
+}
+function importFromJson() {
+  if (!importTextarea || !importMessage) return;
+  const text = importTextarea.value.trim();
+  if (!text) {
+    importMessage.textContent = "Please paste JSON data to import.";
+    importMessage.className = "import-message error";
+    return;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) {
+      importMessage.textContent = "Invalid format: expected a JSON array.";
+      importMessage.className = "import-message error";
+      return;
+    }
+    const entries = loadCart();
+    let imported = 0;
+    let skipped = 0;
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") {
+        skipped++;
+        continue;
+      }
+      if (!Array.isArray(item.fingers) || !Array.isArray(item.barres) || typeof item.frets !== "number") {
+        skipped++;
+        continue;
+      }
+      const newEntry = {
+        id: String(Date.now()) + Math.random().toString(36).slice(2),
+        created: Date.now(),
+        fingers: item.fingers,
+        barres: item.barres || [],
+        frets: item.frets,
+        position: item.position,
+        title: item.title || ""
+      };
+      entries.push(newEntry);
+      imported++;
+    }
+    if (imported === 0) {
+      importMessage.textContent = "No valid chords found in JSON data.";
+      importMessage.className = "import-message error";
+      return;
+    }
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    const msg = skipped > 0 ? `Imported ${imported} chord${imported > 1 ? "s" : ""} successfully (${skipped} invalid).` : `Imported ${imported} chord${imported > 1 ? "s" : ""} successfully.`;
+    importMessage.textContent = msg;
+    importMessage.className = "import-message success";
+    setTimeout(() => {
+      closeImportOverlay();
+    }, 1500);
+  } catch (err) {
+    importMessage.textContent = "Invalid JSON format: " + (err instanceof Error ? err.message : String(err));
+    importMessage.className = "import-message error";
+  }
+}
+function importFromText() {
+  if (!importTextarea || !importMessage) return;
+  const text = importTextarea.value.trim();
+  if (!text) {
+    importMessage.textContent = "Please paste text chord diagrams to import.";
+    importMessage.className = "import-message error";
+    return;
+  }
+  try {
+    const chordStrings = splitStringInRectangles(text);
+    if (chordStrings.length === 0) {
+      importMessage.textContent = "No chord diagrams found in text.";
+      importMessage.className = "import-message error";
+      return;
+    }
+    const entries = loadCart();
+    let imported = 0;
+    let skipped = 0;
+    for (const chordStr of chordStrings) {
+      const chord = stringToFingering(chordStr);
+      if (!chord) {
+        skipped++;
+        continue;
+      }
+      const frets = Math.max(3, ...chord.fingers.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
+      const newEntry = {
+        id: String(Date.now()) + Math.random().toString(36).slice(2),
+        created: Date.now(),
+        fingers: chord.fingers,
+        barres: chord.barres || [],
+        frets,
+        position: chord.position,
+        title: chord.title || ""
+      };
+      entries.push(newEntry);
+      imported++;
+    }
+    if (imported === 0) {
+      importMessage.textContent = "No valid chords could be parsed from text.";
+      importMessage.className = "import-message error";
+      return;
+    }
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    const msg = skipped > 0 ? `Imported ${imported} chord${imported > 1 ? "s" : ""} successfully (${skipped} invalid).` : `Imported ${imported} chord${imported > 1 ? "s" : ""} successfully.`;
+    importMessage.textContent = msg;
+    importMessage.className = "import-message success";
+    setTimeout(() => {
+      closeImportOverlay();
+    }, 1500);
+  } catch (err) {
+    importMessage.textContent = "Error parsing text: " + (err instanceof Error ? err.message : String(err));
+    importMessage.className = "import-message error";
+  }
 }
 function cartEntryToChord(cart) {
   var _a, _b;
