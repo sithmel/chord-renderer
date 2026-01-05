@@ -41,8 +41,7 @@
         <div class="show-as-wrapper">
           <button type="button" id="show-as-btn" class="secondary" aria-haspopup="true" aria-expanded="false" aria-controls="show-as-menu" disabled>Export as ▾</button>
           <div id="show-as-menu" role="menu" aria-label="Show as menu" hidden>
-            <button type="button" role="menuitem" data-format="ascii">ASCII</button>
-            <button type="button" role="menuitem" data-format="unicode">Unicode</button>
+            <button type="button" role="menuitem" data-format="text">Text</button>
             <button type="button" role="menuitem" data-format="json">JSON</button>
           </div>
         </div>
@@ -117,6 +116,16 @@
         <pre id="export-overlay-text" class="export-text"></pre>
       </div>
       <footer class="export-overlay-footer">
+        <div class="column-controls">
+          <span class="column-label">Columns:</span>
+          <button id="export-column-decrement" type="button" class="column-btn" aria-label="Decrease columns">−</button>
+          <span id="export-column-count" class="column-count">3</span>
+          <button id="export-column-increment" type="button" class="column-btn" aria-label="Increase columns">+</button>
+        </div>
+        <div id="format-toggle" class="format-toggle" hidden>
+          <button id="format-ascii" type="button" class="format-btn" data-format="ascii">ASCII</button>
+          <button id="format-unicode" type="button" class="format-btn active" data-format="unicode">Unicode</button>
+        </div>
         <button id="export-overlay-copy" type="button" class="primary">Copy to Clipboard</button>
       </footer>
     </div>

@@ -9142,6 +9142,18 @@ var exportOverlayCopy = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("export-overlay-copy")
 );
+var exportColumnCount = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("export-column-count")
+);
+var exportColumnDecrement = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("export-column-decrement")
+);
+var exportColumnIncrement = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("export-column-increment")
+);
 var titleModal = (
   /** @type {HTMLElement|null} */
   document.getElementById("title-modal")
@@ -9331,9 +9343,9 @@ function renderIntervals() {
     input.checked = selectedIntervals.has(Number(val));
     input.addEventListener("change", () => {
       if (input.checked) {
-        if (selectedIntervals.size >= 4) {
+        if (selectedIntervals.size >= 6) {
           input.checked = false;
-          setMessage("Max 4 intervals.", "error");
+          setMessage("Max 6 intervals.", "error");
           return;
         }
         selectedIntervals.add(Number(val));
@@ -9405,7 +9417,6 @@ function renderVoicings() {
   }
 }
 function renderIntervalLabelOptions() {
-  var _a;
   intervalLabelOptionsBox.innerHTML = "";
   if (selectedIntervals.size === 0) return;
   const sorted = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
@@ -9433,7 +9444,7 @@ function renderIntervalLabelOptions() {
     });
     const colorContainer = document.createElement("div");
     colorContainer.className = "color-presets";
-    const currentColor = normalizeColor(existing.color || ((_a = base.fingerOptions) == null ? void 0 : _a.color));
+    const currentColor = existing.color;
     const redLabel = document.createElement("label");
     redLabel.className = "color-checkbox-label";
     const redCheckbox = document.createElement("input");
@@ -9637,12 +9648,6 @@ voicingBox.addEventListener("change", (e2) => {
     /** @type {HTMLElement} */
     e2.target.tagName === "INPUT"
   ) {
-    const voicingInput = (
-      /** @type {HTMLInputElement} */
-      e2.target
-    );
-    customChordTitle = voicingInput.value;
-    chordTitleInput.value = voicingInput.value;
     pushState();
     tryAutoGenerate();
   }
@@ -9864,6 +9869,11 @@ function closeExportOverlay() {
   if (!exportOverlay) return;
   exportOverlay.hidden = true;
   exportOverlay.setAttribute("aria-hidden", "true");
+  const formatToggle = (
+    /** @type {HTMLElement|null} */
+    document.getElementById("format-toggle")
+  );
+  if (formatToggle) formatToggle.hidden = true;
 }
 function showTitleModal() {
   if (!titleModal || !htmlTitleInput) return;
@@ -9922,16 +9932,78 @@ document.addEventListener("keydown", (e2) => {
     closeExportOverlay();
   }
 });
+function showTextExport(useUnicode) {
+  if (!cartItems || !exportOverlay || !exportOverlayText || !exportColumnCount || !exportColumnDecrement || !exportColumnIncrement) return;
+  const entries = loadCart();
+  if (entries.length === 0) return;
+  let currentFormat = useUnicode;
+  let currentColumns = [1, 2, 3, 5, 6, 9].includes(entries.length) ? 3 : 4;
+  const textElement = exportOverlayText;
+  const countElement = exportColumnCount;
+  let decrementBtn = exportColumnDecrement;
+  let incrementBtn = exportColumnIncrement;
+  const formatToggle = (
+    /** @type {HTMLElement|null} */
+    document.getElementById("format-toggle")
+  );
+  const formatAsciiBtn = (
+    /** @type {HTMLButtonElement|null} */
+    document.getElementById("format-ascii")
+  );
+  const formatUnicodeBtn = (
+    /** @type {HTMLButtonElement|null} */
+    document.getElementById("format-unicode")
+  );
+  if (formatToggle) formatToggle.hidden = false;
+  function updateExport() {
+    const strings = entries.map((e2) => fingeringToString(cartEntryToChord(e2), { useUnicode: currentFormat }));
+    const full = layoutChordStrings(strings, currentColumns, 2);
+    textElement.textContent = full;
+    countElement.textContent = String(currentColumns);
+    decrementBtn.disabled = currentColumns <= 1;
+    incrementBtn.disabled = currentColumns >= 12;
+    if (formatAsciiBtn && formatUnicodeBtn) {
+      if (currentFormat) {
+        formatAsciiBtn.classList.remove("active");
+        formatUnicodeBtn.classList.add("active");
+      } else {
+        formatAsciiBtn.classList.add("active");
+        formatUnicodeBtn.classList.remove("active");
+      }
+    }
+  }
+  updateExport();
+  exportOverlay.hidden = false;
+  exportOverlay.setAttribute("aria-hidden", "false");
+  if (exportOverlayCopy) {
+    exportOverlayCopy.textContent = "Copy to Clipboard";
+    exportOverlayCopy.classList.remove("copied");
+  }
+  if (formatAsciiBtn && formatUnicodeBtn) {
+    formatAsciiBtn.addEventListener("click", () => {
+      currentFormat = false;
+      updateExport();
+    });
+    formatUnicodeBtn.addEventListener("click", () => {
+      currentFormat = true;
+      updateExport();
+    });
+  }
+  decrementBtn.addEventListener("click", () => {
+    if (currentColumns > 1) {
+      currentColumns--;
+      updateExport();
+    }
+  });
+  incrementBtn.addEventListener("click", () => {
+    if (currentColumns < 12) {
+      currentColumns++;
+      updateExport();
+    }
+  });
+}
 function exportCartAsText(useUnicode) {
-  return () => {
-    if (!cartItems) return;
-    const entries = loadCart();
-    if (entries.length === 0) return;
-    const strings = entries.map((e2) => fingeringToString(cartEntryToChord(e2), { useUnicode }));
-    const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
-    const full = layoutChordStrings(strings, columns, 2);
-    showExportOverlay(full);
-  };
+  return () => showTextExport(useUnicode);
 }
 function exportCartAsJson() {
   const entries = loadCart();
@@ -9954,9 +10026,7 @@ if (showAsBtn && showAsMenu) {
     item.addEventListener("click", () => {
       const format = item.getAttribute("data-format");
       closeShowAsMenu();
-      if (format === "ascii") {
-        exportCartAsText(false)();
-      } else if (format === "unicode") {
+      if (format === "text") {
         exportCartAsText(true)();
       } else if (format === "json") {
         exportCartAsJson();
@@ -10191,7 +10261,7 @@ function importFromJson() {
 }
 function importFromText() {
   if (!importTextarea || !importMessage) return;
-  const text = importTextarea.value.trim();
+  const text = importTextarea.value.trimEnd();
   if (!text) {
     importMessage.textContent = "Please paste text chord diagrams to import.";
     importMessage.className = "import-message error";

@@ -36,6 +36,9 @@ const exportOverlay = /** @type {HTMLElement|null} */(document.getElementById('e
 const exportOverlayText = /** @type {HTMLElement|null} */(document.getElementById('export-overlay-text'));
 const exportOverlayClose = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-close'));
 const exportOverlayCopy = /** @type {HTMLButtonElement|null} */(document.getElementById('export-overlay-copy'));
+const exportColumnCount = /** @type {HTMLElement|null} */(document.getElementById('export-column-count'));
+const exportColumnDecrement = /** @type {HTMLButtonElement|null} */(document.getElementById('export-column-decrement'));
+const exportColumnIncrement = /** @type {HTMLButtonElement|null} */(document.getElementById('export-column-increment'));
 
 // Title modal references
 const titleModal = /** @type {HTMLElement|null} */(document.getElementById('title-modal'));
@@ -222,9 +225,9 @@ function renderIntervals() {
     input.checked = selectedIntervals.has(Number(val));
     input.addEventListener('change', () => {
       if (input.checked) {
-        if (selectedIntervals.size >= 4) {
+        if (selectedIntervals.size >= 6) {
           input.checked = false;
-          setMessage('Max 4 intervals.', 'error');
+          setMessage('Max 6 intervals.', 'error');
           return;
         }
         selectedIntervals.add(Number(val));
@@ -337,8 +340,7 @@ function renderIntervalLabelOptions() {
     // Color picker: Show checkbox for red color
     const colorContainer = document.createElement('div');
     colorContainer.className = 'color-presets';
-    
-    const currentColor = normalizeColor(existing.color || base.fingerOptions?.color);
+    const currentColor = existing.color;
     
     // Red checkbox
     const redLabel = document.createElement('label');
@@ -591,10 +593,6 @@ form.addEventListener('submit', (e) => {
 // Clear & auto generate on voicing or string set changes
 voicingBox.addEventListener('change', (e) => {
   if (/** @type {HTMLElement} */(e.target).tagName === 'INPUT') {
-    // Reset chord title to new voicing name when voicing changes
-    const voicingInput = /** @type {HTMLInputElement} */(e.target);
-    customChordTitle = voicingInput.value;
-    chordTitleInput.value = voicingInput.value;
     pushState();
     tryAutoGenerate();
   }
@@ -898,6 +896,9 @@ function closeExportOverlay() {
   if (!exportOverlay) return;
   exportOverlay.hidden = true;
   exportOverlay.setAttribute('aria-hidden', 'true');
+  // Hide format toggle when closing
+  const formatToggle = /** @type {HTMLElement|null} */(document.getElementById('format-toggle'));
+  if (formatToggle) formatToggle.hidden = true;
 }
 
 /**
@@ -994,20 +995,105 @@ document.addEventListener('keydown', (e) => {
 });
 
 /**
+ * Show text export modal with column controls
+ * @param {boolean} useUnicode 
+ */
+function showTextExport(useUnicode) {
+  if (!cartItems || !exportOverlay || !exportOverlayText || !exportColumnCount || !exportColumnDecrement || !exportColumnIncrement) return;
+  
+  const entries = loadCart();
+  if (entries.length === 0) return;
+  
+  // Track current format (default Unicode)
+  let currentFormat = useUnicode;
+  
+  // Calculate default columns based on number of chords
+  let currentColumns = [1, 2, 3, 5, 6, 9].includes(entries.length) ? 3 : 4;
+  
+  // Store references for use in closure
+  const textElement = exportOverlayText;
+  const countElement = exportColumnCount;
+  let decrementBtn = exportColumnDecrement;
+  let incrementBtn = exportColumnIncrement;
+  
+  // Get format toggle elements
+  const formatToggle = /** @type {HTMLElement|null} */(document.getElementById('format-toggle'));
+  const formatAsciiBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('format-ascii'));
+  const formatUnicodeBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('format-unicode'));
+  
+  // Show format toggle for text exports
+  if (formatToggle) formatToggle.hidden = false;
+  
+  // Function to regenerate and display the text with current settings
+  function updateExport() {
+    const strings = entries.map((e) => fingeringToString(cartEntryToChord(e), {useUnicode: currentFormat}));
+    const full = layoutChordStrings(strings, currentColumns, 2);
+    textElement.textContent = full;
+    countElement.textContent = String(currentColumns);
+    
+    // Update button states
+    decrementBtn.disabled = currentColumns <= 1;
+    incrementBtn.disabled = currentColumns >= 12;
+    
+    // Update format button active states
+    if (formatAsciiBtn && formatUnicodeBtn) {
+      if (currentFormat) {
+        formatAsciiBtn.classList.remove('active');
+        formatUnicodeBtn.classList.add('active');
+      } else {
+        formatAsciiBtn.classList.add('active');
+        formatUnicodeBtn.classList.remove('active');
+      }
+    }
+  }
+  
+  // Initial display
+  updateExport();
+  exportOverlay.hidden = false;
+  exportOverlay.setAttribute('aria-hidden', 'false');
+  
+  // Reset copy button state
+  if (exportOverlayCopy) {
+    exportOverlayCopy.textContent = 'Copy to Clipboard';
+    exportOverlayCopy.classList.remove('copied');
+  }
+    
+  if (formatAsciiBtn && formatUnicodeBtn) {  
+    // Add format toggle listeners
+    formatAsciiBtn.addEventListener('click', () => {
+      currentFormat = false;
+      updateExport();
+    });
+    
+    formatUnicodeBtn.addEventListener('click', () => {
+      currentFormat = true;
+      updateExport();
+    });
+  }
+  
+  // Add event listeners for column controls
+  decrementBtn.addEventListener('click', () => {
+    if (currentColumns > 1) {
+      currentColumns--;
+      updateExport();
+    }
+  });
+  
+  incrementBtn.addEventListener('click', () => {
+    if (currentColumns < 12) {
+      currentColumns++;
+      updateExport();
+    }
+  });
+}
+
+/**
  * 
  * @param {boolean} useUnicode 
  * @returns {() => void}
  */
 function exportCartAsText(useUnicode) {
-  return () => {
-    if (!cartItems) return;
-    const entries = loadCart();
-    if (entries.length === 0) return;
-    const strings = entries.map((e) => fingeringToString(cartEntryToChord(e), {useUnicode}));
-    const columns = [1, 2, 3, 5, 6, 9].includes(strings.length) ? 3 : 4;
-    const full = layoutChordStrings(strings, columns, 2);
-    showExportOverlay(full);
-  }
+  return () => showTextExport(useUnicode);
 }
 
 /**
@@ -1040,9 +1126,7 @@ if (showAsBtn && showAsMenu) {
       const format = item.getAttribute('data-format');
       closeShowAsMenu();
       
-      if (format === 'ascii') {
-        exportCartAsText(false)();
-      } else if (format === 'unicode') {
+      if (format === 'text') {
         exportCartAsText(true)();
       } else if (format === 'json') {
         exportCartAsJson();
@@ -1317,7 +1401,7 @@ function importFromJson() {
  */
 function importFromText() {
   if (!importTextarea || !importMessage) return;
-  const text = importTextarea.value.trim();
+  const text = importTextarea.value.trimEnd();
   if (!text) {
     importMessage.textContent = 'Please paste text chord diagrams to import.';
     importMessage.className = 'import-message error';
