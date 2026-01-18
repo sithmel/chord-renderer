@@ -3,7 +3,6 @@ import { test, describe } from "node:test";
 import { strict as assert } from "node:assert";
 import {
   Interval,
-  stringToInterval,
   fretNormalizer,
   generateInversions,
   notesToChord,
@@ -13,100 +12,6 @@ import {
   getAllInversions,
   closeChordPosition,
  } from "../lib/chord.js";
-
-describe("stringToInterval", () => {
-  test("should return correct intervals for basic numeric patterns", () => {
-    assert.equal(stringToInterval("1"), Interval.UNISON);
-    assert.equal(stringToInterval("2"), Interval.MAJOR_SECOND);
-    assert.equal(stringToInterval("3"), Interval.MAJOR_THIRD);
-    assert.equal(stringToInterval("4"), Interval.PERFECT_FOURTH);
-    assert.equal(stringToInterval("5"), Interval.PERFECT_FIFTH);
-    assert.equal(stringToInterval("6"), Interval.MAJOR_SIXTH);
-    assert.equal(stringToInterval("7"), Interval.MAJOR_SEVENTH);
-  });
-
-  test("should return correct intervals for flat/sharp patterns", () => {
-    assert.equal(stringToInterval("b2"), Interval.MINOR_SECOND);
-    assert.equal(stringToInterval("b3"), Interval.MINOR_THIRD);
-    assert.equal(stringToInterval("b5"), Interval.TRITONE);
-    assert.equal(stringToInterval("#4"), Interval.TRITONE);
-    assert.equal(stringToInterval("b6"), Interval.MINOR_SIXTH);
-    assert.equal(stringToInterval("b7"), Interval.MINOR_SEVENTH);
-    assert.equal(stringToInterval("#2"), Interval.MINOR_THIRD);
-    assert.equal(stringToInterval("#9"), Interval.MINOR_THIRD);
-    assert.equal(stringToInterval("#11"), Interval.TRITONE);
-  });
-
-  test("should return correct intervals for Roman numeral patterns", () => {
-    assert.equal(stringToInterval("i"), Interval.UNISON);
-    assert.equal(stringToInterval("ii"), Interval.MAJOR_SECOND);
-    assert.equal(stringToInterval("iii"), Interval.MAJOR_THIRD);
-    assert.equal(stringToInterval("iv"), Interval.PERFECT_FOURTH);
-    assert.equal(stringToInterval("v"), Interval.PERFECT_FIFTH);
-    assert.equal(stringToInterval("vi"), Interval.MAJOR_SIXTH);
-    assert.equal(stringToInterval("vii"), Interval.MAJOR_SEVENTH);
-
-    // Flat Roman numerals
-    assert.equal(stringToInterval("bii"), Interval.MINOR_SECOND);
-    assert.equal(stringToInterval("biii"), Interval.MINOR_THIRD);
-    assert.equal(stringToInterval("bvi"), Interval.MINOR_SIXTH);
-    assert.equal(stringToInterval("bvii"), Interval.MINOR_SEVENTH);
-  });
-
-  test("should return correct intervals for extended chord patterns", () => {
-    assert.equal(stringToInterval("13"), Interval.MAJOR_SIXTH);
-    assert.equal(stringToInterval("b13"), Interval.MINOR_SIXTH);
-    assert.equal(stringToInterval("bb7"), Interval.MAJOR_SIXTH);
-    assert.equal(stringToInterval("bbvii"), Interval.MAJOR_SIXTH);
-  });
-
-  test("should be case insensitive", () => {
-    assert.equal(stringToInterval("I"), Interval.UNISON);
-    assert.equal(stringToInterval("II"), Interval.MAJOR_SECOND);
-    assert.equal(stringToInterval("III"), Interval.MAJOR_THIRD);
-    assert.equal(stringToInterval("IV"), Interval.PERFECT_FOURTH);
-    assert.equal(stringToInterval("V"), Interval.PERFECT_FIFTH);
-    assert.equal(stringToInterval("VI"), Interval.MAJOR_SIXTH);
-    assert.equal(stringToInterval("VII"), Interval.MAJOR_SEVENTH);
-
-    // Mixed case
-    assert.equal(stringToInterval("B2"), Interval.MINOR_SECOND);
-    assert.equal(stringToInterval("B3"), Interval.MINOR_THIRD);
-    assert.equal(stringToInterval("BiI"), Interval.MINOR_SECOND);
-    assert.equal(stringToInterval("BvI"), Interval.MINOR_SIXTH);
-  });
-
-  test("should return null for invalid patterns", () => {
-    assert.equal(stringToInterval("8"), null);
-    assert.equal(stringToInterval("9"), null);
-    assert.equal(stringToInterval("invalid"), null);
-    assert.equal(stringToInterval(""), null);
-    assert.equal(stringToInterval("x"), null);
-    assert.equal(stringToInterval("123"), null);
-    assert.equal(stringToInterval("#"), null);
-    assert.equal(stringToInterval("b"), null);
-  });
-
-  test("should handle edge cases", () => {
-    assert.equal(stringToInterval("11"), null); // Should not match #11
-    assert.equal(stringToInterval("#iv"), Interval.TRITONE);
-    assert.equal(stringToInterval("#II"), Interval.MINOR_THIRD);
-    assert.equal(stringToInterval("b5"), Interval.TRITONE);
-    assert.equal(stringToInterval("#4"), Interval.TRITONE);
-  });
-
-  test("should handle exact pattern matching", () => {
-    // These should not match because they don't match the exact pattern
-    assert.equal(stringToInterval("12"), null); // Not just '1'
-    assert.equal(stringToInterval("b23"), null); // Not just 'b2'
-    assert.equal(stringToInterval("iii4"), null); // Not just 'iii'
-
-    // These should match because they match the exact pattern (anchored with ^ and $)
-    assert.equal(stringToInterval("1"), Interval.UNISON);
-    assert.equal(stringToInterval("b2"), Interval.MINOR_SECOND);
-    assert.equal(stringToInterval("iii"), Interval.MAJOR_THIRD);
-  });
-});
 
 describe("fretNormalizer", () => {
   test("should normalize chord frets to lowest position", () => {
@@ -365,27 +270,27 @@ describe("getAllInversions", () => {
    */
   function toSet(arrs) { return new Set(arrs.map(a => JSON.stringify(a))); }
 
-  test("should yield sorted CLOSE voicing then its distinct rotations (order agnostic)", () => {
+  test("should yield CLOSE voicing then its distinct rotations (preserves input order)", () => {
     const notes = [Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH];
     const collected = [...getAllInversions([...notes])];
-    assert.deepEqual(collected[0], [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH]);
+    // First collected should preserve input order (not sorted)
+    assert.deepEqual(collected[0], [Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH]);
     assert.equal(collected.length, notes.length);
-    const expectedRots = rotations([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH]).slice(1); // exclude original
+    // Expected rotations based on original input order
+    const expectedRots = rotations([Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH]).slice(1); // exclude original
     const expectedSet = toSet(expectedRots);
     const actualSet = toSet(collected.slice(1));
     assert.equal(actualSet.size, expectedSet.size);
     for (const rot of expectedSet) assert.ok(actualSet.has(rot));
   });
 
-  test("should apply DROP_2 voicing then yield its rotations", () => {
+  test("should apply DROP_2 voicing then yield its rotations (preserves input order)", () => {
     const notes = [Interval.MAJOR_THIRD, Interval.UNISON, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH];
     const collected = [...getAllInversions([...notes], VOICING.DROP_2)];
-    // Sorted first
-    const sorted = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH];
-    // First collected is DROP_2 applied to sorted
-    assert.deepEqual(collected[0], VOICING.DROP_2(sorted));
+    // First collected is DROP_2 applied to input order (not sorted)
+    assert.deepEqual(collected[0], VOICING.DROP_2([...notes]));
     assert.equal(collected.length, notes.length);
-    const expectedRots = rotations(sorted).slice(1).map(r => VOICING.DROP_2(r));
+    const expectedRots = rotations([...notes]).slice(1).map(r => VOICING.DROP_2(r));
     const expectedSet = toSet(expectedRots);
     const actualSet = toSet(collected.slice(1));
     for (const rot of expectedSet) assert.ok(actualSet.has(rot));

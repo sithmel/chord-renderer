@@ -19,13 +19,11 @@ npm install chord-renderer
 ```javascript
 import { 
   Interval, 
-  stringToInterval,
   notesToChord, 
   generateInversions,
   getAllInversions,
   getStringSets,
-  VOICING,
-  intervalDistanceFromNotes
+  VOICING
 } from 'chord-renderer';
 
 // Define a set of intervals (unordered) and a string set describing which strings are used (true = used)
@@ -73,18 +71,6 @@ Interval.MINOR_SEVENTH  // 10
 Interval.MAJOR_SEVENTH  // 11
 ```
 
-#### `INVERSIONS`
-Mapping of intervals to their inversions:
-```javascript
-INVERSIONS.UNISON        // 'UNISON'
-INVERSIONS.MINOR_SECOND  // 'MAJOR_SEVENTH'
-INVERSIONS.MAJOR_SECOND  // 'MINOR_SEVENTH'
-// ... etc
-```
-
-#### `INTERVAL_ALIASES`
-Array of regex patterns and their corresponding intervals for parsing string notation.
-
 #### `GUITAR_STANDARD_TUNING_INTERVALS`
 Standard guitar tuning intervals between adjacent strings:
 ```javascript
@@ -100,28 +86,10 @@ Fret          // number: fret position
 FingerOptions // {text?: string, color?: string, className?: string}
 FingerPosition // [Finger, Fret, FingerOptions?]
 Chord         // Array<FingerPosition>
-Voicing       // [Interval|null, Interval|null, Interval|null, Interval|null, Interval|null, Interval|null]
+Notes         // Array<Interval>
 ```
 
 ### Functions
-
-#### `stringToInterval(str)`
-Converts string notation to interval value.
-
-**Parameters:**
-- `str` (string): Interval notation (e.g., "1", "b3", "5", "ii", "#4")
-
-**Returns:**
-- `Interval | null`: Corresponding interval or null if not found
-
-**Examples:**
-```javascript
-stringToInterval("1")    // Interval.UNISON (0)
-stringToInterval("b3")   // Interval.MINOR_THIRD (3)
-stringToInterval("5")    // Interval.PERFECT_FIFTH (7)
-stringToInterval("vii")  // Interval.MAJOR_SEVENTH (11)
-stringToInterval("invalid") // null
-```
 
 #### `fretNormalizer(chord)`
 Normalizes a chord by moving all fret positions to the lowest possible position.
@@ -155,15 +123,6 @@ for (const inversion of generateInversions(notesExample)) {
   console.log(inversion);
 }
 ```
-
-#### `intervalDistanceFromNotes(notes)`
-Calculates distances between successive (possibly sparse) intervals in string order, adjusting by octaves so each next sounded note is >= previous.
-
-**Parameters:**
-- `notes` (Array<number|null>): Intervals in string order (null for muted)
-
-**Returns:**
-- `Array<number | null>`: Distance in semitones from previous sounded note (null preserved)
 
 #### `notesToChord(notes, stringSet, intervalToFingerOptions?, stringIntervals?)`
 Converts an ordered list of intervals plus a boolean string usage mask into fret positions.

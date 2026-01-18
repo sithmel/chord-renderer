@@ -1,10 +1,4 @@
 /**
- *
- * @param {string} str
- * @returns {Interval | null} - The corresponding Interval or null if not found
- */
-export function stringToInterval(str: string): Interval | null;
-/**
  * Get all possible combinations of string intervals for a given set of string intervals.
  * @param {number} numberOfNNotes - The number of notes in the chord (e.g., 3 for triads)
  * @param {Array<number>} stringIntervals
@@ -51,7 +45,8 @@ export function intervalDistanceFromNotes(notes: Array<number | null>): Array<nu
 export function notesToChord(notes: Notes, stringSet: Array<boolean>, intervalToFingerOptions?: (interval: number | null) => import("svguitar").FingerOptions, stringIntervals?: Array<number>): Chord;
 /**
  * Get all inversions of a given voicing.
- * An inversion is created by moving the lowest note up an octave.
+ * The input order of notes is preserved (not sorted by pitch).
+ * An inversion is created by moving the first note up an octave.
  * The voicing is represented as an array of 6 elements (one for each string), starting from the high E string (1st string) to the low E string (6th string),
  * where each element is either an Interval object or unused (for muted strings).
  * @param {Notes} notes
@@ -73,45 +68,89 @@ export namespace Interval {
     let MAJOR_SIXTH: number;
     let MINOR_SEVENTH: number;
     let MAJOR_SEVENTH: number;
+    let FLAT_NINTH: number;
+    let NINTH: number;
+    let SHARP_NINTH: number;
+    let ELEVENTH: number;
+    let SHARP_ELEVENTH: number;
+    let FLAT_THIRTEENTH: number;
+    let THIRTEENTH: number;
 }
 export const Interval_labels: {
     full: string;
     fingerOptions: {
         className: string;
-        color: string;
-        text: string;
     };
 }[];
-export namespace INVERSIONS {
-    let UNISON_1: string;
-    export { UNISON_1 as UNISON };
-    let MINOR_SECOND_1: string;
-    export { MINOR_SECOND_1 as MINOR_SECOND };
-    let MAJOR_SECOND_1: string;
-    export { MAJOR_SECOND_1 as MAJOR_SECOND };
-    let MINOR_THIRD_1: string;
-    export { MINOR_THIRD_1 as MINOR_THIRD };
-    let MAJOR_THIRD_1: string;
-    export { MAJOR_THIRD_1 as MAJOR_THIRD };
-    let PERFECT_FOURTH_1: string;
-    export { PERFECT_FOURTH_1 as PERFECT_FOURTH };
-    let TRITONE_1: string;
-    export { TRITONE_1 as TRITONE };
-    let PERFECT_FIFTH_1: string;
-    export { PERFECT_FIFTH_1 as PERFECT_FIFTH };
-    let MINOR_SIXTH_1: string;
-    export { MINOR_SIXTH_1 as MINOR_SIXTH };
-    let MAJOR_SIXTH_1: string;
-    export { MAJOR_SIXTH_1 as MAJOR_SIXTH };
-    let MINOR_SEVENTH_1: string;
-    export { MINOR_SEVENTH_1 as MINOR_SEVENTH };
-    let MAJOR_SEVENTH_1: string;
-    export { MAJOR_SEVENTH_1 as MAJOR_SEVENTH };
+export namespace EXTENDED_INTERVAL_LABELS {
+    export namespace FLAT_NINTH_1 {
+        let full: string;
+        namespace fingerOptions {
+            let className: string;
+        }
+    }
+    export { FLAT_NINTH_1 as FLAT_NINTH };
+    export namespace NINTH_1 {
+        let full_1: string;
+        export { full_1 as full };
+        export namespace fingerOptions_1 {
+            let className_1: string;
+            export { className_1 as className };
+        }
+        export { fingerOptions_1 as fingerOptions };
+    }
+    export { NINTH_1 as NINTH };
+    export namespace SHARP_NINTH_1 {
+        let full_2: string;
+        export { full_2 as full };
+        export namespace fingerOptions_2 {
+            let className_2: string;
+            export { className_2 as className };
+        }
+        export { fingerOptions_2 as fingerOptions };
+    }
+    export { SHARP_NINTH_1 as SHARP_NINTH };
+    export namespace ELEVENTH_1 {
+        let full_3: string;
+        export { full_3 as full };
+        export namespace fingerOptions_3 {
+            let className_3: string;
+            export { className_3 as className };
+        }
+        export { fingerOptions_3 as fingerOptions };
+    }
+    export { ELEVENTH_1 as ELEVENTH };
+    export namespace SHARP_ELEVENTH_1 {
+        let full_4: string;
+        export { full_4 as full };
+        export namespace fingerOptions_4 {
+            let className_4: string;
+            export { className_4 as className };
+        }
+        export { fingerOptions_4 as fingerOptions };
+    }
+    export { SHARP_ELEVENTH_1 as SHARP_ELEVENTH };
+    export namespace FLAT_THIRTEENTH_1 {
+        let full_5: string;
+        export { full_5 as full };
+        export namespace fingerOptions_5 {
+            let className_5: string;
+            export { className_5 as className };
+        }
+        export { fingerOptions_5 as fingerOptions };
+    }
+    export { FLAT_THIRTEENTH_1 as FLAT_THIRTEENTH };
+    export namespace THIRTEENTH_1 {
+        let full_6: string;
+        export { full_6 as full };
+        export namespace fingerOptions_6 {
+            let className_6: string;
+            export { className_6 as className };
+        }
+        export { fingerOptions_6 as fingerOptions };
+    }
+    export { THIRTEENTH_1 as THIRTEENTH };
 }
-/**
- * @type {Array<[RegExp, Interval]>}
- */
-export const INTERVAL_ALIASES: Array<[RegExp, Interval]>;
 export const GUITAR_STANDARD_TUNING_INTERVALS: number[];
 /**
  * *

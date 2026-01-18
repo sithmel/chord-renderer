@@ -54,41 +54,44 @@ var Interval = {
   MINOR_SIXTH: 8,
   MAJOR_SIXTH: 9,
   MINOR_SEVENTH: 10,
-  MAJOR_SEVENTH: 11
+  MAJOR_SEVENTH: 11,
+  // Extended intervals (jazz voicings) - appear after basic intervals
+  FLAT_NINTH: 1,
+  NINTH: 2,
+  SHARP_NINTH: 3,
+  ELEVENTH: 5,
+  SHARP_ELEVENTH: 6,
+  FLAT_THIRTEENTH: 8,
+  THIRTEENTH: 9
 };
 var Interval_labels = [
-  { full: "root", fingerOptions: { className: "root", color: "#e74c3c", text: "R" } },
+  { full: "root", fingerOptions: { className: "root" } },
   // Seconds (blue hues)
-  { full: "minor second", fingerOptions: { className: "minor-second", color: "#e74c3c", text: "b2" } },
-  { full: "major second", fingerOptions: { className: "major-second", color: "#e74c3c", text: "2" } },
+  { full: "minor second", fingerOptions: { className: "minor-second" } },
+  { full: "major second", fingerOptions: { className: "major-second" } },
   // Thirds (green hues)
-  { full: "minor third", fingerOptions: { className: "minor-third", color: "#e74c3c", text: "b3" } },
-  { full: "major third", fingerOptions: { className: "major-third", color: "#e74c3c", text: "3" } },
+  { full: "minor third", fingerOptions: { className: "minor-third" } },
+  { full: "major third", fingerOptions: { className: "major-third" } },
   // Fourth & Tritone (purple hues)
-  { full: "perfect fourth", fingerOptions: { className: "perfect-fourth", color: "#e74c3c", text: "4" } },
-  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth", color: "#e74c3c", text: "b5" } },
-  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth", color: "#e74c3c", text: "5" } },
+  { full: "perfect fourth", fingerOptions: { className: "perfect-fourth" } },
+  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth" } },
+  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth" } },
   // Sixths (olive / yellow-green hues)
-  { full: "minor sixth", fingerOptions: { className: "minor-sixth", color: "#e74c3c", text: "b6" } },
-  { full: "major sixth", fingerOptions: { className: "major-sixth", color: "#e74c3c", text: "6" } },
+  { full: "minor sixth", fingerOptions: { className: "minor-sixth" } },
+  { full: "major sixth", fingerOptions: { className: "major-sixth" } },
   // Sevenths (brown / earth tones)
-  { full: "minor seventh", fingerOptions: { className: "minor-seventh", color: "#e74c3c", text: "b7" } },
-  { full: "major seventh", fingerOptions: { className: "major-seventh", color: "#e74c3c", text: "7" } }
+  { full: "minor seventh", fingerOptions: { className: "minor-seventh" } },
+  { full: "major seventh", fingerOptions: { className: "major-seventh" } }
 ];
-var INTERVAL_ALIASES = [
-  [new RegExp("^1$|^i$", "i"), Interval.UNISON],
-  [new RegExp("^b2$|^bii$", "i"), Interval.MINOR_SECOND],
-  [new RegExp("^2$|^ii$", "i"), Interval.MAJOR_SECOND],
-  [new RegExp("^b3$|^biii$|^#2$|^#ii$|^#9$", "i"), Interval.MINOR_THIRD],
-  [new RegExp("^3$|^iii$", "i"), Interval.MAJOR_THIRD],
-  [new RegExp("^4$|^iv$", "i"), Interval.PERFECT_FOURTH],
-  [new RegExp("^b5$|^#4$|^#iv$|^#11$", "i"), Interval.TRITONE],
-  [new RegExp("^5$|^v$", "i"), Interval.PERFECT_FIFTH],
-  [new RegExp("^b6$|^bvi$|^b13$", "i"), Interval.MINOR_SIXTH],
-  [new RegExp("^6$|^vi$|^13$|^bbvii$|^bb7$", "i"), Interval.MAJOR_SIXTH],
-  [new RegExp("^b7$|^bvii$", "i"), Interval.MINOR_SEVENTH],
-  [new RegExp("^7$|^vii$", "i"), Interval.MAJOR_SEVENTH]
-];
+var EXTENDED_INTERVAL_LABELS = {
+  "FLAT_NINTH": { full: "flat ninth", fingerOptions: { className: "flat-ninth" } },
+  "NINTH": { full: "ninth", fingerOptions: { className: "ninth" } },
+  "SHARP_NINTH": { full: "sharp ninth", fingerOptions: { className: "sharp-ninth" } },
+  "ELEVENTH": { full: "eleventh", fingerOptions: { className: "eleventh" } },
+  "SHARP_ELEVENTH": { full: "sharp eleventh", fingerOptions: { className: "sharp-eleventh" } },
+  "FLAT_THIRTEENTH": { full: "flat thirteenth", fingerOptions: { className: "flat-thirteenth" } },
+  "THIRTEENTH": { full: "thirteenth", fingerOptions: { className: "thirteenth" } }
+};
 var GUITAR_STANDARD_TUNING_INTERVALS = [
   0,
   5,
@@ -228,7 +231,6 @@ function notesToChord(notes, stringSet, intervalToFingerOptions = () => ({}), st
   return chord;
 }
 function* getAllInversions(notes, voicing = VOICING.CLOSE) {
-  notes.sort((a2, b2) => a2 - b2);
   yield voicing(notes);
   for (const inversion of generateInversions(notes)) {
     yield voicing(inversion);
@@ -9217,12 +9219,8 @@ var addEmptyChordBtn = (
 if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput) {
   throw new Error("Required DOM elements not found");
 }
-var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase()).sort((a2, b2) => (
-  /** @type {number} */
-  a2[1] - /** @type {number} */
-  b2[1]
-));
-var selectedIntervals = /* @__PURE__ */ new Set();
+var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
+var selectedIntervals = /* @__PURE__ */ new Map();
 var userIntervalOptions = /* @__PURE__ */ new Map();
 var customChordTitle = "";
 function normalizeColor(color) {
@@ -9233,8 +9231,18 @@ function normalizeColor(color) {
   }
   return DOT_COLORS.BLACK;
 }
+function getIntervalDisplayName(intervalName, semitoneValue) {
+  var _a, _b;
+  return ((_a = EXTENDED_INTERVAL_LABELS[intervalName]) == null ? void 0 : _a.full) || ((_b = Interval_labels[semitoneValue]) == null ? void 0 : _b.full) || "unknown";
+}
+function getIntervalFingerOptions(intervalName, semitoneValue) {
+  var _a;
+  const extended = EXTENDED_INTERVAL_LABELS[intervalName];
+  if (extended) return extended.fingerOptions;
+  return ((_a = Interval_labels[semitoneValue]) == null ? void 0 : _a.fingerOptions) || {};
+}
 function buildState() {
-  const intervalsArray = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
+  const intervalsArray = Array.from(selectedIntervals.keys());
   const voicingInput = (
     /** @type {HTMLInputElement|null} */
     form.querySelector('input[name="voicing"]:checked')
@@ -9283,11 +9291,17 @@ function applyState(state) {
     /** @type {any} */
     state
   );
-  const intervals = Array.isArray(s2.i) ? s2.i.filter((n2) => Number.isInteger(n2)).map(Number) : [];
+  const intervals = Array.isArray(s2.i) ? s2.i : [];
   selectedIntervals.clear();
-  for (const n2 of intervals) {
-    if (selectedIntervals.size >= 4) break;
-    selectedIntervals.add(Number(n2));
+  for (const nameOrValue of intervals) {
+    if (selectedIntervals.size >= 6) break;
+    if (typeof nameOrValue === "number") {
+      const entry = intervalEntries.find(([_2, val]) => val === nameOrValue);
+      if (entry) selectedIntervals.set(entry[0], entry[1]);
+    } else if (typeof nameOrValue === "string") {
+      const entry = intervalEntries.find(([name, _2]) => name === nameOrValue);
+      if (entry) selectedIntervals.set(entry[0], entry[1]);
+    }
   }
   userIntervalOptions.clear();
   if (state.o && typeof state.o === "object") {
@@ -9335,12 +9349,13 @@ function renderIntervals() {
     const id = `int-${name}`;
     const label = document.createElement("label");
     label.className = "check-wrap";
-    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${Interval_labels[val].full}</span>`;
+    const displayName = getIntervalDisplayName(name, val);
+    label.innerHTML = `<input type="checkbox" value="${name}" id="${id}"><span>${displayName}</span>`;
     const input = (
       /** @type {HTMLInputElement} */
       label.querySelector("input")
     );
-    input.checked = selectedIntervals.has(Number(val));
+    input.checked = selectedIntervals.has(name);
     input.addEventListener("change", () => {
       if (input.checked) {
         if (selectedIntervals.size >= 6) {
@@ -9348,9 +9363,9 @@ function renderIntervals() {
           setMessage("Max 6 intervals.", "error");
           return;
         }
-        selectedIntervals.add(Number(val));
+        selectedIntervals.set(name, val);
       } else {
-        selectedIntervals.delete(Number(val));
+        selectedIntervals.delete(name);
       }
       updateStringSets();
       renderVoicings();
@@ -9419,26 +9434,27 @@ function renderVoicings() {
 function renderIntervalLabelOptions() {
   intervalLabelOptionsBox.innerHTML = "";
   if (selectedIntervals.size === 0) return;
-  const sorted = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
-  for (const interval of sorted) {
-    const base = Interval_labels[interval];
-    const existing = userIntervalOptions.get(interval) || {};
+  const sortedEntries = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name));
+  for (const [intervalName, semitoneValue] of sortedEntries) {
+    const baseLabel = getIntervalFingerOptions(intervalName, semitoneValue);
+    const displayName = getIntervalDisplayName(intervalName, semitoneValue);
+    const existing = userIntervalOptions.get(semitoneValue) || {};
     const row = document.createElement("div");
     row.className = "interval-label-row";
     const nameSpan = document.createElement("span");
     nameSpan.className = "interval-name";
-    nameSpan.textContent = base.full;
+    nameSpan.textContent = displayName;
     const input = document.createElement("input");
     input.type = "text";
     input.maxLength = 1;
     input.value = existing.text !== void 0 ? existing.text : "";
-    input.setAttribute("aria-label", base.full + " label");
+    input.setAttribute("aria-label", displayName + " label");
     input.addEventListener("input", () => {
       const val = input.value;
       if (val.length > 2) input.value = val.slice(0, 2);
-      const record = userIntervalOptions.get(interval) || {};
+      const record = userIntervalOptions.get(semitoneValue) || {};
       record.text = input.value;
-      userIntervalOptions.set(interval, record);
+      userIntervalOptions.set(semitoneValue, record);
       pushState();
       tryAutoGenerate();
     });
@@ -9459,19 +9475,19 @@ function renderIntervalLabelOptions() {
       input.style.display = isRed ? "none" : "";
       if (isRed) {
         input.value = "";
-        const record = userIntervalOptions.get(interval) || {};
+        const record = userIntervalOptions.get(semitoneValue) || {};
         record.text = "";
-        userIntervalOptions.set(interval, record);
+        userIntervalOptions.set(semitoneValue, record);
       }
     };
     redCheckbox.addEventListener("change", () => {
-      const record = userIntervalOptions.get(interval) || {};
+      const record = userIntervalOptions.get(semitoneValue) || {};
       if (redCheckbox.checked) {
         record.color = DOT_COLORS.RED;
       } else {
         record.color = DOT_COLORS.BLACK;
       }
-      userIntervalOptions.set(interval, record);
+      userIntervalOptions.set(semitoneValue, record);
       updateInputVisibility();
       pushState();
       tryAutoGenerate();
@@ -9534,20 +9550,31 @@ function generateChords() {
     return;
   }
   const stringSetBits = stringSetInput.value.split("").map((c2) => c2 === "1");
-  const intervalsArray = Array.from(selectedIntervals).sort((a2, b2) => a2 - b2);
+  const intervalsArray = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name)).map(([_2, value]) => value);
+  const semitoneToIntervalName = /* @__PURE__ */ new Map();
+  for (const [name, value] of intervalEntries) {
+    if (selectedIntervals.has(name)) {
+      semitoneToIntervalName.set(value, name);
+    }
+  }
   const chordShapes = [];
   let count = 0;
   for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
     const notesCopy = [...inversion];
     const intervalToFingerOptions = (interval) => {
-      var _a;
+      var _a, _b;
       if (interval === null) return {};
-      const base = (_a = Interval_labels[interval].fingerOptions) != null ? _a : {};
+      const intervalName = semitoneToIntervalName.get(interval);
+      const base = intervalName ? getIntervalFingerOptions(intervalName, interval) : (_b = (_a = Interval_labels[interval]) == null ? void 0 : _a.fingerOptions) != null ? _b : {};
       const override = userIntervalOptions.get(interval) || {};
+      const baseColor = (
+        /** @type {any} */
+        base.color
+      );
       return {
-        className: base.className,
-        text: override.text !== void 0 ? override.text : "",
-        color: override.color || normalizeColor(base.color)
+        className: base.className || "",
+        text: override.text !== void 0 ? override.text : base.text || "",
+        color: override.color || normalizeColor(baseColor)
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);

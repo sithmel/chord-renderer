@@ -1,7 +1,7 @@
 //@ts-check
 // NEW LAYOUT: Main page displays saved individual chords gallery with inline previews.
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
-import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels } from '../lib/chord.js';
+import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels, EXTENDED_INTERVAL_LABELS } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
 import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings, splitStringInRectangles, stringToFingering } from 'text-guitar-chart';
 
@@ -66,11 +66,11 @@ if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !messag
 }
 
 // Build list of Interval entries (constant uppercase keys only)
-const intervalEntries = Object.entries(Interval).filter(([k]) => k === k.toUpperCase())
-  .sort((a, b) => /** @type {number} */(a[1]) - /** @type {number} */(b[1]));
+// Preserve insertion order - extended intervals come after basic ones
+const intervalEntries = Object.entries(Interval).filter(([k]) => k === k.toUpperCase());
 
-/** @type {Set<number>} */
-const selectedIntervals = new Set();
+/** @type {Map<string, number>} - Maps interval name to semitone value */
+const selectedIntervals = new Map();
 
 /**
  * Store user overrides for interval display.
@@ -98,10 +98,32 @@ function normalizeColor(color) {
 }
 
 /**
+ * Get display name for an interval
+ * @param {string} intervalName - Interval constant name (e.g., 'FLAT_NINTH')
+ * @param {number} semitoneValue - Semitone value (0-11)
+ * @returns {string}
+ */
+function getIntervalDisplayName(intervalName, semitoneValue) {
+  return EXTENDED_INTERVAL_LABELS[intervalName]?.full || Interval_labels[semitoneValue]?.full || 'unknown';
+}
+
+/**
+ * Get finger options for an interval
+ * @param {string} intervalName - Interval constant name
+ * @param {number} semitoneValue - Semitone value (0-11)
+ * @returns {import('svguitar').FingerOptions}
+ */
+function getIntervalFingerOptions(intervalName, semitoneValue) {
+  const extended = EXTENDED_INTERVAL_LABELS[intervalName];
+  if (extended) return extended.fingerOptions;
+  return Interval_labels[semitoneValue]?.fingerOptions || {};
+}
+
+/**
  * Build current UI state for URL.
  */
 function buildState() {
-  const intervalsArray = Array.from(selectedIntervals).sort((a,b)=>a-b);
+  const intervalsArray = Array.from(selectedIntervals.keys()); // Store interval names
   const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
   const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
   /** @type {Record<string, any>} */
@@ -166,12 +188,22 @@ function applyState(state) {
   /** @type {SerializedState} */
   const s = /** @type {any} */ (state);
 
-  /** @type {number[]} */
-  const intervals = Array.isArray(s.i) ? s.i.filter(n => Number.isInteger(n)).map(Number) : [];
+  /** @type {Array<string|number>} */
+  const intervals = Array.isArray(s.i) ? s.i : [];
   selectedIntervals.clear();
-  for (const n of intervals) {
-    if (selectedIntervals.size >= 4) break; // enforce limit (now 4)
-    selectedIntervals.add(Number(n));
+  for (const nameOrValue of intervals) {
+    if (selectedIntervals.size >= 6) break; // enforce limit
+    
+    // Backward compatibility: if it's a number, convert to interval name
+    if (typeof nameOrValue === 'number') {
+      // Find first matching interval name for this semitone value (prefer basic intervals)
+      const entry = intervalEntries.find(([_, val]) => val === nameOrValue);
+      if (entry) selectedIntervals.set(entry[0], entry[1]);
+    } else if (typeof nameOrValue === 'string') {
+      // New format: interval name
+      const entry = intervalEntries.find(([name, _]) => name === nameOrValue);
+      if (entry) selectedIntervals.set(entry[0], entry[1]);
+    }
   }
   userIntervalOptions.clear();
   if (state.o && typeof state.o === 'object') {
@@ -220,9 +252,10 @@ function renderIntervals() {
     const id = `int-${name}`;
     const label = document.createElement('label');
     label.className = 'check-wrap';
-    label.innerHTML = `<input type="checkbox" value="${val}" id="${id}"><span>${Interval_labels[val].full}</span>`;
+    const displayName = getIntervalDisplayName(name, val);
+    label.innerHTML = `<input type="checkbox" value="${name}" id="${id}"><span>${displayName}</span>`;
     const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
-    input.checked = selectedIntervals.has(Number(val));
+    input.checked = selectedIntervals.has(name);
     input.addEventListener('change', () => {
       if (input.checked) {
         if (selectedIntervals.size >= 6) {
@@ -230,9 +263,9 @@ function renderIntervals() {
           setMessage('Max 6 intervals.', 'error');
           return;
         }
-        selectedIntervals.add(Number(val));
+        selectedIntervals.set(name, val);
       } else {
-        selectedIntervals.delete(Number(val));
+        selectedIntervals.delete(name);
       }
       updateStringSets();
       renderVoicings();
@@ -310,29 +343,31 @@ function renderVoicings() {
 function renderIntervalLabelOptions() {
   intervalLabelOptionsBox.innerHTML = '';
   if (selectedIntervals.size === 0) return;
-  const sorted = Array.from(selectedIntervals).sort((a,b)=>a-b);
-  for (const interval of sorted) {
-    const base = Interval_labels[interval];
-    const existing = userIntervalOptions.get(interval) || {};
+  // Use intervalEntries order (enum definition order), not Map insertion order
+  const sortedEntries = intervalEntries.filter(([name, _]) => selectedIntervals.has(name));
+  for (const [intervalName, semitoneValue] of sortedEntries) {
+    const baseLabel = getIntervalFingerOptions(intervalName, semitoneValue);
+    const displayName = getIntervalDisplayName(intervalName, semitoneValue);
+    const existing = userIntervalOptions.get(semitoneValue) || {};
     const row = document.createElement('div');
     row.className = 'interval-label-row';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'interval-name';
-    nameSpan.textContent = base.full;
+    nameSpan.textContent = displayName;
     
     // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
     input.type = 'text';
     input.maxLength = 1;
     input.value = existing.text !== undefined ? existing.text : '';
-    input.setAttribute('aria-label', base.full + ' label');
+    input.setAttribute('aria-label', displayName + ' label');
     input.addEventListener('input', () => {
       const val = input.value;
       if (val.length > 2) input.value = val.slice(0, 2);
-      const record = userIntervalOptions.get(interval) || {};
+      const record = userIntervalOptions.get(semitoneValue) || {};
       // Preserve empty string to explicitly clear default label
       record.text = input.value;
-      userIntervalOptions.set(interval, record);
+      userIntervalOptions.set(semitoneValue, record);
       pushState();
       tryAutoGenerate();
     });
@@ -360,20 +395,20 @@ function renderIntervalLabelOptions() {
       if (isRed) {
         // Clear text when RED is selected
         input.value = '';
-        const record = userIntervalOptions.get(interval) || {};
+        const record = userIntervalOptions.get(semitoneValue) || {};
         record.text = '';
-        userIntervalOptions.set(interval, record);
+        userIntervalOptions.set(semitoneValue, record);
       }
     };
     
     redCheckbox.addEventListener('change', () => {
-      const record = userIntervalOptions.get(interval) || {};
+      const record = userIntervalOptions.get(semitoneValue) || {};
       if (redCheckbox.checked) {
         record.color = DOT_COLORS.RED;
       } else {
         record.color = DOT_COLORS.BLACK;
       }
-      userIntervalOptions.set(interval, record);
+      userIntervalOptions.set(semitoneValue, record);
       updateInputVisibility();
       pushState();
       tryAutoGenerate();
@@ -444,7 +479,19 @@ function generateChords() {
     return;
   }
   const stringSetBits = stringSetInput.value.split('').map(c => c === '1');
-  const intervalsArray = Array.from(selectedIntervals).sort((a,b)=>a-b);
+  // Extract semitone values in enum definition order (not selection order, not sorted by value)
+  const intervalsArray = intervalEntries
+    .filter(([name, _]) => selectedIntervals.has(name))
+    .map(([_, value]) => value);
+  
+  // Create reverse mapping: semitone value -> interval name (for label lookup)
+  // Use the same filtering to maintain correct interval name association
+  const semitoneToIntervalName = new Map();
+  for (const [name, value] of intervalEntries) {
+    if (selectedIntervals.has(name)) {
+      semitoneToIntervalName.set(value, name);
+    }
+  }
 
   /** @type {Array<import('../lib/chord.js').Chord>} */
   const chordShapes = [];
@@ -459,12 +506,16 @@ function generateChords() {
      */
     const intervalToFingerOptions = (interval) => {
       if (interval === null) return {};
-      const base = Interval_labels[interval].fingerOptions ?? {};
+      const intervalName = semitoneToIntervalName.get(interval);
+      const base = intervalName 
+        ? getIntervalFingerOptions(intervalName, interval)
+        : (Interval_labels[interval]?.fingerOptions ?? {});
       const override = userIntervalOptions.get(interval) || {};
+      const baseColor = /** @type {any} */(base).color;
       return {
-        className: base.className,
-        text: override.text !== undefined ? override.text : '',
-        color: override.color || normalizeColor(base.color),
+        className: base.className || '',
+        text: override.text !== undefined ? override.text : (base.text || ''),
+        color: override.color || normalizeColor(baseColor),
       };
     };
     const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
