@@ -9055,6 +9055,32 @@ function splitStringInRectangles(str) {
   return result;
 }
 
+// lib/isChordDoable.js
+function isChordDoable(chord) {
+  const frettedPositions = chord.filter((finger) => {
+    if (!finger) return false;
+    const fret = finger[1];
+    return fret !== 0 && fret !== "x" && typeof fret === "number";
+  }).map((finger) => (
+    /** @type {number} */
+    finger[1]
+  ));
+  if (frettedPositions.length <= 1) {
+    return true;
+  }
+  const minFret = Math.min(...frettedPositions);
+  const maxFret = Math.max(...frettedPositions);
+  const fretSpan = maxFret - minFret;
+  if (fretSpan >= 5) {
+    return false;
+  }
+  const uniqueFrets = new Set(frettedPositions);
+  if (uniqueFrets.size > 4) {
+    return false;
+  }
+  return true;
+}
+
 // docs/app.js
 var intervalBox = (
   /** @type {HTMLElement} */
@@ -9095,6 +9121,10 @@ var chordTitleInput = (
 var intervalPresetSelect = (
   /** @type {HTMLSelectElement} */
   document.getElementById("interval-preset")
+);
+var filterDoableCheckbox = (
+  /** @type {HTMLInputElement} */
+  document.getElementById("filter-doable-checkbox")
 );
 var cartGallery = (
   /** @type {HTMLElement|null} */
@@ -9220,7 +9250,7 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect || !filterDoableCheckbox) {
   throw new Error("Required DOM elements not found");
 }
 var INTERVAL_PRESETS = [
@@ -9293,7 +9323,8 @@ function buildState() {
     v: voicingInput ? voicingInput.value : void 0,
     s: stringSetInput ? stringSetInput.value : void 0,
     o: o2,
-    t: customChordTitle || void 0
+    t: customChordTitle || void 0,
+    f: filterDoableCheckbox.checked
   };
 }
 function pushState() {
@@ -9372,6 +9403,11 @@ function applyState(state) {
     customChordTitle = "";
     chordTitleInput.value = "";
   }
+  if (typeof state.f === "boolean") {
+    filterDoableCheckbox.checked = state.f;
+  } else {
+    filterDoableCheckbox.checked = true;
+  }
 }
 function renderIntervals() {
   intervalBox.innerHTML = "";
@@ -9448,6 +9484,10 @@ function updateStringSets() {
     return;
   }
   stringsHint.textContent = `${count} interval${count > 1 ? "s" : ""} selected.`;
+  const allLabel = document.createElement("label");
+  allLabel.className = "radio-wrap";
+  allLabel.innerHTML = `<input type="radio" name="stringset" value="ALL" id="ss-ALL"><span>All String Sets</span>`;
+  stringSetBox.appendChild(allLabel);
   let index = 0;
   for (const set of getStringSets(count)) {
     const id = `ss-${index}`;
@@ -9478,11 +9518,18 @@ function renderVoicings() {
   const prevValue = previouslySelected ? previouslySelected.value : null;
   const allowed = getAllowedVoicingNames(count);
   voicingBox.innerHTML = "";
-  allowed.forEach((name, i2) => {
+  if (allowed.length > 0) {
+    const allLabel = document.createElement("label");
+    allLabel.className = "radio-wrap";
+    const checkedAttr = prevValue === "ALL" || !prevValue ? "checked" : "";
+    allLabel.innerHTML = `<input type="radio" name="voicing" value="ALL" id="voi-ALL" ${checkedAttr}><span>All Voicings</span>`;
+    voicingBox.appendChild(allLabel);
+  }
+  allowed.forEach((name) => {
     const id = `voi-${name}`;
     const label = document.createElement("label");
     label.className = "radio-wrap";
-    const checkedAttr = prevValue && prevValue === name || !prevValue && i2 === 0 ? "checked" : "";
+    const checkedAttr = prevValue && prevValue === name ? "checked" : "";
     label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${checkedAttr}><span>${name.replace(/_/g, " ")}</span>`;
     voicingBox.appendChild(label);
   });
@@ -9600,11 +9647,7 @@ function generateChords() {
     setMessage("Select a voicing.", "error");
     return;
   }
-  const voicingName = voicingInput.value;
-  const voicingFn = (
-    /** @type {(x:number[])=>number[]} */
-    VOICING[voicingName]
-  );
+  const voicingValue = voicingInput.value;
   const stringSetInput = (
     /** @type {HTMLInputElement|null} */
     form.querySelector('input[name="stringset"]:checked')
@@ -9613,7 +9656,7 @@ function generateChords() {
     setMessage("Select a string set.", "error");
     return;
   }
-  const stringSetBits = stringSetInput.value.split("").map((c2) => c2 === "1");
+  const stringSetValue = stringSetInput.value;
   const intervalsArray = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name)).map(([_2, value]) => value);
   const semitoneToIntervalName = /* @__PURE__ */ new Map();
   for (const [name, value] of intervalEntries) {
@@ -9621,44 +9664,69 @@ function generateChords() {
       semitoneToIntervalName.set(value, name);
     }
   }
+  const voicingNames = voicingValue === "ALL" ? getAllowedVoicingNames(selectedIntervals.size) : [voicingValue];
+  const stringSets = stringSetValue === "ALL" ? Array.from(getStringSets(selectedIntervals.size)) : [stringSetValue.split("").map((c2) => c2 === "1")];
   const chordShapes = [];
-  let count = 0;
-  for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
-    const notesCopy = [...inversion];
-    const intervalToFingerOptions = (interval) => {
-      var _a, _b;
-      if (interval === null) return {};
-      const intervalName = semitoneToIntervalName.get(interval);
-      const base = intervalName ? getIntervalFingerOptions(intervalName, interval) : (_b = (_a = Interval_labels[interval]) == null ? void 0 : _a.fingerOptions) != null ? _b : {};
-      const override = userIntervalOptions.get(interval) || {};
-      const baseColor = (
-        /** @type {any} */
-        base.color
-      );
-      return {
-        className: base.className || "",
-        text: override.text !== void 0 ? override.text : base.text || "",
-        color: override.color || normalizeColor(baseColor)
-      };
-    };
-    const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
-    for (let i2 = 0; i2 < stringSetBits.length; i2++) {
-      if (!stringSetBits[i2]) {
-        const stringNumber = 6 - i2;
-        if (!chord.find((f2) => f2[0] === stringNumber)) {
-          chord.push([stringNumber, "x"]);
+  for (const voicingName of voicingNames) {
+    const voicingFn = (
+      /** @type {(x:number[])=>number[]} */
+      VOICING[voicingName]
+    );
+    for (const stringSetBits of stringSets) {
+      for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
+        const notesCopy = [...inversion];
+        const intervalToFingerOptions = (interval) => {
+          var _a, _b;
+          if (interval === null) return {};
+          const intervalName = semitoneToIntervalName.get(interval);
+          const base = intervalName ? getIntervalFingerOptions(intervalName, interval) : (_b = (_a = Interval_labels[interval]) == null ? void 0 : _a.fingerOptions) != null ? _b : {};
+          const override = userIntervalOptions.get(interval) || {};
+          const baseColor = (
+            /** @type {any} */
+            base.color
+          );
+          return {
+            className: base.className || "",
+            text: override.text !== void 0 ? override.text : base.text || "",
+            color: override.color || normalizeColor(baseColor)
+          };
+        };
+        const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
+        for (let i2 = 0; i2 < stringSetBits.length; i2++) {
+          if (!stringSetBits[i2]) {
+            const stringNumber = 6 - i2;
+            if (!chord.find((f2) => f2[0] === stringNumber)) {
+              chord.push([stringNumber, "x"]);
+            }
+          }
         }
+        chord.sort((a2, b2) => b2[0] - a2[0]);
+        chordShapes.push(chord);
       }
     }
-    chord.sort((a2, b2) => b2[0] - a2[0]);
-    chordShapes.push(chord);
-    renderChord(chord, count, voicingName);
+  }
+  let shapesToRender = chordShapes;
+  if (filterDoableCheckbox.checked) {
+    shapesToRender = chordShapes.filter((chord) => isChordDoable(chord));
+  }
+  let count = 0;
+  for (const chord of shapesToRender) {
+    renderChord(chord, count, voicingNames[0] || "");
     count++;
   }
   if (count === 0) {
-    setMessage("No chords produced (unexpected).", "error");
+    if (chordShapes.length === 0) {
+      setMessage("No chords produced (unexpected).", "error");
+    } else {
+      setMessage("No doable chords found. Try unchecking the filter.", "error");
+    }
   } else {
-    setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
+    const totalCount = chordShapes.length;
+    if (filterDoableCheckbox.checked && count < totalCount) {
+      setMessage(`${count} chord${count > 1 ? "s" : ""} rendered (${count} doable out of ${totalCount} total).`);
+    } else {
+      setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
+    }
     pushState();
   }
 }
@@ -9762,6 +9830,10 @@ intervalPresetSelect.addEventListener("change", () => {
   if (!isNaN(presetIndex)) {
     applyPreset(presetIndex);
   }
+});
+filterDoableCheckbox.addEventListener("change", () => {
+  pushState();
+  tryAutoGenerate();
 });
 renderPresetDropdown();
 renderIntervals();

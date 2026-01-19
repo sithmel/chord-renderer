@@ -4,6 +4,7 @@
 import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels, EXTENDED_INTERVAL_LABELS } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
 import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings, splitStringInRectangles, stringToFingering } from 'text-guitar-chart';
+import isChordDoable from '../lib/isChordDoable.js';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
@@ -16,6 +17,7 @@ const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
 const chordTitleInput = /** @type {HTMLInputElement} */(document.getElementById('chord-title-input'));
 const intervalPresetSelect = /** @type {HTMLSelectElement} */(document.getElementById('interval-preset'));
+const filterDoableCheckbox = /** @type {HTMLInputElement} */(document.getElementById('filter-doable-checkbox'));
 
 // New DOM references for gallery layout
 const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('cart-gallery'));
@@ -62,7 +64,7 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect || !filterDoableCheckbox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -181,6 +183,7 @@ function buildState() {
     s: stringSetInput ? stringSetInput.value : undefined,
     o,
     t: customChordTitle || undefined,
+    f: filterDoableCheckbox.checked,
   };
 }
 
@@ -284,6 +287,12 @@ function applyState(state) {
     customChordTitle = '';
     chordTitleInput.value = '';
   }
+  // Apply filter checkbox (default to true if not specified)
+  if (typeof state.f === 'boolean') {
+    filterDoableCheckbox.checked = state.f;
+  } else {
+    filterDoableCheckbox.checked = true;
+  }
 }
 
 function renderIntervals() {
@@ -380,6 +389,13 @@ function updateStringSets() {
     return;
   }
   stringsHint.textContent = `${count} interval${count>1?'s':''} selected.`;
+  
+  // Add "All String Sets" option first
+  const allLabel = document.createElement('label');
+  allLabel.className = 'radio-wrap';
+  allLabel.innerHTML = `<input type="radio" name="stringset" value="ALL" id="ss-ALL"><span>All String Sets</span>`;
+  stringSetBox.appendChild(allLabel);
+  
   let index = 0;
   for (const set of getStringSets(count)) {
     const id = `ss-${index}`;
@@ -419,11 +435,21 @@ function renderVoicings() {
   const prevValue = previouslySelected ? previouslySelected.value : null;
   const allowed = getAllowedVoicingNames(count);
   voicingBox.innerHTML = '';
-  allowed.forEach((name, i) => {
+  
+  // Add "All Voicings" option first (if we have any voicings)
+  if (allowed.length > 0) {
+    const allLabel = document.createElement('label');
+    allLabel.className = 'radio-wrap';
+    const checkedAttr = (prevValue === 'ALL') || (!prevValue) ? 'checked' : '';
+    allLabel.innerHTML = `<input type="radio" name="voicing" value="ALL" id="voi-ALL" ${checkedAttr}><span>All Voicings</span>`;
+    voicingBox.appendChild(allLabel);
+  }
+  
+  allowed.forEach((name) => {
     const id = `voi-${name}`;
     const label = document.createElement('label');
     label.className = 'radio-wrap';
-    const checkedAttr = (prevValue && prevValue === name) || (!prevValue && i === 0) ? 'checked' : '';
+    const checkedAttr = (prevValue && prevValue === name) ? 'checked' : '';
     label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${checkedAttr}><span>${name.replace(/_/g,' ')}</span>`;
     voicingBox.appendChild(label);
   });
@@ -566,14 +592,15 @@ function generateChords() {
     setMessage('Select a voicing.', 'error');
     return;
   }
-  const voicingName = voicingInput.value;
-  const voicingFn = /** @type {(x:number[])=>number[]} */(VOICING[voicingName]);
+  const voicingValue = voicingInput.value;
+  
   const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
   if (!stringSetInput) {
     setMessage('Select a string set.', 'error');
     return;
   }
-  const stringSetBits = stringSetInput.value.split('').map(c => c === '1');
+  const stringSetValue = stringSetInput.value;
+  
   // Extract semitone values in enum definition order (not selection order, not sorted by value)
   const intervalsArray = intervalEntries
     .filter(([name, _]) => selectedIntervals.has(name))
@@ -587,56 +614,97 @@ function generateChords() {
       semitoneToIntervalName.set(value, name);
     }
   }
+  
+  // Determine which voicings to use
+  /** @type {string[]} */
+  const voicingNames = voicingValue === 'ALL' 
+    ? getAllowedVoicingNames(selectedIntervals.size)
+    : [voicingValue];
+  
+  // Determine which string sets to use
+  /** @type {Array<boolean[]>} */
+  const stringSets = stringSetValue === 'ALL'
+    ? Array.from(getStringSets(selectedIntervals.size))
+    : [stringSetValue.split('').map(c => c === '1')];
 
   /** @type {Array<import('../lib/chord.js').Chord>} */
   const chordShapes = [];
-  let count = 0;
-  for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
-    // Prepare notes copy for note->chord consumption (it mutates via shift())
-    const notesCopy = [...inversion];
-    /**
-     * Get finger options for a given interval.
-     * @param {number|null} interval
-     * @returns {import('svguitar').FingerOptions}
-     */
-    const intervalToFingerOptions = (interval) => {
-      if (interval === null) return {};
-      const intervalName = semitoneToIntervalName.get(interval);
-      const base = intervalName 
-        ? getIntervalFingerOptions(intervalName, interval)
-        : (Interval_labels[interval]?.fingerOptions ?? {});
-      const override = userIntervalOptions.get(interval) || {};
-      const baseColor = /** @type {any} */(base).color;
-      return {
-        className: base.className || '',
-        text: override.text !== undefined ? override.text : (base.text || ''),
-        color: override.color || normalizeColor(baseColor),
-      };
-    };
-    const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
+  
+  // Nested loops to generate all combinations
+  for (const voicingName of voicingNames) {
+    const voicingFn = /** @type {(x:number[])=>number[]} */(VOICING[voicingName]);
     
-    // Add muted string markers for inactive strings
-    for (let i = 0; i < stringSetBits.length; i++) {
-      if (!stringSetBits[i]) {
-        const stringNumber = 6 - i; // Convert index to guitar string numbering
-        // Only add if not already present (safety check)
-        if (!chord.find(f => f[0] === stringNumber)) {
-          chord.push([stringNumber, 'x']);
+    for (const stringSetBits of stringSets) {
+      for (const inversion of getAllInversions([...intervalsArray], voicingFn)) {
+        // Prepare notes copy for note->chord consumption (it mutates via shift())
+        const notesCopy = [...inversion];
+        /**
+         * Get finger options for a given interval.
+         * @param {number|null} interval
+         * @returns {import('svguitar').FingerOptions}
+         */
+        const intervalToFingerOptions = (interval) => {
+          if (interval === null) return {};
+          const intervalName = semitoneToIntervalName.get(interval);
+          const base = intervalName 
+            ? getIntervalFingerOptions(intervalName, interval)
+            : (Interval_labels[interval]?.fingerOptions ?? {});
+          const override = userIntervalOptions.get(interval) || {};
+          const baseColor = /** @type {any} */(base).color;
+          return {
+            className: base.className || '',
+            text: override.text !== undefined ? override.text : (base.text || ''),
+            color: override.color || normalizeColor(baseColor),
+          };
+        };
+        const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
+        
+        // Add muted string markers for inactive strings
+        for (let i = 0; i < stringSetBits.length; i++) {
+          if (!stringSetBits[i]) {
+            const stringNumber = 6 - i; // Convert index to guitar string numbering
+            // Only add if not already present (safety check)
+            if (!chord.find(f => f[0] === stringNumber)) {
+              chord.push([stringNumber, 'x']);
+            }
+          }
         }
+
+        // Sort chord array by string number descending (6 to 1) for consistency
+        chord.sort((a, b) => b[0] - a[0]);
+        
+        chordShapes.push(chord);
       }
     }
-
-    // Sort chord array by string number descending (6 to 1) for consistency
-    chord.sort((a, b) => b[0] - a[0]);
-    
-    chordShapes.push(chord);
-    renderChord(chord, count, voicingName);
+  }
+  
+  // Apply doable filter if checkbox is checked
+  let shapesToRender = chordShapes;
+  if (filterDoableCheckbox.checked) {
+    shapesToRender = chordShapes.filter(chord => isChordDoable(chord));
+  }
+  
+  // Render filtered chords
+  let count = 0;
+  for (const chord of shapesToRender) {
+    // Use first voicing name for label (could be improved to track actual voicing per chord)
+    renderChord(chord, count, voicingNames[0] || '');
     count++;
   }
+  
   if (count === 0) {
-    setMessage('No chords produced (unexpected).', 'error');
+    if (chordShapes.length === 0) {
+      setMessage('No chords produced (unexpected).', 'error');
+    } else {
+      setMessage('No doable chords found. Try unchecking the filter.', 'error');
+    }
   } else {
-    setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
+    const totalCount = chordShapes.length;
+    if (filterDoableCheckbox.checked && count < totalCount) {
+      setMessage(`${count} chord${count > 1 ? 's' : ''} rendered (${count} doable out of ${totalCount} total).`);
+    } else {
+      setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
+    }
     pushState();
   }
 }
@@ -763,6 +831,12 @@ intervalPresetSelect.addEventListener('change', () => {
   if (!isNaN(presetIndex)) {
     applyPreset(presetIndex);
   }
+});
+
+// Filter checkbox change handler
+filterDoableCheckbox.addEventListener('change', () => {
+  pushState();
+  tryAutoGenerate();
 });
 
 // Initial render
