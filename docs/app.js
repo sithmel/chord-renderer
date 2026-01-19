@@ -15,6 +15,7 @@ const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
 const chordTitleInput = /** @type {HTMLInputElement} */(document.getElementById('chord-title-input'));
+const intervalPresetSelect = /** @type {HTMLSelectElement} */(document.getElementById('interval-preset'));
 
 // New DOM references for gallery layout
 const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('cart-gallery'));
@@ -61,9 +62,48 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect) {
   throw new Error('Required DOM elements not found');
 }
+
+// Interval presets for quick selection
+/**
+ * @typedef {Object} IntervalPreset
+ * @property {string} name - Display name of the preset
+ * @property {string[]} intervals - Array of interval constant names
+ * @property {string} notation - Human-readable interval notation
+ */
+
+/** @type {IntervalPreset[]} */
+const INTERVAL_PRESETS = [
+  // Triads
+  { name: 'Major triad', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH'], notation: '1 3 5' },
+  { name: 'Minor triad', intervals: ['UNISON', 'MINOR_THIRD', 'PERFECT_FIFTH'], notation: '1 ♭3 5' },
+  { name: 'Diminished triad', intervals: ['UNISON', 'MINOR_THIRD', 'TRITONE'], notation: '1 ♭3 ♭5' },
+  { name: 'Augmented triad', intervals: ['UNISON', 'MAJOR_THIRD', 'MINOR_SIXTH'], notation: '1 3 ♯5' },
+  
+  // Seventh chords
+  { name: 'Major seventh', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MAJOR_SEVENTH'], notation: '1 3 5 7' },
+  { name: 'Minor seventh', intervals: ['UNISON', 'MINOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH'], notation: '1 ♭3 5 ♭7' },
+  { name: 'Dominant seventh', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH'], notation: '1 3 5 ♭7' },
+  { name: 'Half-diminished seventh', intervals: ['UNISON', 'MINOR_THIRD', 'TRITONE', 'MINOR_SEVENTH'], notation: '1 ♭3 ♭5 ♭7' },
+  { name: 'Diminished seventh', intervals: ['UNISON', 'MINOR_THIRD', 'TRITONE', 'MAJOR_SIXTH'], notation: '1 ♭3 ♭5 ♭♭7' },
+  
+  // Sixth chords
+  { name: 'Major sixth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MAJOR_SIXTH'], notation: '1 3 5 6' },
+  { name: 'Minor sixth', intervals: ['UNISON', 'MINOR_THIRD', 'PERFECT_FIFTH', 'MAJOR_SIXTH'], notation: '1 ♭3 5 6' },
+  
+  // Jazz/Extended chords
+  { name: 'Major ninth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MAJOR_SEVENTH', 'NINTH'], notation: '1 3 5 7 9' },
+  { name: 'Minor ninth', intervals: ['UNISON', 'MINOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'NINTH'], notation: '1 ♭3 5 ♭7 9' },
+  { name: 'Dominant ninth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'NINTH'], notation: '1 3 5 ♭7 9' },
+  { name: 'Dominant sharp ninth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'SHARP_NINTH'], notation: '1 3 5 ♭7 ♯9' },
+  { name: 'Dominant flat ninth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'FLAT_NINTH'], notation: '1 3 5 ♭7 ♭9' },
+  { name: 'Major eleventh', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MAJOR_SEVENTH', 'ELEVENTH'], notation: '1 3 5 7 11' },
+  { name: 'Dominant sharp eleventh', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'SHARP_ELEVENTH'], notation: '1 3 5 ♭7 ♯11' },
+  { name: 'Major thirteenth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MAJOR_SEVENTH', 'THIRTEENTH'], notation: '1 3 5 7 13' },
+  { name: 'Dominant thirteenth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'THIRTEENTH'], notation: '1 3 5 ♭7 13' },
+];
 
 // Build list of Interval entries (constant uppercase keys only)
 // Preserve insertion order - extended intervals come after basic ones
@@ -275,6 +315,61 @@ function renderIntervals() {
     });
     intervalBox.appendChild(label);
   }
+}
+
+/**
+ * Render the preset dropdown options.
+ */
+function renderPresetDropdown() {
+  // Clear existing options except the first (placeholder)
+  while (intervalPresetSelect.options.length > 1) {
+    intervalPresetSelect.remove(1);
+  }
+  
+  // Add options for each preset
+  INTERVAL_PRESETS.forEach((preset, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `${preset.name} - ${preset.notation}`;
+    intervalPresetSelect.appendChild(option);
+  });
+}
+
+/**
+ * Apply a preset to the interval selection.
+ * @param {number} presetIndex - Index of the preset in INTERVAL_PRESETS
+ */
+function applyPreset(presetIndex) {
+  if (presetIndex < 0 || presetIndex >= INTERVAL_PRESETS.length) {
+    return;
+  }
+  
+  const preset = INTERVAL_PRESETS[presetIndex];
+  
+  // Clear current state
+  selectedIntervals.clear();
+  userIntervalOptions.clear();
+  customChordTitle = '';
+  chordTitleInput.value = '';
+  
+  // Apply preset intervals
+  for (const intervalName of preset.intervals) {
+    const entry = intervalEntries.find(([name, _]) => name === intervalName);
+    if (entry) {
+      selectedIntervals.set(entry[0], entry[1]);
+    }
+  }
+  
+  // Update all dependent UI
+  renderIntervals();
+  updateStringSets();
+  renderVoicings();
+  renderIntervalLabelOptions();
+  pushState();
+  tryAutoGenerate();
+  
+  // Reset dropdown to placeholder
+  intervalPresetSelect.value = '';
 }
 
 function updateStringSets() {
@@ -662,7 +757,16 @@ chordTitleInput.addEventListener('input', () => {
   tryAutoGenerate();
 });
 
+// Preset dropdown change handler
+intervalPresetSelect.addEventListener('change', () => {
+  const presetIndex = parseInt(intervalPresetSelect.value, 10);
+  if (!isNaN(presetIndex)) {
+    applyPreset(presetIndex);
+  }
+});
+
 // Initial render
+renderPresetDropdown();
 renderIntervals();
 renderVoicings();
 updateStringSets();

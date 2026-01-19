@@ -616,6 +616,49 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
   box-shadow: 0 0 0 3px var(--color-focus-ring); 
 }
 
+/* Preset selector */
+.preset-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.preset-selector label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.preset-dropdown {
+  flex: 1;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.preset-dropdown:hover {
+  border-color: var(--color-border-strong);
+}
+
+.preset-dropdown:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--color-focus-ring);
+}
+
+.preset-dropdown option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
 /* Color preset buttons */
 .color-presets {
   display: flex;

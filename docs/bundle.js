@@ -9092,6 +9092,10 @@ var chordTitleInput = (
   /** @type {HTMLInputElement} */
   document.getElementById("chord-title-input")
 );
+var intervalPresetSelect = (
+  /** @type {HTMLSelectElement} */
+  document.getElementById("interval-preset")
+);
 var cartGallery = (
   /** @type {HTMLElement|null} */
   document.getElementById("cart-gallery")
@@ -9216,9 +9220,35 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect) {
   throw new Error("Required DOM elements not found");
 }
+var INTERVAL_PRESETS = [
+  // Triads
+  { name: "Major triad", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH"], notation: "1 3 5" },
+  { name: "Minor triad", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH"], notation: "1 \u266D3 5" },
+  { name: "Diminished triad", intervals: ["UNISON", "MINOR_THIRD", "TRITONE"], notation: "1 \u266D3 \u266D5" },
+  { name: "Augmented triad", intervals: ["UNISON", "MAJOR_THIRD", "MINOR_SIXTH"], notation: "1 3 \u266F5" },
+  // Seventh chords
+  { name: "Major seventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH"], notation: "1 3 5 7" },
+  { name: "Minor seventh", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH"], notation: "1 \u266D3 5 \u266D7" },
+  { name: "Dominant seventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH"], notation: "1 3 5 \u266D7" },
+  { name: "Half-diminished seventh", intervals: ["UNISON", "MINOR_THIRD", "TRITONE", "MINOR_SEVENTH"], notation: "1 \u266D3 \u266D5 \u266D7" },
+  { name: "Diminished seventh", intervals: ["UNISON", "MINOR_THIRD", "TRITONE", "MAJOR_SIXTH"], notation: "1 \u266D3 \u266D5 \u266D\u266D7" },
+  // Sixth chords
+  { name: "Major sixth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SIXTH"], notation: "1 3 5 6" },
+  { name: "Minor sixth", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MAJOR_SIXTH"], notation: "1 \u266D3 5 6" },
+  // Jazz/Extended chords
+  { name: "Major ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "NINTH"], notation: "1 3 5 7 9" },
+  { name: "Minor ninth", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "NINTH"], notation: "1 \u266D3 5 \u266D7 9" },
+  { name: "Dominant ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "NINTH"], notation: "1 3 5 \u266D7 9" },
+  { name: "Dominant sharp ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "SHARP_NINTH"], notation: "1 3 5 \u266D7 \u266F9" },
+  { name: "Dominant flat ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "FLAT_NINTH"], notation: "1 3 5 \u266D7 \u266D9" },
+  { name: "Major eleventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "ELEVENTH"], notation: "1 3 5 7 11" },
+  { name: "Dominant sharp eleventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "SHARP_ELEVENTH"], notation: "1 3 5 \u266D7 \u266F11" },
+  { name: "Major thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 7 13" },
+  { name: "Dominant thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 \u266D7 13" }
+];
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
 var selectedIntervals = /* @__PURE__ */ new Map();
 var userIntervalOptions = /* @__PURE__ */ new Map();
@@ -9375,6 +9405,40 @@ function renderIntervals() {
     });
     intervalBox.appendChild(label);
   }
+}
+function renderPresetDropdown() {
+  while (intervalPresetSelect.options.length > 1) {
+    intervalPresetSelect.remove(1);
+  }
+  INTERVAL_PRESETS.forEach((preset, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = `${preset.name} - ${preset.notation}`;
+    intervalPresetSelect.appendChild(option);
+  });
+}
+function applyPreset(presetIndex) {
+  if (presetIndex < 0 || presetIndex >= INTERVAL_PRESETS.length) {
+    return;
+  }
+  const preset = INTERVAL_PRESETS[presetIndex];
+  selectedIntervals.clear();
+  userIntervalOptions.clear();
+  customChordTitle = "";
+  chordTitleInput.value = "";
+  for (const intervalName of preset.intervals) {
+    const entry = intervalEntries.find(([name, _2]) => name === intervalName);
+    if (entry) {
+      selectedIntervals.set(entry[0], entry[1]);
+    }
+  }
+  renderIntervals();
+  updateStringSets();
+  renderVoicings();
+  renderIntervalLabelOptions();
+  pushState();
+  tryAutoGenerate();
+  intervalPresetSelect.value = "";
 }
 function updateStringSets() {
   stringSetBox.innerHTML = "";
@@ -9693,6 +9757,13 @@ chordTitleInput.addEventListener("input", () => {
   pushState();
   tryAutoGenerate();
 });
+intervalPresetSelect.addEventListener("change", () => {
+  const presetIndex = parseInt(intervalPresetSelect.value, 10);
+  if (!isNaN(presetIndex)) {
+    applyPreset(presetIndex);
+  }
+});
+renderPresetDropdown();
 renderIntervals();
 renderVoicings();
 updateStringSets();
