@@ -15,7 +15,6 @@ const message = /** @type {HTMLElement} */(document.getElementById('message'));
 const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-hint'));
 
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
-const chordTitleInput = /** @type {HTMLInputElement} */(document.getElementById('chord-title-input'));
 const intervalPresetSelect = /** @type {HTMLSelectElement} */(document.getElementById('interval-preset'));
 const filterDoableCheckbox = /** @type {HTMLInputElement} */(document.getElementById('filter-doable-checkbox'));
 
@@ -64,7 +63,7 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect || !filterDoableCheckbox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -122,9 +121,6 @@ const selectedIntervals = new Map();
  */
 const userIntervalOptions = new Map();
 
-/** Custom chord title (empty string is valid; reset to voicingName when voicing changes) */
-let customChordTitle = '';
-
 /**
  * Normalize color values: non-black colors → BLACK, black → black, undefined/transparent → unchanged
  * @param {string|undefined} color
@@ -162,6 +158,29 @@ function getIntervalFingerOptions(intervalName, semitoneValue) {
 }
 
 /**
+ * Set the lowest interval to red by default, clearing all other color overrides.
+ * This is called whenever the interval selection changes.
+ */
+function setDefaultLowestIntervalColor() {
+  // Clear all existing color overrides
+  userIntervalOptions.clear();
+  
+  // If no intervals selected, nothing to do
+  if (selectedIntervals.size === 0) return;
+  
+  // Get intervals in enum definition order (display order)
+  const sortedEntries = intervalEntries.filter(([name, _]) => selectedIntervals.has(name));
+  
+  // Get the first (lowest) interval's semitone value
+  if (sortedEntries.length > 0) {
+    const [_, lowestSemitone] = sortedEntries[0];
+    
+    // Set it to red
+    userIntervalOptions.set(lowestSemitone, { color: DOT_COLORS.RED, text: '' });
+  }
+}
+
+/**
  * Build current UI state for URL.
  */
 function buildState() {
@@ -182,7 +201,6 @@ function buildState() {
     v: voicingInput ? voicingInput.value : undefined,
     s: stringSetInput ? stringSetInput.value : undefined,
     o,
-    t: customChordTitle || undefined,
     f: filterDoableCheckbox.checked,
   };
 }
@@ -279,14 +297,6 @@ function applyState(state) {
   }
   // After applying all, ensure label options reflect overrides
   renderIntervalLabelOptions();
-  // Apply chord title
-  if (state.t && typeof state.t === 'string') {
-    customChordTitle = state.t;
-    chordTitleInput.value = state.t;
-  } else {
-    customChordTitle = '';
-    chordTitleInput.value = '';
-  }
   // Apply filter checkbox (default to true if not specified)
   if (typeof state.f === 'boolean') {
     filterDoableCheckbox.checked = state.f;
@@ -313,8 +323,10 @@ function renderIntervals() {
           return;
         }
         selectedIntervals.set(name, val);
+        setDefaultLowestIntervalColor();
       } else {
         selectedIntervals.delete(name);
+        setDefaultLowestIntervalColor();
       }
       updateStringSets();
       renderVoicings();
@@ -358,8 +370,6 @@ function applyPreset(presetIndex) {
   // Clear current state
   selectedIntervals.clear();
   userIntervalOptions.clear();
-  customChordTitle = '';
-  chordTitleInput.value = '';
   
   // Apply preset intervals
   for (const intervalName of preset.intervals) {
@@ -368,6 +378,9 @@ function applyPreset(presetIndex) {
       selectedIntervals.set(entry[0], entry[1]);
     }
   }
+  
+  // Set default color for lowest interval
+  setDefaultLowestIntervalColor();
   
   // Update all dependent UI
   renderIntervals();
@@ -764,7 +777,7 @@ function renderChord(chord, index, voicingName) {
       barres: [],
       frets,
       created: Date.now(),
-      title: customChordTitle,
+      title: '',
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -793,7 +806,7 @@ function renderChord(chord, index, voicingName) {
     
     // Render the SVG for the current results display
     new /** @type {any} */(SVGuitarChord)(svgContainer)
-      .chord({ fingers: chord, barres: [], title: customChordTitle })
+      .chord({ fingers: chord, barres: [], title: '' })
       .configure(config)
       .draw();
 }
@@ -818,12 +831,6 @@ stringSetBox.addEventListener('change', (e) => {
   }
 });
 
-// Update customChordTitle when user edits the chord name input
-chordTitleInput.addEventListener('input', () => {
-  customChordTitle = chordTitleInput.value;
-  pushState();
-  tryAutoGenerate();
-});
 
 // Preset dropdown change handler
 intervalPresetSelect.addEventListener('change', () => {
@@ -853,6 +860,10 @@ if (initialState) {
   pushState();
   // Auto-generate chords if state is complete
   tryAutoGenerate();
+} else {
+  // No URL state, ensure default colors are applied if intervals exist
+  setDefaultLowestIntervalColor();
+  renderIntervalLabelOptions();
 }
 
 // ---- Cart + selection logic ----

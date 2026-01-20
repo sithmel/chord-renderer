@@ -9114,10 +9114,6 @@ var intervalLabelOptionsBox = (
   /** @type {HTMLElement} */
   document.getElementById("interval-label-options")
 );
-var chordTitleInput = (
-  /** @type {HTMLInputElement} */
-  document.getElementById("chord-title-input")
-);
 var intervalPresetSelect = (
   /** @type {HTMLSelectElement} */
   document.getElementById("interval-preset")
@@ -9250,7 +9246,7 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !chordTitleInput || !intervalPresetSelect || !filterDoableCheckbox) {
+if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
   throw new Error("Required DOM elements not found");
 }
 var INTERVAL_PRESETS = [
@@ -9282,7 +9278,6 @@ var INTERVAL_PRESETS = [
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
 var selectedIntervals = /* @__PURE__ */ new Map();
 var userIntervalOptions = /* @__PURE__ */ new Map();
-var customChordTitle = "";
 function normalizeColor(color) {
   if (!color || color === "transparent") return color;
   const normalized = color.toLowerCase().trim();
@@ -9300,6 +9295,15 @@ function getIntervalFingerOptions(intervalName, semitoneValue) {
   const extended = EXTENDED_INTERVAL_LABELS[intervalName];
   if (extended) return extended.fingerOptions;
   return ((_a = Interval_labels[semitoneValue]) == null ? void 0 : _a.fingerOptions) || {};
+}
+function setDefaultLowestIntervalColor() {
+  userIntervalOptions.clear();
+  if (selectedIntervals.size === 0) return;
+  const sortedEntries = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name));
+  if (sortedEntries.length > 0) {
+    const [_2, lowestSemitone] = sortedEntries[0];
+    userIntervalOptions.set(lowestSemitone, { color: DOT_COLORS.RED, text: "" });
+  }
 }
 function buildState() {
   const intervalsArray = Array.from(selectedIntervals.keys());
@@ -9323,7 +9327,6 @@ function buildState() {
     v: voicingInput ? voicingInput.value : void 0,
     s: stringSetInput ? stringSetInput.value : void 0,
     o: o2,
-    t: customChordTitle || void 0,
     f: filterDoableCheckbox.checked
   };
 }
@@ -9396,13 +9399,6 @@ function applyState(state) {
     if (stringSetInput) stringSetInput.checked = true;
   }
   renderIntervalLabelOptions();
-  if (state.t && typeof state.t === "string") {
-    customChordTitle = state.t;
-    chordTitleInput.value = state.t;
-  } else {
-    customChordTitle = "";
-    chordTitleInput.value = "";
-  }
   if (typeof state.f === "boolean") {
     filterDoableCheckbox.checked = state.f;
   } else {
@@ -9430,8 +9426,10 @@ function renderIntervals() {
           return;
         }
         selectedIntervals.set(name, val);
+        setDefaultLowestIntervalColor();
       } else {
         selectedIntervals.delete(name);
+        setDefaultLowestIntervalColor();
       }
       updateStringSets();
       renderVoicings();
@@ -9460,14 +9458,13 @@ function applyPreset(presetIndex) {
   const preset = INTERVAL_PRESETS[presetIndex];
   selectedIntervals.clear();
   userIntervalOptions.clear();
-  customChordTitle = "";
-  chordTitleInput.value = "";
   for (const intervalName of preset.intervals) {
     const entry = intervalEntries.find(([name, _2]) => name === intervalName);
     if (entry) {
       selectedIntervals.set(entry[0], entry[1]);
     }
   }
+  setDefaultLowestIntervalColor();
   renderIntervals();
   updateStringSets();
   renderVoicings();
@@ -9775,7 +9772,7 @@ function renderChord(chord, index, voicingName) {
       barres: [],
       frets: frets2,
       created: Date.now(),
-      title: customChordTitle
+      title: ""
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -9796,7 +9793,7 @@ function renderChord(chord, index, voicingName) {
   const frets = Math.max(3, ...chord.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
   const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
   new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: customChordTitle }).configure(config).draw();
+  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: "" }).configure(config).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();
@@ -9820,11 +9817,6 @@ stringSetBox.addEventListener("change", (e2) => {
     tryAutoGenerate();
   }
 });
-chordTitleInput.addEventListener("input", () => {
-  customChordTitle = chordTitleInput.value;
-  pushState();
-  tryAutoGenerate();
-});
 intervalPresetSelect.addEventListener("change", () => {
   const presetIndex = parseInt(intervalPresetSelect.value, 10);
   if (!isNaN(presetIndex)) {
@@ -9845,6 +9837,9 @@ if (initialState) {
   applyState(initialState);
   pushState();
   tryAutoGenerate();
+} else {
+  setDefaultLowestIntervalColor();
+  renderIntervalLabelOptions();
 }
 var CART_KEY = "chordRendererCartV2";
 function loadCart() {
