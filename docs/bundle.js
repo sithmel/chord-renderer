@@ -9277,6 +9277,8 @@ var INTERVAL_PRESETS = [
 ];
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
 var selectedIntervals = /* @__PURE__ */ new Map();
+var selectedVoicings = /* @__PURE__ */ new Set();
+var selectedStringSets = /* @__PURE__ */ new Set();
 var userIntervalOptions = /* @__PURE__ */ new Map();
 function normalizeColor(color) {
   if (!color || color === "transparent") return color;
@@ -9307,14 +9309,8 @@ function setDefaultLowestIntervalColor() {
 }
 function buildState() {
   const intervalsArray = Array.from(selectedIntervals.keys());
-  const voicingInput = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="voicing"]:checked')
-  );
-  const stringSetInput = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="stringset"]:checked')
-  );
+  const voicingsArray = Array.from(selectedVoicings);
+  const stringSetsArray = Array.from(selectedStringSets);
   const o2 = {};
   for (const [interval, opts] of userIntervalOptions) {
     const rec = {};
@@ -9324,8 +9320,8 @@ function buildState() {
   }
   return {
     i: intervalsArray,
-    v: voicingInput ? voicingInput.value : void 0,
-    s: stringSetInput ? stringSetInput.value : void 0,
+    v: voicingsArray.length > 0 ? voicingsArray : void 0,
+    s: stringSetsArray.length > 0 ? stringSetsArray : void 0,
     o: o2,
     f: filterDoableCheckbox.checked
   };
@@ -9384,20 +9380,26 @@ function applyState(state) {
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
-  if (state.v && typeof state.v === "string") {
-    const voicingInput = (
-      /** @type {HTMLInputElement|null} */
-      form.querySelector(`input[name="voicing"][value="${state.v}"]`)
-    );
-    if (voicingInput) voicingInput.checked = true;
+  selectedVoicings.clear();
+  if (state.v) {
+    const voicings = Array.isArray(state.v) ? state.v : state.v === "ALL" ? [] : [state.v];
+    for (const voicing of voicings) {
+      if (typeof voicing === "string" && voicing !== "ALL") {
+        selectedVoicings.add(voicing);
+      }
+    }
   }
-  if (state.s && typeof state.s === "string") {
-    const stringSetInput = (
-      /** @type {HTMLInputElement|null} */
-      form.querySelector(`input[name="stringset"][value="${state.s}"]`)
-    );
-    if (stringSetInput) stringSetInput.checked = true;
+  selectedStringSets.clear();
+  if (state.s) {
+    const stringSets = Array.isArray(state.s) ? state.s : state.s === "ALL" ? [] : [state.s];
+    for (const stringSet of stringSets) {
+      if (typeof stringSet === "string" && stringSet !== "ALL") {
+        selectedStringSets.add(stringSet);
+      }
+    }
   }
+  updateStringSets();
+  renderVoicings();
   renderIntervalLabelOptions();
   if (typeof state.f === "boolean") {
     filterDoableCheckbox.checked = state.f;
@@ -9478,25 +9480,73 @@ function updateStringSets() {
   const count = selectedIntervals.size;
   if (count === 0) {
     stringsHint.textContent = "Select intervals first to see valid string sets.";
+    selectedStringSets.clear();
     return;
   }
   stringsHint.textContent = `${count} interval${count > 1 ? "s" : ""} selected.`;
-  const allLabel = document.createElement("label");
-  allLabel.className = "radio-wrap";
-  allLabel.innerHTML = `<input type="radio" name="stringset" value="ALL" id="ss-ALL"><span>All String Sets</span>`;
-  stringSetBox.appendChild(allLabel);
+  const allSets = Array.from(getStringSets(count));
+  const allSetValues = allSets.map((set) => set.map((b2) => b2 ? 1 : 0).join(""));
+  const previousSelections = Array.from(selectedStringSets);
+  selectedStringSets.clear();
+  if (previousSelections.length > 0) {
+    for (const prevSet of previousSelections) {
+      if (allSetValues.includes(prevSet)) {
+        selectedStringSets.add(prevSet);
+      }
+    }
+  }
+  if (selectedStringSets.size === 0) {
+    allSetValues.forEach((val) => selectedStringSets.add(val));
+  }
+  const toggleLink = document.createElement("a");
+  toggleLink.href = "#";
+  toggleLink.className = "toggle-all-link";
+  const allSelected = selectedStringSets.size === allSetValues.length;
+  toggleLink.textContent = allSelected ? "Deselect All" : "Select All";
+  toggleLink.addEventListener("click", (e2) => {
+    e2.preventDefault();
+    const currentlyAllSelected = selectedStringSets.size === allSetValues.length;
+    if (currentlyAllSelected) {
+      selectedStringSets.clear();
+      selectedStringSets.add(allSetValues[0]);
+    } else {
+      allSetValues.forEach((val) => selectedStringSets.add(val));
+    }
+    updateStringSets();
+    pushState();
+    tryAutoGenerate();
+  });
+  stringSetBox.appendChild(toggleLink);
   let index = 0;
-  for (const set of getStringSets(count)) {
+  for (const set of allSets) {
+    const setValue = set.map((b2) => b2 ? 1 : 0).join("");
     const id = `ss-${index}`;
     const label = document.createElement("label");
-    label.className = "radio-wrap";
+    label.className = "check-wrap";
     const visual = set.map((b2) => b2 ? "\u25CF" : "\u25CB").join("");
-    label.innerHTML = `<input type="radio" name="stringset" value="${set.map((b2) => b2 ? 1 : 0).join("")}" id="${id}"><span>${visual}</span>`;
+    label.innerHTML = `<input type="checkbox" value="${setValue}" id="${id}"><span>${visual}</span>`;
+    const input = (
+      /** @type {HTMLInputElement} */
+      label.querySelector("input")
+    );
+    input.checked = selectedStringSets.has(setValue);
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        selectedStringSets.add(setValue);
+      } else {
+        if (selectedStringSets.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedStringSets.delete(setValue);
+      }
+      const allSelected2 = selectedStringSets.size === allSetValues.length;
+      toggleLink.textContent = allSelected2 ? "Deselect All" : "Select All";
+      pushState();
+      tryAutoGenerate();
+    });
     stringSetBox.appendChild(label);
     index++;
-  }
-  if (stringSetBox.firstElementChild) {
-    stringSetBox.firstElementChild.querySelector("input").checked = true;
   }
 }
 function getAllowedVoicingNames(count) {
@@ -9506,38 +9556,71 @@ function getAllowedVoicingNames(count) {
   return [];
 }
 function renderVoicings() {
-  var _a;
   const count = selectedIntervals.size;
-  const previouslySelected = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="voicing"]:checked')
-  );
-  const prevValue = previouslySelected ? previouslySelected.value : null;
   const allowed = getAllowedVoicingNames(count);
   voicingBox.innerHTML = "";
-  if (allowed.length > 0) {
-    const allLabel = document.createElement("label");
-    allLabel.className = "radio-wrap";
-    const checkedAttr = prevValue === "ALL" || !prevValue ? "checked" : "";
-    allLabel.innerHTML = `<input type="radio" name="voicing" value="ALL" id="voi-ALL" ${checkedAttr}><span>All Voicings</span>`;
-    voicingBox.appendChild(allLabel);
+  if (allowed.length === 0) {
+    selectedVoicings.clear();
+    return;
   }
+  const previousSelections = Array.from(selectedVoicings);
+  selectedVoicings.clear();
+  if (previousSelections.length > 0) {
+    for (const prevVoicing of previousSelections) {
+      if (allowed.includes(prevVoicing)) {
+        selectedVoicings.add(prevVoicing);
+      }
+    }
+  }
+  if (selectedVoicings.size === 0) {
+    allowed.forEach((name) => selectedVoicings.add(name));
+  }
+  const toggleLink = document.createElement("a");
+  toggleLink.href = "#";
+  toggleLink.className = "toggle-all-link";
+  const allSelected = selectedVoicings.size === allowed.length;
+  toggleLink.textContent = allSelected ? "Deselect All" : "Select All";
+  toggleLink.addEventListener("click", (e2) => {
+    e2.preventDefault();
+    const currentlyAllSelected = selectedVoicings.size === allowed.length;
+    if (currentlyAllSelected) {
+      selectedVoicings.clear();
+      selectedVoicings.add(allowed[0]);
+    } else {
+      allowed.forEach((name) => selectedVoicings.add(name));
+    }
+    renderVoicings();
+    pushState();
+    tryAutoGenerate();
+  });
+  voicingBox.appendChild(toggleLink);
   allowed.forEach((name) => {
     const id = `voi-${name}`;
     const label = document.createElement("label");
-    label.className = "radio-wrap";
-    const checkedAttr = prevValue && prevValue === name ? "checked" : "";
-    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${checkedAttr}><span>${name.replace(/_/g, " ")}</span>`;
+    label.className = "check-wrap";
+    label.innerHTML = `<input type="checkbox" value="${name}" id="${id}"><span>${name.replace(/_/g, " ")}</span>`;
+    const input = (
+      /** @type {HTMLInputElement} */
+      label.querySelector("input")
+    );
+    input.checked = selectedVoicings.has(name);
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        selectedVoicings.add(name);
+      } else {
+        if (selectedVoicings.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedVoicings.delete(name);
+      }
+      const allSelected2 = selectedVoicings.size === allowed.length;
+      toggleLink.textContent = allSelected2 ? "Deselect All" : "Select All";
+      pushState();
+      tryAutoGenerate();
+    });
     voicingBox.appendChild(label);
   });
-  if (allowed.length === 0) return;
-  const stillSelected = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="voicing"]:checked')
-  );
-  if (!stillSelected) {
-    (_a = form.querySelector('input[name="voicing"]')) == null ? void 0 : _a.setAttribute("checked", "checked");
-  }
 }
 function renderIntervalLabelOptions() {
   intervalLabelOptionsBox.innerHTML = "";
@@ -9617,16 +9700,8 @@ function setMessage(text, type = "") {
 }
 function canGenerate() {
   if (selectedIntervals.size < 2) return false;
-  const voicingInput = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="voicing"]:checked')
-  );
-  if (!voicingInput) return false;
-  const stringSetInput = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="stringset"]:checked')
-  );
-  if (!stringSetInput) return false;
+  if (selectedVoicings.size === 0) return false;
+  if (selectedStringSets.size === 0) return false;
   return true;
 }
 function generateChords() {
@@ -9636,24 +9711,14 @@ function generateChords() {
     setMessage("Select at least two intervals.", "error");
     return;
   }
-  const voicingInput = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="voicing"]:checked')
-  );
-  if (!voicingInput) {
-    setMessage("Select a voicing.", "error");
+  if (selectedVoicings.size === 0) {
+    setMessage("Select at least one voicing.", "error");
     return;
   }
-  const voicingValue = voicingInput.value;
-  const stringSetInput = (
-    /** @type {HTMLInputElement|null} */
-    form.querySelector('input[name="stringset"]:checked')
-  );
-  if (!stringSetInput) {
-    setMessage("Select a string set.", "error");
+  if (selectedStringSets.size === 0) {
+    setMessage("Select at least one string set.", "error");
     return;
   }
-  const stringSetValue = stringSetInput.value;
   const intervalsArray = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name)).map(([_2, value]) => value);
   const semitoneToIntervalName = /* @__PURE__ */ new Map();
   for (const [name, value] of intervalEntries) {
@@ -9661,8 +9726,10 @@ function generateChords() {
       semitoneToIntervalName.set(value, name);
     }
   }
-  const voicingNames = voicingValue === "ALL" ? getAllowedVoicingNames(selectedIntervals.size) : [voicingValue];
-  const stringSets = stringSetValue === "ALL" ? Array.from(getStringSets(selectedIntervals.size)) : [stringSetValue.split("").map((c2) => c2 === "1")];
+  const voicingNames = Array.from(selectedVoicings);
+  const stringSets = Array.from(selectedStringSets).map(
+    (value) => value.split("").map((c2) => c2 === "1")
+  );
   const chordShapes = [];
   for (const voicingName of voicingNames) {
     const voicingFn = (
@@ -9735,16 +9802,8 @@ function tryAutoGenerate() {
     if (selectedIntervals.size > 0 && selectedIntervals.size < 2) {
       setMessage("Select at least two intervals.", "error");
     } else if (selectedIntervals.size >= 2) {
-      const voicingInput = (
-        /** @type {HTMLInputElement|null} */
-        form.querySelector('input[name="voicing"]:checked')
-      );
-      const stringSetInput = (
-        /** @type {HTMLInputElement|null} */
-        form.querySelector('input[name="stringset"]:checked')
-      );
-      if (!voicingInput) setMessage("Select a voicing.", "error");
-      else if (!stringSetInput) setMessage("Select a string set.", "error");
+      if (selectedVoicings.size === 0) setMessage("Select at least one voicing.", "error");
+      else if (selectedStringSets.size === 0) setMessage("Select at least one string set.", "error");
       else setMessage("");
     } else {
       setMessage("");

@@ -113,6 +113,12 @@ const intervalEntries = Object.entries(Interval).filter(([k]) => k === k.toUpper
 /** @type {Map<string, number>} - Maps interval name to semitone value */
 const selectedIntervals = new Map();
 
+/** @type {Set<string>} - Tracks selected voicing names */
+const selectedVoicings = new Set();
+
+/** @type {Set<string>} - Tracks selected string set values */
+const selectedStringSets = new Set();
+
 /**
  * Store user overrides for interval display.
  * key: interval number
@@ -185,8 +191,8 @@ function setDefaultLowestIntervalColor() {
  */
 function buildState() {
   const intervalsArray = Array.from(selectedIntervals.keys()); // Store interval names
-  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
+  const voicingsArray = Array.from(selectedVoicings);
+  const stringSetsArray = Array.from(selectedStringSets);
   /** @type {Record<string, any>} */
   const o = {};
   for (const [interval, opts] of userIntervalOptions) {
@@ -198,8 +204,8 @@ function buildState() {
   }
   return {
     i: intervalsArray,
-    v: voicingInput ? voicingInput.value : undefined,
-    s: stringSetInput ? stringSetInput.value : undefined,
+    v: voicingsArray.length > 0 ? voicingsArray : undefined,
+    s: stringSetsArray.length > 0 ? stringSetsArray : undefined,
     o,
     f: filterDoableCheckbox.checked,
   };
@@ -241,8 +247,8 @@ function applyState(state) {
    * Serialized state read from URL.
    * @typedef {Object} SerializedState
    * @property {number[]} [i] - selected intervals
-   * @property {string} [v] - voicing key
-   * @property {string} [s] - stringset key
+   * @property {string|string[]} [v] - voicing key(s)
+   * @property {string|string[]} [s] - stringset key(s)
    * @property {Record<string,{t?:string,c?:number}>} [o] - overrides map
    */
 
@@ -285,16 +291,33 @@ function applyState(state) {
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
-  // Apply voicing
-  if (state.v && typeof state.v === 'string') {
-    const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector(`input[name="voicing"][value="${state.v}"]`));
-    if (voicingInput) voicingInput.checked = true;
+  
+  // Apply voicing(s) - backward compatibility for single string or new array format
+  selectedVoicings.clear();
+  if (state.v) {
+    const voicings = Array.isArray(state.v) ? state.v : (state.v === 'ALL' ? [] : [state.v]);
+    for (const voicing of voicings) {
+      if (typeof voicing === 'string' && voicing !== 'ALL') {
+        selectedVoicings.add(voicing);
+      }
+    }
   }
-  // Apply string set
-  if (state.s && typeof state.s === 'string') {
-    const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector(`input[name="stringset"][value="${state.s}"]`));
-    if (stringSetInput) stringSetInput.checked = true;
+  
+  // Apply string set(s) - backward compatibility for single string or new array format
+  selectedStringSets.clear();
+  if (state.s) {
+    const stringSets = Array.isArray(state.s) ? state.s : (state.s === 'ALL' ? [] : [state.s]);
+    for (const stringSet of stringSets) {
+      if (typeof stringSet === 'string' && stringSet !== 'ALL') {
+        selectedStringSets.add(stringSet);
+      }
+    }
   }
+  
+  // Re-render to reflect the restored selections
+  updateStringSets();
+  renderVoicings();
+  
   // After applying all, ensure label options reflect overrides
   renderIntervalLabelOptions();
   // Apply filter checkbox (default to true if not specified)
@@ -399,28 +422,85 @@ function updateStringSets() {
   const count = selectedIntervals.size;
   if (count === 0) {
     stringsHint.textContent = 'Select intervals first to see valid string sets.';
+    selectedStringSets.clear();
     return;
   }
   stringsHint.textContent = `${count} interval${count>1?'s':''} selected.`;
   
-  // Add "All String Sets" option first
-  const allLabel = document.createElement('label');
-  allLabel.className = 'radio-wrap';
-  allLabel.innerHTML = `<input type="radio" name="stringset" value="ALL" id="ss-ALL"><span>All String Sets</span>`;
-  stringSetBox.appendChild(allLabel);
+  // Get all valid string sets for current interval count
+  const allSets = Array.from(getStringSets(count));
+  const allSetValues = allSets.map(set => set.map(b=>b?1:0).join(''));
+  
+  // Preserve previous selections if still valid, otherwise select all
+  const previousSelections = Array.from(selectedStringSets);
+  selectedStringSets.clear();
+  
+  if (previousSelections.length > 0) {
+    // Keep only selections that are still valid
+    for (const prevSet of previousSelections) {
+      if (allSetValues.includes(prevSet)) {
+        selectedStringSets.add(prevSet);
+      }
+    }
+  }
+  
+  // If no valid selections remain, select all
+  if (selectedStringSets.size === 0) {
+    allSetValues.forEach(val => selectedStringSets.add(val));
+  }
+  
+  // Add Select All/Deselect All toggle
+  const toggleLink = document.createElement('a');
+  toggleLink.href = '#';
+  toggleLink.className = 'toggle-all-link';
+  const allSelected = selectedStringSets.size === allSetValues.length;
+  toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+  toggleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const currentlyAllSelected = selectedStringSets.size === allSetValues.length;
+    if (currentlyAllSelected) {
+      // Deselect all except first one
+      selectedStringSets.clear();
+      selectedStringSets.add(allSetValues[0]);
+    } else {
+      // Select all
+      allSetValues.forEach(val => selectedStringSets.add(val));
+    }
+    updateStringSets(); // Re-render
+    pushState();
+    tryAutoGenerate();
+  });
+  stringSetBox.appendChild(toggleLink);
   
   let index = 0;
-  for (const set of getStringSets(count)) {
+  for (const set of allSets) {
+    const setValue = set.map(b=>b?1:0).join('');
     const id = `ss-${index}`;
     const label = document.createElement('label');
-    label.className = 'radio-wrap';
+    label.className = 'check-wrap';
     const visual = set.map(b => b ? '●' : '○').join('');
-    label.innerHTML = `<input type="radio" name="stringset" value="${set.map(b=>b?1:0).join('')}" id="${id}"><span>${visual}</span>`;
+    label.innerHTML = `<input type="checkbox" value="${setValue}" id="${id}"><span>${visual}</span>`;
+    const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
+    input.checked = selectedStringSets.has(setValue);
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        selectedStringSets.add(setValue);
+      } else {
+        // Prevent unchecking the last checkbox
+        if (selectedStringSets.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedStringSets.delete(setValue);
+      }
+      // Update toggle link text
+      const allSelected = selectedStringSets.size === allSetValues.length;
+      toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+      pushState();
+      tryAutoGenerate();
+    });
     stringSetBox.appendChild(label);
     index++;
-  }
-  if (stringSetBox.firstElementChild) {
-    /** @type {HTMLInputElement} */(stringSetBox.firstElementChild.querySelector('input')).checked = true;
   }
 }
 
@@ -444,34 +524,81 @@ function getAllowedVoicingNames(count) {
 
 function renderVoicings() {
   const count = selectedIntervals.size;
-  const previouslySelected = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-  const prevValue = previouslySelected ? previouslySelected.value : null;
   const allowed = getAllowedVoicingNames(count);
   voicingBox.innerHTML = '';
   
-  // Add "All Voicings" option first (if we have any voicings)
-  if (allowed.length > 0) {
-    const allLabel = document.createElement('label');
-    allLabel.className = 'radio-wrap';
-    const checkedAttr = (prevValue === 'ALL') || (!prevValue) ? 'checked' : '';
-    allLabel.innerHTML = `<input type="radio" name="voicing" value="ALL" id="voi-ALL" ${checkedAttr}><span>All Voicings</span>`;
-    voicingBox.appendChild(allLabel);
+  if (allowed.length === 0) {
+    selectedVoicings.clear();
+    return; // nothing selectable yet
   }
+  
+  // Preserve previous selections if still valid, otherwise select all
+  const previousSelections = Array.from(selectedVoicings);
+  selectedVoicings.clear();
+  
+  if (previousSelections.length > 0) {
+    // Keep only selections that are still allowed
+    for (const prevVoicing of previousSelections) {
+      if (allowed.includes(prevVoicing)) {
+        selectedVoicings.add(prevVoicing);
+      }
+    }
+  }
+  
+  // If no valid selections remain, select all
+  if (selectedVoicings.size === 0) {
+    allowed.forEach(name => selectedVoicings.add(name));
+  }
+  
+  // Add Select All/Deselect All toggle
+  const toggleLink = document.createElement('a');
+  toggleLink.href = '#';
+  toggleLink.className = 'toggle-all-link';
+  const allSelected = selectedVoicings.size === allowed.length;
+  toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+  toggleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const currentlyAllSelected = selectedVoicings.size === allowed.length;
+    if (currentlyAllSelected) {
+      // Deselect all except first one
+      selectedVoicings.clear();
+      selectedVoicings.add(allowed[0]);
+    } else {
+      // Select all
+      allowed.forEach(name => selectedVoicings.add(name));
+    }
+    renderVoicings(); // Re-render
+    pushState();
+    tryAutoGenerate();
+  });
+  voicingBox.appendChild(toggleLink);
   
   allowed.forEach((name) => {
     const id = `voi-${name}`;
     const label = document.createElement('label');
-    label.className = 'radio-wrap';
-    const checkedAttr = (prevValue && prevValue === name) ? 'checked' : '';
-    label.innerHTML = `<input type="radio" name="voicing" value="${name}" id="${id}" ${checkedAttr}><span>${name.replace(/_/g,' ')}</span>`;
+    label.className = 'check-wrap';
+    label.innerHTML = `<input type="checkbox" value="${name}" id="${id}"><span>${name.replace(/_/g,' ')}</span>`;
+    const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
+    input.checked = selectedVoicings.has(name);
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        selectedVoicings.add(name);
+      } else {
+        // Prevent unchecking the last checkbox
+        if (selectedVoicings.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedVoicings.delete(name);
+      }
+      // Update toggle link text
+      const allSelected = selectedVoicings.size === allowed.length;
+      toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+      pushState();
+      tryAutoGenerate();
+    });
     voicingBox.appendChild(label);
   });
-  // If previous selection invalid now, ensure none or first is selected
-  if (allowed.length === 0) return; // nothing selectable yet
-  const stillSelected = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-  if (!stillSelected) {
-    /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]'))?.setAttribute('checked','checked');
-  }
 }
 
 function renderIntervalLabelOptions() {
@@ -583,10 +710,8 @@ function setMessage(text, type = '') {
  */
 function canGenerate() {
   if (selectedIntervals.size < 2) return false;
-  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-  if (!voicingInput) return false;
-  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
-  if (!stringSetInput) return false;
+  if (selectedVoicings.size === 0) return false;
+  if (selectedStringSets.size === 0) return false;
   return true;
 }
 
@@ -600,19 +725,14 @@ function generateChords() {
     setMessage('Select at least two intervals.', 'error');
     return;
   }
-  const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-  if (!voicingInput) {
-    setMessage('Select a voicing.', 'error');
+  if (selectedVoicings.size === 0) {
+    setMessage('Select at least one voicing.', 'error');
     return;
   }
-  const voicingValue = voicingInput.value;
-  
-  const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
-  if (!stringSetInput) {
-    setMessage('Select a string set.', 'error');
+  if (selectedStringSets.size === 0) {
+    setMessage('Select at least one string set.', 'error');
     return;
   }
-  const stringSetValue = stringSetInput.value;
   
   // Extract semitone values in enum definition order (not selection order, not sorted by value)
   const intervalsArray = intervalEntries
@@ -628,17 +748,13 @@ function generateChords() {
     }
   }
   
-  // Determine which voicings to use
-  /** @type {string[]} */
-  const voicingNames = voicingValue === 'ALL' 
-    ? getAllowedVoicingNames(selectedIntervals.size)
-    : [voicingValue];
+  // Use selected voicings
+  const voicingNames = Array.from(selectedVoicings);
   
-  // Determine which string sets to use
-  /** @type {Array<boolean[]>} */
-  const stringSets = stringSetValue === 'ALL'
-    ? Array.from(getStringSets(selectedIntervals.size))
-    : [stringSetValue.split('').map(c => c === '1')];
+  // Use selected string sets
+  const stringSets = Array.from(selectedStringSets).map(value => 
+    value.split('').map(c => c === '1')
+  );
 
   /** @type {Array<import('../lib/chord.js').Chord>} */
   const chordShapes = [];
@@ -734,10 +850,8 @@ function tryAutoGenerate() {
       setMessage('Select at least two intervals.', 'error');
     } else if (selectedIntervals.size >= 2) {
       // Have enough intervals; maybe missing voicing or string set
-      const voicingInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="voicing"]:checked'));
-      const stringSetInput = /** @type {HTMLInputElement|null} */(form.querySelector('input[name="stringset"]:checked'));
-      if (!voicingInput) setMessage('Select a voicing.', 'error');
-      else if (!stringSetInput) setMessage('Select a string set.', 'error');
+      if (selectedVoicings.size === 0) setMessage('Select at least one voicing.', 'error');
+      else if (selectedStringSets.size === 0) setMessage('Select at least one string set.', 'error');
       else setMessage('');
     } else {
       setMessage('');
