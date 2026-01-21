@@ -9,6 +9,7 @@
     "test": "node --test test/*.test.js",
     "test:watch": "node --test --watch test/*.test.js",
     "build:types": "tsc",
+    "check:types:docs": "tsc --project tsconfig.docs.json",
     "build": "node ./scripts/build.js",
     "serve": "npx http-server -p 8080 docs"
   },

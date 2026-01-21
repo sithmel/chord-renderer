@@ -1,10 +1,4 @@
 /**
- *
- * @param {string} str
- * @returns {Interval | null} - The corresponding Interval or null if not found
- */
-export function stringToInterval(str: string): Interval | null;
-/**
  * Get all possible combinations of string intervals for a given set of string intervals.
  * @param {number} numberOfNNotes - The number of notes in the chord (e.g., 3 for triads)
  * @param {Array<number>} stringIntervals
@@ -51,7 +45,8 @@ export function intervalDistanceFromNotes(notes: Array<number | null>): Array<nu
 export function notesToChord(notes: Notes, stringSet: Array<boolean>, intervalToFingerOptions?: (interval: number | null) => import("svguitar").FingerOptions, stringIntervals?: Array<number>): Chord;
 /**
  * Get all inversions of a given voicing.
- * An inversion is created by moving the lowest note up an octave.
+ * The input order of notes is preserved (not sorted by pitch).
+ * An inversion is created by moving the first note up an octave.
  * The voicing is represented as an array of 6 elements (one for each string), starting from the high E string (1st string) to the low E string (6th string),
  * where each element is either an Interval object or unused (for muted strings).
  * @param {Notes} notes
@@ -73,45 +68,29 @@ export namespace Interval {
     let MAJOR_SIXTH: number;
     let MINOR_SEVENTH: number;
     let MAJOR_SEVENTH: number;
+    let FLAT_NINTH: number;
+    let NINTH: number;
+    let SHARP_NINTH: number;
+    let ELEVENTH: number;
+    let SHARP_ELEVENTH: number;
+    let FLAT_THIRTEENTH: number;
+    let THIRTEENTH: number;
 }
-export const Interval_labels: {
+/** @type {Array<{full: string, fingerOptions: import('svguitar').FingerOptions}>} */
+export const Interval_labels: Array<{
     full: string;
-    fingerOptions: {
-        className: string;
-        color: string;
-        text: string;
-    };
-}[];
-export namespace INVERSIONS {
-    let UNISON_1: string;
-    export { UNISON_1 as UNISON };
-    let MINOR_SECOND_1: string;
-    export { MINOR_SECOND_1 as MINOR_SECOND };
-    let MAJOR_SECOND_1: string;
-    export { MAJOR_SECOND_1 as MAJOR_SECOND };
-    let MINOR_THIRD_1: string;
-    export { MINOR_THIRD_1 as MINOR_THIRD };
-    let MAJOR_THIRD_1: string;
-    export { MAJOR_THIRD_1 as MAJOR_THIRD };
-    let PERFECT_FOURTH_1: string;
-    export { PERFECT_FOURTH_1 as PERFECT_FOURTH };
-    let TRITONE_1: string;
-    export { TRITONE_1 as TRITONE };
-    let PERFECT_FIFTH_1: string;
-    export { PERFECT_FIFTH_1 as PERFECT_FIFTH };
-    let MINOR_SIXTH_1: string;
-    export { MINOR_SIXTH_1 as MINOR_SIXTH };
-    let MAJOR_SIXTH_1: string;
-    export { MAJOR_SIXTH_1 as MAJOR_SIXTH };
-    let MINOR_SEVENTH_1: string;
-    export { MINOR_SEVENTH_1 as MINOR_SEVENTH };
-    let MAJOR_SEVENTH_1: string;
-    export { MAJOR_SEVENTH_1 as MAJOR_SEVENTH };
-}
+    fingerOptions: import("svguitar").FingerOptions;
+}>;
+/** @type {Record<string, {full: string, fingerOptions: import('svguitar').FingerOptions}>} */
+export const EXTENDED_INTERVAL_LABELS: Record<string, {
+    full: string;
+    fingerOptions: import("svguitar").FingerOptions;
+}>;
 /**
- * @type {Array<[RegExp, Interval]>}
+ * @typedef {Object} IntervalLabel
+ * @property {string} full - Full display name of the interval
+ * @property {import('svguitar').FingerOptions} fingerOptions - Finger display options
  */
-export const INTERVAL_ALIASES: Array<[RegExp, Interval]>;
 export const GUITAR_STANDARD_TUNING_INTERVALS: number[];
 /**
  * *
@@ -130,3 +109,13 @@ export const VOICING: {
 export type Finger = number;
 export type Chord = Array<import("svguitar").Finger>;
 export type Notes = Array<Interval>;
+export type IntervalLabel = {
+    /**
+     * - Full display name of the interval
+     */
+    full: string;
+    /**
+     * - Finger display options
+     */
+    fingerOptions: import("svguitar").FingerOptions;
+};
