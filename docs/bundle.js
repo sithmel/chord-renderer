@@ -9086,6 +9086,10 @@ var intervalBox = (
   /** @type {HTMLElement} */
   document.getElementById("interval-box")
 );
+var keyBox = (
+  /** @type {HTMLElement} */
+  document.getElementById("key-box")
+);
 var stringSetBox = (
   /** @type {HTMLElement} */
   document.getElementById("stringset-box")
@@ -9246,7 +9250,7 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
+if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
   throw new Error("Required DOM elements not found");
 }
 var INTERVAL_PRESETS = [
@@ -9275,8 +9279,26 @@ var INTERVAL_PRESETS = [
   { name: "Major thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 7 13" },
   { name: "Dominant thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 \u266D7 13" }
 ];
+var NOTE_NAMES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+var NOTE_NAMES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+var STRING_OPEN_NOTES = [4, 9, 2, 7, 11, 4];
+var AVAILABLE_KEYS = [
+  { name: "C", semitone: 0 },
+  { name: "C#/Db", semitone: 1 },
+  { name: "D", semitone: 2 },
+  { name: "Eb", semitone: 3 },
+  { name: "E", semitone: 4 },
+  { name: "F", semitone: 5 },
+  { name: "F#/Gb", semitone: 6 },
+  { name: "G", semitone: 7 },
+  { name: "Ab", semitone: 8 },
+  { name: "A", semitone: 9 },
+  { name: "Bb", semitone: 10 },
+  { name: "B", semitone: 11 }
+];
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
 var selectedIntervals = /* @__PURE__ */ new Map();
+var selectedKey = null;
 var selectedVoicings = /* @__PURE__ */ new Set();
 var selectedStringSets = /* @__PURE__ */ new Set();
 var userIntervalOptions = /* @__PURE__ */ new Map();
@@ -9287,6 +9309,15 @@ function normalizeColor(color) {
     return DOT_COLORS.BLACK;
   }
   return DOT_COLORS.BLACK;
+}
+function semitoneToNoteName(semitone, preferSharps = true) {
+  const normalized = (semitone % 12 + 12) % 12;
+  return preferSharps ? NOTE_NAMES_SHARP[normalized] : NOTE_NAMES_FLAT[normalized];
+}
+function getNoteForInterval(keySemitone, intervalSemitone) {
+  const noteSemitone = (keySemitone + intervalSemitone) % 12;
+  const useFlats = [1, 3, 6, 8, 10].includes(keySemitone);
+  return semitoneToNoteName(noteSemitone, !useFlats);
 }
 function getIntervalDisplayName(intervalName, semitoneValue) {
   var _a, _b;
@@ -9320,6 +9351,7 @@ function buildState() {
   }
   return {
     i: intervalsArray,
+    k: selectedKey,
     v: voicingsArray.length > 0 ? voicingsArray : void 0,
     s: stringSetsArray.length > 0 ? stringSetsArray : void 0,
     o: o2,
@@ -9348,7 +9380,7 @@ function readStateFromURL() {
 function applyState(state) {
   if (!state || typeof state !== "object") return;
   const s2 = (
-    /** @type {any} */
+    /** @type {SerializedState} */
     state
   );
   const intervals = Array.isArray(s2.i) ? s2.i : [];
@@ -9364,8 +9396,8 @@ function applyState(state) {
     }
   }
   userIntervalOptions.clear();
-  if (state.o && typeof state.o === "object") {
-    for (const [k2, v2] of Object.entries(state.o)) {
+  if (s2.o && typeof s2.o === "object") {
+    for (const [k2, v2] of Object.entries(s2.o)) {
       const num = Number(k2);
       if (!Number.isInteger(num)) continue;
       if (v2 && typeof v2 === "object") {
@@ -9377,12 +9409,18 @@ function applyState(state) {
     }
   }
   renderIntervals();
+  if (typeof s2.k === "number" && s2.k >= 0 && s2.k <= 11) {
+    selectedKey = s2.k;
+  } else {
+    selectedKey = null;
+  }
+  renderKeys();
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
   selectedVoicings.clear();
-  if (state.v) {
-    const voicings = Array.isArray(state.v) ? state.v : state.v === "ALL" ? [] : [state.v];
+  if (s2.v) {
+    const voicings = Array.isArray(s2.v) ? s2.v : s2.v === "ALL" ? [] : [s2.v];
     for (const voicing of voicings) {
       if (typeof voicing === "string" && voicing !== "ALL") {
         selectedVoicings.add(voicing);
@@ -9390,8 +9428,8 @@ function applyState(state) {
     }
   }
   selectedStringSets.clear();
-  if (state.s) {
-    const stringSets = Array.isArray(state.s) ? state.s : state.s === "ALL" ? [] : [state.s];
+  if (s2.s) {
+    const stringSets = Array.isArray(s2.s) ? s2.s : s2.s === "ALL" ? [] : [s2.s];
     for (const stringSet of stringSets) {
       if (typeof stringSet === "string" && stringSet !== "ALL") {
         selectedStringSets.add(stringSet);
@@ -9401,8 +9439,8 @@ function applyState(state) {
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
-  if (typeof state.f === "boolean") {
-    filterDoableCheckbox.checked = state.f;
+  if (typeof s2.f === "boolean") {
+    filterDoableCheckbox.checked = s2.f;
   } else {
     filterDoableCheckbox.checked = true;
   }
@@ -9440,6 +9478,37 @@ function renderIntervals() {
       tryAutoGenerate();
     });
     intervalBox.appendChild(label);
+  }
+}
+function renderKeys() {
+  keyBox.innerHTML = "";
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "key-button" + (selectedKey === null ? " active" : "");
+  clearBtn.textContent = "None";
+  clearBtn.setAttribute("aria-label", "Clear key selection");
+  clearBtn.addEventListener("click", () => {
+    selectedKey = null;
+    renderKeys();
+    renderIntervalLabelOptions();
+    pushState();
+    tryAutoGenerate();
+  });
+  keyBox.appendChild(clearBtn);
+  for (const key of AVAILABLE_KEYS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "key-button" + (selectedKey === key.semitone ? " active" : "");
+    btn.textContent = key.name;
+    btn.setAttribute("aria-label", `Select key ${key.name}`);
+    btn.addEventListener("click", () => {
+      selectedKey = key.semitone;
+      renderKeys();
+      renderIntervalLabelOptions();
+      pushState();
+      tryAutoGenerate();
+    });
+    keyBox.appendChild(btn);
   }
 }
 function renderPresetDropdown() {
@@ -9634,7 +9703,12 @@ function renderIntervalLabelOptions() {
     row.className = "interval-label-row";
     const nameSpan = document.createElement("span");
     nameSpan.className = "interval-name";
-    nameSpan.textContent = displayName;
+    if (selectedKey !== null) {
+      const noteName = getNoteForInterval(selectedKey, semitoneValue);
+      nameSpan.textContent = `${displayName} (${noteName})`;
+    } else {
+      nameSpan.textContent = displayName;
+    }
     const input = document.createElement("input");
     input.type = "text";
     input.maxLength = 1;
@@ -9704,6 +9778,34 @@ function canGenerate() {
   if (selectedStringSets.size === 0) return false;
   return true;
 }
+function calculateChordPosition(chord, inversion, stringSetBits, keySemitone) {
+  const stringToInterval = [];
+  let inversionIndex = 0;
+  for (let i2 = 0; i2 < stringSetBits.length; i2++) {
+    if (stringSetBits[i2]) {
+      stringToInterval[i2] = inversion[inversionIndex++];
+    } else {
+      stringToInterval[i2] = null;
+    }
+  }
+  let rootStringIndex = -1;
+  for (let i2 = 0; i2 < stringToInterval.length; i2++) {
+    if (stringToInterval[i2] === 0) {
+      rootStringIndex = i2;
+      break;
+    }
+  }
+  if (rootStringIndex === -1) return void 0;
+  const stringNumber = 6 - rootStringIndex;
+  const rootFinger = chord.find((f2) => f2[0] === stringNumber);
+  if (!rootFinger || rootFinger[1] === "x") return void 0;
+  const fret = rootFinger[1];
+  if (typeof fret !== "number") return void 0;
+  const openNote = STRING_OPEN_NOTES[rootStringIndex];
+  const noteAtPos1 = (openNote + fret) % 12;
+  let offset = (keySemitone - noteAtPos1 + 12) % 12;
+  return 1 + offset;
+}
 function generateChords() {
   clearResults();
   setMessage("");
@@ -9745,14 +9847,10 @@ function generateChords() {
           const intervalName = semitoneToIntervalName.get(interval);
           const base = intervalName ? getIntervalFingerOptions(intervalName, interval) : (_b = (_a = Interval_labels[interval]) == null ? void 0 : _a.fingerOptions) != null ? _b : {};
           const override = userIntervalOptions.get(interval) || {};
-          const baseColor = (
-            /** @type {any} */
-            base.color
-          );
           return {
             className: base.className || "",
             text: override.text !== void 0 ? override.text : base.text || "",
-            color: override.color || normalizeColor(baseColor)
+            color: override.color || normalizeColor(base.color)
           };
         };
         const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
@@ -9765,17 +9863,21 @@ function generateChords() {
           }
         }
         chord.sort((a2, b2) => b2[0] - a2[0]);
-        chordShapes.push(chord);
+        let position2 = void 0;
+        if (selectedKey !== null) {
+          position2 = calculateChordPosition(chord, inversion, stringSetBits, selectedKey);
+        }
+        chordShapes.push({ chord, position: position2 });
       }
     }
   }
   let shapesToRender = chordShapes;
   if (filterDoableCheckbox.checked) {
-    shapesToRender = chordShapes.filter((chord) => isChordDoable(chord));
+    shapesToRender = chordShapes.filter((item) => isChordDoable(item.chord));
   }
   let count = 0;
-  for (const chord of shapesToRender) {
-    renderChord(chord, count, voicingNames[0] || "");
+  for (const item of shapesToRender) {
+    renderChord(item.chord, count, voicingNames[0] || "", item.position);
     count++;
   }
   if (count === 0) {
@@ -9810,7 +9912,7 @@ function tryAutoGenerate() {
     }
   }
 }
-function renderChord(chord, index, voicingName) {
+function renderChord(chord, index, voicingName, position2) {
   const holder = document.createElement("div");
   holder.className = "chord-block";
   const svgContainer = document.createElement("div");
@@ -9830,6 +9932,7 @@ function renderChord(chord, index, voicingName) {
       fingers: chord,
       barres: [],
       frets: frets2,
+      position: position2,
       created: Date.now(),
       title: ""
     };
@@ -9850,9 +9953,9 @@ function renderChord(chord, index, voicingName) {
   holder.appendChild(saveControls);
   results.appendChild(holder);
   const frets = Math.max(3, ...chord.map((f2) => typeof f2[1] === "number" ? f2[1] : 0));
-  const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
-  new /** @type {any} */
-  SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: "" }).configure(config).draw();
+  const noPosition = position2 === void 0 || position2 === null;
+  const config = { frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 };
+  new SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: "", position: position2 }).configure(config).draw();
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();
@@ -9888,6 +9991,7 @@ filterDoableCheckbox.addEventListener("change", () => {
 });
 renderPresetDropdown();
 renderIntervals();
+renderKeys();
 renderVoicings();
 updateStringSets();
 renderIntervalLabelOptions();

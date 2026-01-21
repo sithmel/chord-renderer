@@ -76,81 +76,21 @@ export namespace Interval {
     let FLAT_THIRTEENTH: number;
     let THIRTEENTH: number;
 }
-export const Interval_labels: {
+/** @type {Array<{full: string, fingerOptions: import('svguitar').FingerOptions}>} */
+export const Interval_labels: Array<{
     full: string;
-    fingerOptions: {
-        className: string;
-    };
-}[];
-export namespace EXTENDED_INTERVAL_LABELS {
-    export namespace FLAT_NINTH_1 {
-        let full: string;
-        namespace fingerOptions {
-            let className: string;
-        }
-    }
-    export { FLAT_NINTH_1 as FLAT_NINTH };
-    export namespace NINTH_1 {
-        let full_1: string;
-        export { full_1 as full };
-        export namespace fingerOptions_1 {
-            let className_1: string;
-            export { className_1 as className };
-        }
-        export { fingerOptions_1 as fingerOptions };
-    }
-    export { NINTH_1 as NINTH };
-    export namespace SHARP_NINTH_1 {
-        let full_2: string;
-        export { full_2 as full };
-        export namespace fingerOptions_2 {
-            let className_2: string;
-            export { className_2 as className };
-        }
-        export { fingerOptions_2 as fingerOptions };
-    }
-    export { SHARP_NINTH_1 as SHARP_NINTH };
-    export namespace ELEVENTH_1 {
-        let full_3: string;
-        export { full_3 as full };
-        export namespace fingerOptions_3 {
-            let className_3: string;
-            export { className_3 as className };
-        }
-        export { fingerOptions_3 as fingerOptions };
-    }
-    export { ELEVENTH_1 as ELEVENTH };
-    export namespace SHARP_ELEVENTH_1 {
-        let full_4: string;
-        export { full_4 as full };
-        export namespace fingerOptions_4 {
-            let className_4: string;
-            export { className_4 as className };
-        }
-        export { fingerOptions_4 as fingerOptions };
-    }
-    export { SHARP_ELEVENTH_1 as SHARP_ELEVENTH };
-    export namespace FLAT_THIRTEENTH_1 {
-        let full_5: string;
-        export { full_5 as full };
-        export namespace fingerOptions_5 {
-            let className_5: string;
-            export { className_5 as className };
-        }
-        export { fingerOptions_5 as fingerOptions };
-    }
-    export { FLAT_THIRTEENTH_1 as FLAT_THIRTEENTH };
-    export namespace THIRTEENTH_1 {
-        let full_6: string;
-        export { full_6 as full };
-        export namespace fingerOptions_6 {
-            let className_6: string;
-            export { className_6 as className };
-        }
-        export { fingerOptions_6 as fingerOptions };
-    }
-    export { THIRTEENTH_1 as THIRTEENTH };
-}
+    fingerOptions: import("svguitar").FingerOptions;
+}>;
+/** @type {Record<string, {full: string, fingerOptions: import('svguitar').FingerOptions}>} */
+export const EXTENDED_INTERVAL_LABELS: Record<string, {
+    full: string;
+    fingerOptions: import("svguitar").FingerOptions;
+}>;
+/**
+ * @typedef {Object} IntervalLabel
+ * @property {string} full - Full display name of the interval
+ * @property {import('svguitar').FingerOptions} fingerOptions - Finger display options
+ */
 export const GUITAR_STANDARD_TUNING_INTERVALS: number[];
 /**
  * *
@@ -169,3 +109,13 @@ export const VOICING: {
 export type Finger = number;
 export type Chord = Array<import("svguitar").Finger>;
 export type Notes = Array<Interval>;
+export type IntervalLabel = {
+    /**
+     * - Full display name of the interval
+     */
+    full: string;
+    /**
+     * - Finger display options
+     */
+    fingerOptions: import("svguitar").FingerOptions;
+};

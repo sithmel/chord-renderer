@@ -7,6 +7,7 @@ import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordString
 import isChordDoable from '../lib/isChordDoable.js';
 
 const intervalBox = /** @type {HTMLElement} */(document.getElementById('interval-box'));
+const keyBox = /** @type {HTMLElement} */(document.getElementById('key-box'));
 const stringSetBox = /** @type {HTMLElement} */(document.getElementById('stringset-box'));
 const voicingBox = /** @type {HTMLElement} */(document.getElementById('voicing-box'));
 const form = /** @type {HTMLFormElement} */(document.getElementById('voicing-form'));
@@ -63,7 +64,7 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
-if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
+if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -73,6 +74,22 @@ if (!intervalBox || !stringSetBox || !voicingBox || !form || !results || !messag
  * @property {string} name - Display name of the preset
  * @property {string[]} intervals - Array of interval constant names
  * @property {string} notation - Human-readable interval notation
+ */
+
+/**
+ * @typedef {Object} SerializedIntervalOverride
+ * @property {string} [t] - Text override for interval label
+ * @property {string} [c] - Color override for interval dot
+ */
+
+/**
+ * @typedef {Object} SerializedState
+ * @property {Array<string|number>} [i] - Selected intervals (names or semitone values for backward compat)
+ * @property {number} [k] - Selected key as semitone (0-11)
+ * @property {string|string[]} [v] - Voicing key(s)
+ * @property {string|string[]} [s] - String set key(s)
+ * @property {Record<string, SerializedIntervalOverride>} [o] - Interval overrides map
+ * @property {boolean} [f] - Filter doable checkbox state
  */
 
 /** @type {IntervalPreset[]} */
@@ -106,12 +123,40 @@ const INTERVAL_PRESETS = [
   { name: 'Dominant thirteenth', intervals: ['UNISON', 'MAJOR_THIRD', 'PERFECT_FIFTH', 'MINOR_SEVENTH', 'THIRTEENTH'], notation: '1 3 5 ♭7 13' },
 ];
 
+// Note names for key selection and display
+// Using common enharmonic spellings (prefer sharps for most, flats for some keys)
+const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+// Standard guitar tuning: E A D G B E (strings 6 to 1, semitones from C)
+const STRING_OPEN_NOTES = [4, 9, 2, 7, 11, 4]; // E=4, A=9, D=2, G=7, B=11, E=4
+
+// Keys available for selection (using common spellings)
+/** @type {Array<{name: string, semitone: number}>} */
+const AVAILABLE_KEYS = [
+  { name: 'C', semitone: 0 },
+  { name: 'C#/Db', semitone: 1 },
+  { name: 'D', semitone: 2 },
+  { name: 'Eb', semitone: 3 },
+  { name: 'E', semitone: 4 },
+  { name: 'F', semitone: 5 },
+  { name: 'F#/Gb', semitone: 6 },
+  { name: 'G', semitone: 7 },
+  { name: 'Ab', semitone: 8 },
+  { name: 'A', semitone: 9 },
+  { name: 'Bb', semitone: 10 },
+  { name: 'B', semitone: 11 },
+];
+
 // Build list of Interval entries (constant uppercase keys only)
 // Preserve insertion order - extended intervals come after basic ones
 const intervalEntries = Object.entries(Interval).filter(([k]) => k === k.toUpperCase());
 
 /** @type {Map<string, number>} - Maps interval name to semitone value */
 const selectedIntervals = new Map();
+
+/** @type {number | null} - Selected key as semitone value (0-11), null if no key selected */
+let selectedKey = null;
 
 /** @type {Set<string>} - Tracks selected voicing names */
 const selectedVoicings = new Set();
@@ -139,6 +184,31 @@ function normalizeColor(color) {
     return DOT_COLORS.BLACK;
   }
   return DOT_COLORS.BLACK;
+}
+
+/**
+ * Convert semitone value to note name
+ * @param {number} semitone - Semitone value (0-11, where 0 = C)
+ * @param {boolean} preferSharps - If true, use sharps (C#), if false use flats (Db)
+ * @returns {string}
+ */
+function semitoneToNoteName(semitone, preferSharps = true) {
+  const normalized = ((semitone % 12) + 12) % 12; // Handle negative and >11 values
+  return preferSharps ? NOTE_NAMES_SHARP[normalized] : NOTE_NAMES_FLAT[normalized];
+}
+
+/**
+ * Get note name for a given interval relative to a key
+ * @param {number} keySemitone - Key as semitone (0-11)
+ * @param {number} intervalSemitone - Interval as semitone (0-11)
+ * @returns {string}
+ */
+function getNoteForInterval(keySemitone, intervalSemitone) {
+  const noteSemitone = (keySemitone + intervalSemitone) % 12;
+  // Use sharps for keys with sharps (G, D, A, E, B, F#, C#)
+  // Use flats for keys with flats (F, Bb, Eb, Ab, Db, Gb, Cb)
+  const useFlats = [1, 3, 6, 8, 10].includes(keySemitone); // C#/Db, Eb, F#/Gb, Ab, Bb
+  return semitoneToNoteName(noteSemitone, !useFlats);
 }
 
 /**
@@ -193,10 +263,10 @@ function buildState() {
   const intervalsArray = Array.from(selectedIntervals.keys()); // Store interval names
   const voicingsArray = Array.from(selectedVoicings);
   const stringSetsArray = Array.from(selectedStringSets);
-  /** @type {Record<string, any>} */
+  /** @type {Record<string, SerializedIntervalOverride>} */
   const o = {};
   for (const [interval, opts] of userIntervalOptions) {
-    /** @type {Record<string, any>} */
+    /** @type {SerializedIntervalOverride} */
     const rec = {};
     if (opts.text !== undefined) rec.t = opts.text; // explicit empty string allowed
     if (opts.color) rec.c = opts.color;
@@ -204,6 +274,7 @@ function buildState() {
   }
   return {
     i: intervalsArray,
+    k: selectedKey,
     v: voicingsArray.length > 0 ? voicingsArray : undefined,
     s: stringSetsArray.length > 0 ? stringSetsArray : undefined,
     o,
@@ -239,21 +310,14 @@ function readStateFromURL() {
 
 /**
  * Apply a previously serialized state.
- * @param {any} state
+ * @param {unknown} state - Untrusted state from URL
  */
 function applyState(state) {
   if (!state || typeof state !== 'object') return;
-  /**
-   * Serialized state read from URL.
-   * @typedef {Object} SerializedState
-   * @property {number[]} [i] - selected intervals
-   * @property {string|string[]} [v] - voicing key(s)
-   * @property {string|string[]} [s] - stringset key(s)
-   * @property {Record<string,{t?:string,c?:number}>} [o] - overrides map
-   */
-
+  
+  // Type assertion after validation - state is object at this point
   /** @type {SerializedState} */
-  const s = /** @type {any} */ (state);
+  const s = /** @type {SerializedState} */ (state);
 
   /** @type {Array<string|number>} */
   const intervals = Array.isArray(s.i) ? s.i : [];
@@ -273,8 +337,8 @@ function applyState(state) {
     }
   }
   userIntervalOptions.clear();
-  if (state.o && typeof state.o === 'object') {
-    for (const [k, v] of Object.entries(state.o)) {
+  if (s.o && typeof s.o === 'object') {
+    for (const [k, v] of Object.entries(s.o)) {
       const num = Number(k);
       if (!Number.isInteger(num)) continue;
       if (v && typeof v === 'object') {
@@ -288,14 +352,23 @@ function applyState(state) {
   }
   // Re-render dependent UI
   renderIntervals();
+  
+  // Apply key selection
+  if (typeof s.k === 'number' && s.k >= 0 && s.k <= 11) {
+    selectedKey = s.k;
+  } else {
+    selectedKey = null;
+  }
+  renderKeys();
+  
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
   
   // Apply voicing(s) - backward compatibility for single string or new array format
   selectedVoicings.clear();
-  if (state.v) {
-    const voicings = Array.isArray(state.v) ? state.v : (state.v === 'ALL' ? [] : [state.v]);
+  if (s.v) {
+    const voicings = Array.isArray(s.v) ? s.v : (s.v === 'ALL' ? [] : [s.v]);
     for (const voicing of voicings) {
       if (typeof voicing === 'string' && voicing !== 'ALL') {
         selectedVoicings.add(voicing);
@@ -305,8 +378,8 @@ function applyState(state) {
   
   // Apply string set(s) - backward compatibility for single string or new array format
   selectedStringSets.clear();
-  if (state.s) {
-    const stringSets = Array.isArray(state.s) ? state.s : (state.s === 'ALL' ? [] : [state.s]);
+  if (s.s) {
+    const stringSets = Array.isArray(s.s) ? s.s : (s.s === 'ALL' ? [] : [s.s]);
     for (const stringSet of stringSets) {
       if (typeof stringSet === 'string' && stringSet !== 'ALL') {
         selectedStringSets.add(stringSet);
@@ -321,8 +394,8 @@ function applyState(state) {
   // After applying all, ensure label options reflect overrides
   renderIntervalLabelOptions();
   // Apply filter checkbox (default to true if not specified)
-  if (typeof state.f === 'boolean') {
-    filterDoableCheckbox.checked = state.f;
+  if (typeof s.f === 'boolean') {
+    filterDoableCheckbox.checked = s.f;
   } else {
     filterDoableCheckbox.checked = true;
   }
@@ -358,6 +431,45 @@ function renderIntervals() {
       tryAutoGenerate();
     });
     intervalBox.appendChild(label);
+  }
+}
+
+/**
+ * Render key selection buttons
+ */
+function renderKeys() {
+  keyBox.innerHTML = '';
+  
+  // Add "None" button first
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'key-button' + (selectedKey === null ? ' active' : '');
+  clearBtn.textContent = 'None';
+  clearBtn.setAttribute('aria-label', 'Clear key selection');
+  clearBtn.addEventListener('click', () => {
+    selectedKey = null;
+    renderKeys();
+    renderIntervalLabelOptions();
+    pushState();
+    tryAutoGenerate();
+  });
+  keyBox.appendChild(clearBtn);
+  
+  // Add key buttons
+  for (const key of AVAILABLE_KEYS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'key-button' + (selectedKey === key.semitone ? ' active' : '');
+    btn.textContent = key.name;
+    btn.setAttribute('aria-label', `Select key ${key.name}`);
+    btn.addEventListener('click', () => {
+      selectedKey = key.semitone;
+      renderKeys();
+      renderIntervalLabelOptions();
+      pushState();
+      tryAutoGenerate();
+    });
+    keyBox.appendChild(btn);
   }
 }
 
@@ -614,7 +726,13 @@ function renderIntervalLabelOptions() {
     row.className = 'interval-label-row';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'interval-name';
-    nameSpan.textContent = displayName;
+    // If key is selected, show note name next to interval name
+    if (selectedKey !== null) {
+      const noteName = getNoteForInterval(selectedKey, semitoneValue);
+      nameSpan.textContent = `${displayName} (${noteName})`;
+    } else {
+      nameSpan.textContent = displayName;
+    }
     
     // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
@@ -716,6 +834,61 @@ function canGenerate() {
 }
 
 /**
+ * Calculate the position parameter for a chord based on the selected key.
+ * The position indicates where on the fretboard the chord diagram starts.
+ * 
+ * @param {import('../lib/chord.js').Chord} chord - The chord fingering
+ * @param {number[]} inversion - The intervals in this inversion
+ * @param {boolean[]} stringSetBits - Which strings are active
+ * @param {number} keySemitone - The selected key as semitone (0-11)
+ * @returns {number | undefined} - The position value, or undefined if cannot calculate
+ */
+function calculateChordPosition(chord, inversion, stringSetBits, keySemitone) {
+  // Map string active status to intervals (matches notesToChord logic)
+  const stringToInterval = [];
+  let inversionIndex = 0;
+  for (let i = 0; i < stringSetBits.length; i++) {
+    if (stringSetBits[i]) {
+      stringToInterval[i] = inversion[inversionIndex++];
+    } else {
+      stringToInterval[i] = null;
+    }
+  }
+  
+  // Find the finger that plays the root (interval = 0)
+  let rootStringIndex = -1;
+  for (let i = 0; i < stringToInterval.length; i++) {
+    if (stringToInterval[i] === 0) {
+      rootStringIndex = i;
+      break;
+    }
+  }
+  
+  if (rootStringIndex === -1) return undefined;
+  
+  // Find the corresponding finger in the chord
+  const stringNumber = 6 - rootStringIndex; // Convert index to string number
+  const rootFinger = chord.find(f => f[0] === stringNumber);
+  
+  if (!rootFinger || rootFinger[1] === 'x') return undefined;
+  
+  const fret = rootFinger[1];
+  if (typeof fret !== 'number') return undefined;
+  
+  // Get the open note for this string (in semitones from C)
+  const openNote = STRING_OPEN_NOTES[rootStringIndex];
+  
+  // Calculate what note this finger produces at position 1
+  // At position 1, fret numbers are as-is
+  const noteAtPos1 = (openNote + fret) % 12;
+  
+  // Calculate offset needed to shift noteAtPos1 to keySemitone
+  let offset = (keySemitone - noteAtPos1 + 12) % 12;
+  
+  return 1 + offset;
+}
+
+/**
  * Perform chord generation.
  */
 function generateChords() {
@@ -756,7 +929,7 @@ function generateChords() {
     value.split('').map(c => c === '1')
   );
 
-  /** @type {Array<import('../lib/chord.js').Chord>} */
+  /** @type {{chord: import('../lib/chord.js').Chord, position: number | undefined}[]} */
   const chordShapes = [];
   
   // Nested loops to generate all combinations
@@ -779,11 +952,10 @@ function generateChords() {
             ? getIntervalFingerOptions(intervalName, interval)
             : (Interval_labels[interval]?.fingerOptions ?? {});
           const override = userIntervalOptions.get(interval) || {};
-          const baseColor = /** @type {any} */(base).color;
           return {
             className: base.className || '',
             text: override.text !== undefined ? override.text : (base.text || ''),
-            color: override.color || normalizeColor(baseColor),
+            color: override.color || normalizeColor(base.color),
           };
         };
         const chord = notesToChord(notesCopy, stringSetBits, intervalToFingerOptions);
@@ -802,7 +974,12 @@ function generateChords() {
         // Sort chord array by string number descending (6 to 1) for consistency
         chord.sort((a, b) => b[0] - a[0]);
         
-        chordShapes.push(chord);
+        // Calculate position if key is selected
+        let position = undefined;
+        if (selectedKey !== null) {
+          position = calculateChordPosition(chord, inversion, stringSetBits, selectedKey);
+        }
+        chordShapes.push({ chord, position });
       }
     }
   }
@@ -810,14 +987,14 @@ function generateChords() {
   // Apply doable filter if checkbox is checked
   let shapesToRender = chordShapes;
   if (filterDoableCheckbox.checked) {
-    shapesToRender = chordShapes.filter(chord => isChordDoable(chord));
+    shapesToRender = chordShapes.filter(item => isChordDoable(item.chord));
   }
   
   // Render filtered chords
   let count = 0;
-  for (const chord of shapesToRender) {
+  for (const item of shapesToRender) {
     // Use first voicing name for label (could be improved to track actual voicing per chord)
-    renderChord(chord, count, voicingNames[0] || '');
+    renderChord(item.chord, count, voicingNames[0] || '', item.position);
     count++;
   }
   
@@ -864,8 +1041,9 @@ function tryAutoGenerate() {
  * @param {import('../lib/chord.js').Chord} chord
  * @param {number} index
  * @param {string} voicingName
+ * @param {number | undefined} position
  */
-function renderChord(chord, index, voicingName) {
+function renderChord(chord, index, voicingName, position) {
   const holder = document.createElement('div');
   holder.className = 'chord-block';
 
@@ -890,6 +1068,7 @@ function renderChord(chord, index, voicingName) {
       fingers: chord,
       barres: [],
       frets,
+      position,
       created: Date.now(),
       title: '',
     };
@@ -916,11 +1095,12 @@ function renderChord(chord, index, voicingName) {
   results.appendChild(holder);
 
     const frets = Math.max(3, ...chord.map(f => (typeof f[1] === 'number' ? f[1] : 0)));
-    const config = { frets, noPosition: true, fingerSize: 0.75, fingerTextSize: 20 };
+    const noPosition = position === undefined || position === null;
+    const config = { frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 };
     
     // Render the SVG for the current results display
-    new /** @type {any} */(SVGuitarChord)(svgContainer)
-      .chord({ fingers: chord, barres: [], title: '' })
+    new SVGuitarChord(svgContainer)
+      .chord({ fingers: chord, barres: [], title: '', position })
       .configure(config)
       .draw();
 }
@@ -963,6 +1143,7 @@ filterDoableCheckbox.addEventListener('change', () => {
 // Initial render
 renderPresetDropdown();
 renderIntervals();
+renderKeys();
 renderVoicings();
 updateStringSets();
 renderIntervalLabelOptions();
@@ -987,7 +1168,14 @@ const CART_KEY = 'chordRendererCartV2';
 
 /**
  * @typedef {import('svguitar').Finger} FingerPosition
- * @typedef {{ id:string, created:number, fingers:FingerPosition[], barres:any[], frets:number, config?:any, position?: number?, title?: string? }} CartEntry
+ * @typedef {Object} CartEntry
+ * @property {string} id - Unique identifier for the cart entry
+ * @property {number} created - Timestamp when entry was created
+ * @property {FingerPosition[]} fingers - Array of finger positions on the fretboard
+ * @property {import('svguitar').Barre[]} barres - Array of barre chord definitions
+ * @property {number} frets - Number of frets to display
+ * @property {number} [position] - Optional fret position (starting fret)
+ * @property {string} [title] - Optional chord title/name
  */
 
 /** @returns {CartEntry[]} */
