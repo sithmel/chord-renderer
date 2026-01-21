@@ -67,30 +67,30 @@ var Interval = {
 var Interval_labels = [
   { full: "root", fingerOptions: { className: "root" } },
   // Seconds (blue hues)
-  { full: "minor second", fingerOptions: { className: "minor-second" } },
-  { full: "major second", fingerOptions: { className: "major-second" } },
+  { full: "minor 2nd", fingerOptions: { className: "minor-second" } },
+  { full: "major 2nd", fingerOptions: { className: "major-second" } },
   // Thirds (green hues)
-  { full: "minor third", fingerOptions: { className: "minor-third" } },
-  { full: "major third", fingerOptions: { className: "major-third" } },
+  { full: "minor 3rd", fingerOptions: { className: "minor-third" } },
+  { full: "major 3rd", fingerOptions: { className: "major-third" } },
   // Fourth & Tritone (purple hues)
-  { full: "perfect fourth", fingerOptions: { className: "perfect-fourth" } },
-  { full: "diminished fifth", fingerOptions: { className: "diminished-fifth" } },
-  { full: "perfect fifth", fingerOptions: { className: "perfect-fifth" } },
+  { full: "perfect 4th", fingerOptions: { className: "perfect-fourth" } },
+  { full: "diminished 5th / augmented 4th", fingerOptions: { className: "diminished-fifth" } },
+  { full: "perfect 5th", fingerOptions: { className: "perfect-fifth" } },
   // Sixths (olive / yellow-green hues)
-  { full: "minor sixth", fingerOptions: { className: "minor-sixth" } },
-  { full: "major sixth", fingerOptions: { className: "major-sixth" } },
+  { full: "minor 6th / augmented 5th", fingerOptions: { className: "minor-sixth" } },
+  { full: "major 6th / diminished 7th", fingerOptions: { className: "major-sixth" } },
   // Sevenths (brown / earth tones)
-  { full: "minor seventh", fingerOptions: { className: "minor-seventh" } },
-  { full: "major seventh", fingerOptions: { className: "major-seventh" } }
+  { full: "minor 7th", fingerOptions: { className: "minor-seventh" } },
+  { full: "major 7th", fingerOptions: { className: "major-seventh" } }
 ];
 var EXTENDED_INTERVAL_LABELS = {
-  "FLAT_NINTH": { full: "flat ninth", fingerOptions: { className: "flat-ninth" } },
-  "NINTH": { full: "ninth", fingerOptions: { className: "ninth" } },
-  "SHARP_NINTH": { full: "sharp ninth", fingerOptions: { className: "sharp-ninth" } },
-  "ELEVENTH": { full: "eleventh", fingerOptions: { className: "eleventh" } },
-  "SHARP_ELEVENTH": { full: "sharp eleventh", fingerOptions: { className: "sharp-eleventh" } },
-  "FLAT_THIRTEENTH": { full: "flat thirteenth", fingerOptions: { className: "flat-thirteenth" } },
-  "THIRTEENTH": { full: "thirteenth", fingerOptions: { className: "thirteenth" } }
+  "FLAT_NINTH": { full: "flat 9th", fingerOptions: { className: "flat-ninth" } },
+  "NINTH": { full: "9th", fingerOptions: { className: "ninth" } },
+  "SHARP_NINTH": { full: "sharp 9th", fingerOptions: { className: "sharp-ninth" } },
+  "ELEVENTH": { full: "11th", fingerOptions: { className: "eleventh" } },
+  "SHARP_ELEVENTH": { full: "sharp 11th", fingerOptions: { className: "sharp-eleventh" } },
+  "FLAT_THIRTEENTH": { full: "flat 13th", fingerOptions: { className: "flat-thirteenth" } },
+  "THIRTEENTH": { full: "13th", fingerOptions: { className: "thirteenth" } }
 };
 var GUITAR_STANDARD_TUNING_INTERVALS = [
   0,
@@ -9126,6 +9126,22 @@ var filterDoableCheckbox = (
   /** @type {HTMLInputElement} */
   document.getElementById("filter-doable-checkbox")
 );
+var lowIntervalBox = (
+  /** @type {HTMLElement} */
+  document.getElementById("low-interval-box")
+);
+var highIntervalBox = (
+  /** @type {HTMLElement} */
+  document.getElementById("high-interval-box")
+);
+var lowIntervalFilter = (
+  /** @type {HTMLElement} */
+  document.getElementById("low-interval-filter")
+);
+var highIntervalFilter = (
+  /** @type {HTMLElement} */
+  document.getElementById("high-interval-filter")
+);
 var cartGallery = (
   /** @type {HTMLElement|null} */
   document.getElementById("cart-gallery")
@@ -9250,7 +9266,7 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
-if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
+if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox || !lowIntervalBox || !highIntervalBox || !lowIntervalFilter || !highIntervalFilter) {
   throw new Error("Required DOM elements not found");
 }
 var INTERVAL_PRESETS = [
@@ -9279,21 +9295,19 @@ var INTERVAL_PRESETS = [
   { name: "Major thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 7 13" },
   { name: "Dominant thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 \u266D7 13" }
 ];
-var NOTE_NAMES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-var NOTE_NAMES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 var STRING_OPEN_NOTES = [4, 9, 2, 7, 11, 4];
 var AVAILABLE_KEYS = [
   { name: "C", semitone: 0 },
   { name: "C#/Db", semitone: 1 },
   { name: "D", semitone: 2 },
-  { name: "Eb", semitone: 3 },
+  { name: "D#/Eb", semitone: 3 },
   { name: "E", semitone: 4 },
   { name: "F", semitone: 5 },
   { name: "F#/Gb", semitone: 6 },
   { name: "G", semitone: 7 },
-  { name: "Ab", semitone: 8 },
+  { name: "G#/Ab", semitone: 8 },
   { name: "A", semitone: 9 },
-  { name: "Bb", semitone: 10 },
+  { name: "A#/Bb", semitone: 10 },
   { name: "B", semitone: 11 }
 ];
 var intervalEntries = Object.entries(Interval).filter(([k2]) => k2 === k2.toUpperCase());
@@ -9302,6 +9316,8 @@ var selectedKey = null;
 var selectedVoicings = /* @__PURE__ */ new Set();
 var selectedStringSets = /* @__PURE__ */ new Set();
 var userIntervalOptions = /* @__PURE__ */ new Map();
+var selectedLowIntervals = /* @__PURE__ */ new Set();
+var selectedHighIntervals = /* @__PURE__ */ new Set();
 function normalizeColor(color) {
   if (!color || color === "transparent") return color;
   const normalized = color.toLowerCase().trim();
@@ -9309,15 +9325,6 @@ function normalizeColor(color) {
     return DOT_COLORS.BLACK;
   }
   return DOT_COLORS.BLACK;
-}
-function semitoneToNoteName(semitone, preferSharps = true) {
-  const normalized = (semitone % 12 + 12) % 12;
-  return preferSharps ? NOTE_NAMES_SHARP[normalized] : NOTE_NAMES_FLAT[normalized];
-}
-function getNoteForInterval(keySemitone, intervalSemitone) {
-  const noteSemitone = (keySemitone + intervalSemitone) % 12;
-  const useFlats = [1, 3, 6, 8, 10].includes(keySemitone);
-  return semitoneToNoteName(noteSemitone, !useFlats);
 }
 function getIntervalDisplayName(intervalName, semitoneValue) {
   var _a, _b;
@@ -9349,13 +9356,21 @@ function buildState() {
     if (opts.color) rec.c = opts.color;
     if (Object.keys(rec).length) o2[String(interval)] = rec;
   }
+  const sortedEntries = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name));
+  const allIntervalValues = sortedEntries.map(([_2, val]) => val);
+  const lowArray = Array.from(selectedLowIntervals).sort((a2, b2) => a2 - b2);
+  const highArray = Array.from(selectedHighIntervals).sort((a2, b2) => a2 - b2);
+  const lowIsDefault = lowArray.length === allIntervalValues.length && lowArray.every((val) => allIntervalValues.includes(val));
+  const highIsDefault = highArray.length === allIntervalValues.length && highArray.every((val) => allIntervalValues.includes(val));
   return {
     i: intervalsArray,
     k: selectedKey,
     v: voicingsArray.length > 0 ? voicingsArray : void 0,
     s: stringSetsArray.length > 0 ? stringSetsArray : void 0,
     o: o2,
-    f: filterDoableCheckbox.checked
+    f: filterDoableCheckbox.checked,
+    l: lowIsDefault ? void 0 : lowArray,
+    h: highIsDefault ? void 0 : highArray
   };
 }
 function pushState() {
@@ -9444,6 +9459,24 @@ function applyState(state) {
   } else {
     filterDoableCheckbox.checked = true;
   }
+  selectedLowIntervals.clear();
+  if (Array.isArray(s2.l)) {
+    for (const val of s2.l) {
+      if (typeof val === "number") {
+        selectedLowIntervals.add(val);
+      }
+    }
+  }
+  selectedHighIntervals.clear();
+  if (Array.isArray(s2.h)) {
+    for (const val of s2.h) {
+      if (typeof val === "number") {
+        selectedHighIntervals.add(val);
+      }
+    }
+  }
+  renderLowIntervalFilters();
+  renderHighIntervalFilters();
 }
 function renderIntervals() {
   intervalBox.innerHTML = "";
@@ -9474,6 +9507,8 @@ function renderIntervals() {
       updateStringSets();
       renderVoicings();
       renderIntervalLabelOptions();
+      renderLowIntervalFilters();
+      renderHighIntervalFilters();
       pushState();
       tryAutoGenerate();
     });
@@ -9540,6 +9575,8 @@ function applyPreset(presetIndex) {
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
+  renderLowIntervalFilters();
+  renderHighIntervalFilters();
   pushState();
   tryAutoGenerate();
   intervalPresetSelect.value = "";
@@ -9703,12 +9740,7 @@ function renderIntervalLabelOptions() {
     row.className = "interval-label-row";
     const nameSpan = document.createElement("span");
     nameSpan.className = "interval-name";
-    if (selectedKey !== null) {
-      const noteName = getNoteForInterval(selectedKey, semitoneValue);
-      nameSpan.textContent = `${displayName} (${noteName})`;
-    } else {
-      nameSpan.textContent = displayName;
-    }
+    nameSpan.textContent = displayName;
     const input = document.createElement("input");
     input.type = "text";
     input.maxLength = 1;
@@ -9765,6 +9797,136 @@ function renderIntervalLabelOptions() {
     updateInputVisibility();
   }
 }
+function renderLowIntervalFilters() {
+  lowIntervalBox.innerHTML = "";
+  if (selectedIntervals.size === 0) {
+    lowIntervalFilter.style.display = "none";
+    return;
+  }
+  lowIntervalFilter.style.display = "";
+  const sortedEntries = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name));
+  const allIntervalValues = sortedEntries.map(([_2, val]) => val);
+  if (selectedLowIntervals.size === 0) {
+    allIntervalValues.forEach((val) => selectedLowIntervals.add(val));
+  }
+  for (const val of Array.from(selectedLowIntervals)) {
+    if (!allIntervalValues.includes(val)) {
+      selectedLowIntervals.delete(val);
+    }
+  }
+  const toggleLink = document.createElement("a");
+  toggleLink.href = "#";
+  toggleLink.className = "toggle-all-link";
+  const allSelected = selectedLowIntervals.size === allIntervalValues.length;
+  toggleLink.textContent = allSelected ? "Deselect All" : "Select All";
+  toggleLink.addEventListener("click", (e2) => {
+    e2.preventDefault();
+    const currentlyAllSelected = selectedLowIntervals.size === allIntervalValues.length;
+    if (currentlyAllSelected) {
+      selectedLowIntervals.clear();
+      selectedLowIntervals.add(allIntervalValues[0]);
+    } else {
+      allIntervalValues.forEach((val) => selectedLowIntervals.add(val));
+    }
+    renderLowIntervalFilters();
+    pushState();
+    tryAutoGenerate();
+  });
+  lowIntervalBox.appendChild(toggleLink);
+  for (const [intervalName, semitoneValue] of sortedEntries) {
+    const id = `low-int-${intervalName}`;
+    const label = document.createElement("label");
+    label.className = "check-wrap";
+    const displayName = getIntervalDisplayName(intervalName, semitoneValue);
+    label.innerHTML = `<input type="checkbox" value="${semitoneValue}" id="${id}"><span>${displayName}</span>`;
+    const input = (
+      /** @type {HTMLInputElement} */
+      label.querySelector("input")
+    );
+    input.checked = selectedLowIntervals.has(semitoneValue);
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        selectedLowIntervals.add(semitoneValue);
+      } else {
+        if (selectedLowIntervals.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedLowIntervals.delete(semitoneValue);
+      }
+      const allSelected2 = selectedLowIntervals.size === allIntervalValues.length;
+      toggleLink.textContent = allSelected2 ? "Deselect All" : "Select All";
+      pushState();
+      tryAutoGenerate();
+    });
+    lowIntervalBox.appendChild(label);
+  }
+}
+function renderHighIntervalFilters() {
+  highIntervalBox.innerHTML = "";
+  if (selectedIntervals.size === 0) {
+    highIntervalFilter.style.display = "none";
+    return;
+  }
+  highIntervalFilter.style.display = "";
+  const sortedEntries = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name));
+  const allIntervalValues = sortedEntries.map(([_2, val]) => val);
+  if (selectedHighIntervals.size === 0) {
+    allIntervalValues.forEach((val) => selectedHighIntervals.add(val));
+  }
+  for (const val of Array.from(selectedHighIntervals)) {
+    if (!allIntervalValues.includes(val)) {
+      selectedHighIntervals.delete(val);
+    }
+  }
+  const toggleLink = document.createElement("a");
+  toggleLink.href = "#";
+  toggleLink.className = "toggle-all-link";
+  const allSelected = selectedHighIntervals.size === allIntervalValues.length;
+  toggleLink.textContent = allSelected ? "Deselect All" : "Select All";
+  toggleLink.addEventListener("click", (e2) => {
+    e2.preventDefault();
+    const currentlyAllSelected = selectedHighIntervals.size === allIntervalValues.length;
+    if (currentlyAllSelected) {
+      selectedHighIntervals.clear();
+      selectedHighIntervals.add(allIntervalValues[0]);
+    } else {
+      allIntervalValues.forEach((val) => selectedHighIntervals.add(val));
+    }
+    renderHighIntervalFilters();
+    pushState();
+    tryAutoGenerate();
+  });
+  highIntervalBox.appendChild(toggleLink);
+  for (const [intervalName, semitoneValue] of sortedEntries) {
+    const id = `high-int-${intervalName}`;
+    const label = document.createElement("label");
+    label.className = "check-wrap";
+    const displayName = getIntervalDisplayName(intervalName, semitoneValue);
+    label.innerHTML = `<input type="checkbox" value="${semitoneValue}" id="${id}"><span>${displayName}</span>`;
+    const input = (
+      /** @type {HTMLInputElement} */
+      label.querySelector("input")
+    );
+    input.checked = selectedHighIntervals.has(semitoneValue);
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        selectedHighIntervals.add(semitoneValue);
+      } else {
+        if (selectedHighIntervals.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedHighIntervals.delete(semitoneValue);
+      }
+      const allSelected2 = selectedHighIntervals.size === allIntervalValues.length;
+      toggleLink.textContent = allSelected2 ? "Deselect All" : "Select All";
+      pushState();
+      tryAutoGenerate();
+    });
+    highIntervalBox.appendChild(label);
+  }
+}
 function clearResults() {
   results.innerHTML = "";
 }
@@ -9805,6 +9967,40 @@ function calculateChordPosition(chord, inversion, stringSetBits, keySemitone) {
   const noteAtPos1 = (openNote + fret) % 12;
   let offset = (keySemitone - noteAtPos1 + 12) % 12;
   return 1 + offset;
+}
+function getChordLowInterval(inversion, stringSetBits) {
+  const stringToInterval = [];
+  let inversionIndex = 0;
+  for (let i2 = 0; i2 < stringSetBits.length; i2++) {
+    if (stringSetBits[i2]) {
+      stringToInterval[i2] = inversion[inversionIndex++];
+    } else {
+      stringToInterval[i2] = null;
+    }
+  }
+  for (let i2 = 0; i2 < stringToInterval.length; i2++) {
+    if (stringToInterval[i2] !== null) {
+      return stringToInterval[i2];
+    }
+  }
+  return null;
+}
+function getChordHighInterval(inversion, stringSetBits) {
+  const stringToInterval = [];
+  let inversionIndex = 0;
+  for (let i2 = 0; i2 < stringSetBits.length; i2++) {
+    if (stringSetBits[i2]) {
+      stringToInterval[i2] = inversion[inversionIndex++];
+    } else {
+      stringToInterval[i2] = null;
+    }
+  }
+  for (let i2 = stringToInterval.length - 1; i2 >= 0; i2--) {
+    if (stringToInterval[i2] !== null) {
+      return stringToInterval[i2];
+    }
+  }
+  return null;
 }
 function generateChords() {
   clearResults();
@@ -9867,13 +10063,30 @@ function generateChords() {
         if (selectedKey !== null) {
           position2 = calculateChordPosition(chord, inversion, stringSetBits, selectedKey);
         }
-        chordShapes.push({ chord, position: position2 });
+        chordShapes.push({ chord, position: position2, inversion, stringSetBits });
       }
     }
   }
   let shapesToRender = chordShapes;
+  if (selectedLowIntervals.size > 0 || selectedHighIntervals.size > 0) {
+    shapesToRender = chordShapes.filter((item) => {
+      if (selectedLowIntervals.size > 0) {
+        const lowInterval = getChordLowInterval(item.inversion, item.stringSetBits);
+        if (lowInterval !== null && !selectedLowIntervals.has(lowInterval)) {
+          return false;
+        }
+      }
+      if (selectedHighIntervals.size > 0) {
+        const highInterval = getChordHighInterval(item.inversion, item.stringSetBits);
+        if (highInterval !== null && !selectedHighIntervals.has(highInterval)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
   if (filterDoableCheckbox.checked) {
-    shapesToRender = chordShapes.filter((item) => isChordDoable(item.chord));
+    shapesToRender = shapesToRender.filter((item) => isChordDoable(item.chord));
   }
   let count = 0;
   for (const item of shapesToRender) {
@@ -9995,6 +10208,8 @@ renderKeys();
 renderVoicings();
 updateStringSets();
 renderIntervalLabelOptions();
+renderLowIntervalFilters();
+renderHighIntervalFilters();
 var initialState = readStateFromURL();
 if (initialState) {
   applyState(initialState);
@@ -10192,6 +10407,11 @@ function showExportOverlay(content) {
     exportOverlayCopy.textContent = "Copy to Clipboard";
     exportOverlayCopy.classList.remove("copied");
   }
+  const columnControls = (
+    /** @type {HTMLElement|null} */
+    document.querySelector(".column-controls")
+  );
+  if (columnControls) columnControls.hidden = true;
 }
 function closeExportOverlay() {
   if (!exportOverlay) return;
@@ -10283,6 +10503,11 @@ function showTextExport(useUnicode) {
     document.getElementById("format-unicode")
   );
   if (formatToggle) formatToggle.hidden = false;
+  const columnControls = (
+    /** @type {HTMLElement|null} */
+    document.querySelector(".column-controls")
+  );
+  if (columnControls) columnControls.hidden = false;
   function updateExport() {
     const strings = entries.map((e2) => fingeringToString(cartEntryToChord(e2), { useUnicode: currentFormat }));
     const full = layoutChordStrings(strings, currentColumns, 2);

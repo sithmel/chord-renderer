@@ -18,6 +18,10 @@ const stringsHint = /** @type {HTMLElement} */(document.getElementById('strings-
 const intervalLabelOptionsBox = /** @type {HTMLElement} */(document.getElementById('interval-label-options'));
 const intervalPresetSelect = /** @type {HTMLSelectElement} */(document.getElementById('interval-preset'));
 const filterDoableCheckbox = /** @type {HTMLInputElement} */(document.getElementById('filter-doable-checkbox'));
+const lowIntervalBox = /** @type {HTMLElement} */(document.getElementById('low-interval-box'));
+const highIntervalBox = /** @type {HTMLElement} */(document.getElementById('high-interval-box'));
+const lowIntervalFilter = /** @type {HTMLElement} */(document.getElementById('low-interval-filter'));
+const highIntervalFilter = /** @type {HTMLElement} */(document.getElementById('high-interval-filter'));
 
 // New DOM references for gallery layout
 const cartGallery = /** @type {HTMLElement|null} */(document.getElementById('cart-gallery'));
@@ -64,7 +68,7 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 
-if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox) {
+if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox || !lowIntervalBox || !highIntervalBox || !lowIntervalFilter || !highIntervalFilter) {
   throw new Error('Required DOM elements not found');
 }
 
@@ -90,6 +94,8 @@ if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results
  * @property {string|string[]} [s] - String set key(s)
  * @property {Record<string, SerializedIntervalOverride>} [o] - Interval overrides map
  * @property {boolean} [f] - Filter doable checkbox state
+ * @property {number[]} [l] - Low interval filter (allowed intervals for lowest pitch note)
+ * @property {number[]} [h] - High interval filter (allowed intervals for highest pitch note)
  */
 
 /** @type {IntervalPreset[]} */
@@ -137,14 +143,14 @@ const AVAILABLE_KEYS = [
   { name: 'C', semitone: 0 },
   { name: 'C#/Db', semitone: 1 },
   { name: 'D', semitone: 2 },
-  { name: 'Eb', semitone: 3 },
+  { name: 'D#/Eb', semitone: 3 },
   { name: 'E', semitone: 4 },
   { name: 'F', semitone: 5 },
   { name: 'F#/Gb', semitone: 6 },
   { name: 'G', semitone: 7 },
-  { name: 'Ab', semitone: 8 },
+  { name: 'G#/Ab', semitone: 8 },
   { name: 'A', semitone: 9 },
-  { name: 'Bb', semitone: 10 },
+  { name: 'A#/Bb', semitone: 10 },
   { name: 'B', semitone: 11 },
 ];
 
@@ -171,6 +177,12 @@ const selectedStringSets = new Set();
  * @type {Map<number,{text?: string, color?: string}>}
  */
 const userIntervalOptions = new Map();
+
+/** @type {Set<number>} - Tracks allowed intervals for lowest pitch note */
+const selectedLowIntervals = new Set();
+
+/** @type {Set<number>} - Tracks allowed intervals for highest pitch note */
+const selectedHighIntervals = new Set();
 
 /**
  * Normalize color values: non-black colors → BLACK, black → black, undefined/transparent → unchanged
@@ -272,6 +284,20 @@ function buildState() {
     if (opts.color) rec.c = opts.color;
     if (Object.keys(rec).length) o[String(interval)] = rec;
   }
+  
+  // Only serialize filter arrays if they differ from "all selected" (default)
+  const sortedEntries = intervalEntries.filter(([name, _]) => selectedIntervals.has(name));
+  const allIntervalValues = sortedEntries.map(([_, val]) => val);
+  
+  const lowArray = Array.from(selectedLowIntervals).sort((a, b) => a - b);
+  const highArray = Array.from(selectedHighIntervals).sort((a, b) => a - b);
+  
+  // Check if filters are in default state (all selected)
+  const lowIsDefault = lowArray.length === allIntervalValues.length && 
+                       lowArray.every(val => allIntervalValues.includes(val));
+  const highIsDefault = highArray.length === allIntervalValues.length && 
+                        highArray.every(val => allIntervalValues.includes(val));
+  
   return {
     i: intervalsArray,
     k: selectedKey,
@@ -279,6 +305,8 @@ function buildState() {
     s: stringSetsArray.length > 0 ? stringSetsArray : undefined,
     o,
     f: filterDoableCheckbox.checked,
+    l: lowIsDefault ? undefined : lowArray,
+    h: highIsDefault ? undefined : highArray,
   };
 }
 
@@ -399,6 +427,32 @@ function applyState(state) {
   } else {
     filterDoableCheckbox.checked = true;
   }
+  
+  // Apply low interval filter
+  selectedLowIntervals.clear();
+  if (Array.isArray(s.l)) {
+    for (const val of s.l) {
+      if (typeof val === 'number') {
+        selectedLowIntervals.add(val);
+      }
+    }
+  }
+  // If no filter state, defaults will be applied in render functions
+  
+  // Apply high interval filter
+  selectedHighIntervals.clear();
+  if (Array.isArray(s.h)) {
+    for (const val of s.h) {
+      if (typeof val === 'number') {
+        selectedHighIntervals.add(val);
+      }
+    }
+  }
+  // If no filter state, defaults will be applied in render functions
+  
+  // Render the filter UI
+  renderLowIntervalFilters();
+  renderHighIntervalFilters();
 }
 
 function renderIntervals() {
@@ -427,6 +481,8 @@ function renderIntervals() {
       updateStringSets();
       renderVoicings();
       renderIntervalLabelOptions();
+      renderLowIntervalFilters();
+      renderHighIntervalFilters();
       pushState();
       tryAutoGenerate();
     });
@@ -522,6 +578,8 @@ function applyPreset(presetIndex) {
   updateStringSets();
   renderVoicings();
   renderIntervalLabelOptions();
+  renderLowIntervalFilters();
+  renderHighIntervalFilters();
   pushState();
   tryAutoGenerate();
   
@@ -726,13 +784,8 @@ function renderIntervalLabelOptions() {
     row.className = 'interval-label-row';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'interval-name';
-    // If key is selected, show note name next to interval name
-    if (selectedKey !== null) {
-      const noteName = getNoteForInterval(selectedKey, semitoneValue);
-      nameSpan.textContent = `${displayName} (${noteName})`;
-    } else {
-      nameSpan.textContent = displayName;
-    }
+    // Display interval name only
+    nameSpan.textContent = displayName;
     
     // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
@@ -802,6 +855,172 @@ function renderIntervalLabelOptions() {
     
     // Set initial visibility
     updateInputVisibility();
+  }
+}
+
+/**
+ * Render checkboxes for low interval filter.
+ * Shows which intervals can appear as the lowest pitch note.
+ */
+function renderLowIntervalFilters() {
+  lowIntervalBox.innerHTML = '';
+  
+  if (selectedIntervals.size === 0) {
+    lowIntervalFilter.style.display = 'none';
+    return;
+  }
+  
+  lowIntervalFilter.style.display = '';
+  
+  // Get selected intervals in display order
+  const sortedEntries = intervalEntries.filter(([name, _]) => selectedIntervals.has(name));
+  const allIntervalValues = sortedEntries.map(([_, val]) => val);
+  
+  // Initialize selected set if empty (default: all selected)
+  if (selectedLowIntervals.size === 0) {
+    allIntervalValues.forEach(val => selectedLowIntervals.add(val));
+  }
+  
+  // Remove any intervals that are no longer selected
+  for (const val of Array.from(selectedLowIntervals)) {
+    if (!allIntervalValues.includes(val)) {
+      selectedLowIntervals.delete(val);
+    }
+  }
+  
+  // Add Select All/Deselect All toggle
+  const toggleLink = document.createElement('a');
+  toggleLink.href = '#';
+  toggleLink.className = 'toggle-all-link';
+  const allSelected = selectedLowIntervals.size === allIntervalValues.length;
+  toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+  toggleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const currentlyAllSelected = selectedLowIntervals.size === allIntervalValues.length;
+    if (currentlyAllSelected) {
+      // Deselect all except first one
+      selectedLowIntervals.clear();
+      selectedLowIntervals.add(allIntervalValues[0]);
+    } else {
+      // Select all
+      allIntervalValues.forEach(val => selectedLowIntervals.add(val));
+    }
+    renderLowIntervalFilters();
+    pushState();
+    tryAutoGenerate();
+  });
+  lowIntervalBox.appendChild(toggleLink);
+  
+  // Render checkboxes
+  for (const [intervalName, semitoneValue] of sortedEntries) {
+    const id = `low-int-${intervalName}`;
+    const label = document.createElement('label');
+    label.className = 'check-wrap';
+    const displayName = getIntervalDisplayName(intervalName, semitoneValue);
+    label.innerHTML = `<input type="checkbox" value="${semitoneValue}" id="${id}"><span>${displayName}</span>`;
+    const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
+    input.checked = selectedLowIntervals.has(semitoneValue);
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        selectedLowIntervals.add(semitoneValue);
+      } else {
+        // Prevent unchecking the last checkbox
+        if (selectedLowIntervals.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedLowIntervals.delete(semitoneValue);
+      }
+      // Update toggle link text
+      const allSelected = selectedLowIntervals.size === allIntervalValues.length;
+      toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+      pushState();
+      tryAutoGenerate();
+    });
+    lowIntervalBox.appendChild(label);
+  }
+}
+
+/**
+ * Render checkboxes for high interval filter.
+ * Shows which intervals can appear as the highest pitch note.
+ */
+function renderHighIntervalFilters() {
+  highIntervalBox.innerHTML = '';
+  
+  if (selectedIntervals.size === 0) {
+    highIntervalFilter.style.display = 'none';
+    return;
+  }
+  
+  highIntervalFilter.style.display = '';
+  
+  // Get selected intervals in display order
+  const sortedEntries = intervalEntries.filter(([name, _]) => selectedIntervals.has(name));
+  const allIntervalValues = sortedEntries.map(([_, val]) => val);
+  
+  // Initialize selected set if empty (default: all selected)
+  if (selectedHighIntervals.size === 0) {
+    allIntervalValues.forEach(val => selectedHighIntervals.add(val));
+  }
+  
+  // Remove any intervals that are no longer selected
+  for (const val of Array.from(selectedHighIntervals)) {
+    if (!allIntervalValues.includes(val)) {
+      selectedHighIntervals.delete(val);
+    }
+  }
+  
+  // Add Select All/Deselect All toggle
+  const toggleLink = document.createElement('a');
+  toggleLink.href = '#';
+  toggleLink.className = 'toggle-all-link';
+  const allSelected = selectedHighIntervals.size === allIntervalValues.length;
+  toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+  toggleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const currentlyAllSelected = selectedHighIntervals.size === allIntervalValues.length;
+    if (currentlyAllSelected) {
+      // Deselect all except first one
+      selectedHighIntervals.clear();
+      selectedHighIntervals.add(allIntervalValues[0]);
+    } else {
+      // Select all
+      allIntervalValues.forEach(val => selectedHighIntervals.add(val));
+    }
+    renderHighIntervalFilters();
+    pushState();
+    tryAutoGenerate();
+  });
+  highIntervalBox.appendChild(toggleLink);
+  
+  // Render checkboxes
+  for (const [intervalName, semitoneValue] of sortedEntries) {
+    const id = `high-int-${intervalName}`;
+    const label = document.createElement('label');
+    label.className = 'check-wrap';
+    const displayName = getIntervalDisplayName(intervalName, semitoneValue);
+    label.innerHTML = `<input type="checkbox" value="${semitoneValue}" id="${id}"><span>${displayName}</span>`;
+    const input = /** @type {HTMLInputElement} */(label.querySelector('input'));
+    input.checked = selectedHighIntervals.has(semitoneValue);
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        selectedHighIntervals.add(semitoneValue);
+      } else {
+        // Prevent unchecking the last checkbox
+        if (selectedHighIntervals.size === 1) {
+          input.checked = true;
+          return;
+        }
+        selectedHighIntervals.delete(semitoneValue);
+      }
+      // Update toggle link text
+      const allSelected = selectedHighIntervals.size === allIntervalValues.length;
+      toggleLink.textContent = allSelected ? 'Deselect All' : 'Select All';
+      pushState();
+      tryAutoGenerate();
+    });
+    highIntervalBox.appendChild(label);
   }
 }
 
@@ -889,6 +1108,66 @@ function calculateChordPosition(chord, inversion, stringSetBits, keySemitone) {
 }
 
 /**
+ * Get the interval played on the lowest fretted string (by pitch).
+ * String index 0 = lowest pitch (low E), index 5 = highest pitch (high E).
+ * 
+ * @param {number[]} inversion - The intervals in this inversion
+ * @param {boolean[]} stringSetBits - Which strings are active
+ * @returns {number | null} - The interval of the lowest fretted string, or null if none
+ */
+function getChordLowInterval(inversion, stringSetBits) {
+  // Map string active status to intervals (matches notesToChord logic)
+  const stringToInterval = [];
+  let inversionIndex = 0;
+  for (let i = 0; i < stringSetBits.length; i++) {
+    if (stringSetBits[i]) {
+      stringToInterval[i] = inversion[inversionIndex++];
+    } else {
+      stringToInterval[i] = null;
+    }
+  }
+  
+  // Find the first active string (lowest pitch)
+  for (let i = 0; i < stringToInterval.length; i++) {
+    if (stringToInterval[i] !== null) {
+      return stringToInterval[i];
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Get the interval played on the highest fretted string (by pitch).
+ * String index 0 = lowest pitch (low E), index 5 = highest pitch (high E).
+ * 
+ * @param {number[]} inversion - The intervals in this inversion
+ * @param {boolean[]} stringSetBits - Which strings are active
+ * @returns {number | null} - The interval of the highest fretted string, or null if none
+ */
+function getChordHighInterval(inversion, stringSetBits) {
+  // Map string active status to intervals (matches notesToChord logic)
+  const stringToInterval = [];
+  let inversionIndex = 0;
+  for (let i = 0; i < stringSetBits.length; i++) {
+    if (stringSetBits[i]) {
+      stringToInterval[i] = inversion[inversionIndex++];
+    } else {
+      stringToInterval[i] = null;
+    }
+  }
+  
+  // Find the last active string (highest pitch)
+  for (let i = stringToInterval.length - 1; i >= 0; i--) {
+    if (stringToInterval[i] !== null) {
+      return stringToInterval[i];
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Perform chord generation.
  */
 function generateChords() {
@@ -929,7 +1208,7 @@ function generateChords() {
     value.split('').map(c => c === '1')
   );
 
-  /** @type {{chord: import('../lib/chord.js').Chord, position: number | undefined}[]} */
+  /** @type {{chord: import('../lib/chord.js').Chord, position: number | undefined, inversion: number[], stringSetBits: boolean[]}[]} */
   const chordShapes = [];
   
   // Nested loops to generate all combinations
@@ -979,15 +1258,38 @@ function generateChords() {
         if (selectedKey !== null) {
           position = calculateChordPosition(chord, inversion, stringSetBits, selectedKey);
         }
-        chordShapes.push({ chord, position });
+        chordShapes.push({ chord, position, inversion, stringSetBits });
       }
     }
   }
   
-  // Apply doable filter if checkbox is checked
+  // Apply interval filters (low/high pitch note filters)
   let shapesToRender = chordShapes;
+  if (selectedLowIntervals.size > 0 || selectedHighIntervals.size > 0) {
+    shapesToRender = chordShapes.filter(item => {
+      // Check low interval filter
+      if (selectedLowIntervals.size > 0) {
+        const lowInterval = getChordLowInterval(item.inversion, item.stringSetBits);
+        if (lowInterval !== null && !selectedLowIntervals.has(lowInterval)) {
+          return false;
+        }
+      }
+      
+      // Check high interval filter
+      if (selectedHighIntervals.size > 0) {
+        const highInterval = getChordHighInterval(item.inversion, item.stringSetBits);
+        if (highInterval !== null && !selectedHighIntervals.has(highInterval)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }
+  
+  // Apply doable filter if checkbox is checked
   if (filterDoableCheckbox.checked) {
-    shapesToRender = chordShapes.filter(item => isChordDoable(item.chord));
+    shapesToRender = shapesToRender.filter(item => isChordDoable(item.chord));
   }
   
   // Render filtered chords
@@ -1147,6 +1449,8 @@ renderKeys();
 renderVoicings();
 updateStringSets();
 renderIntervalLabelOptions();
+renderLowIntervalFilters();
+renderHighIntervalFilters();
 // Apply state from URL if present
 const initialState = readStateFromURL();
 if (initialState) {
@@ -1429,6 +1733,9 @@ function showExportOverlay(content) {
     exportOverlayCopy.textContent = 'Copy to Clipboard';
     exportOverlayCopy.classList.remove('copied');
   }
+  // Hide column controls for non-text exports (e.g., JSON)
+  const columnControls = /** @type {HTMLElement|null} */(document.querySelector('.column-controls'));
+  if (columnControls) columnControls.hidden = true;
 }
 
 /**
@@ -1565,6 +1872,10 @@ function showTextExport(useUnicode) {
   
   // Show format toggle for text exports
   if (formatToggle) formatToggle.hidden = false;
+  
+  // Show column controls for text exports
+  const columnControls = /** @type {HTMLElement|null} */(document.querySelector('.column-controls'));
+  if (columnControls) columnControls.hidden = false;
   
   // Function to regenerate and display the text with current settings
   function updateExport() {
