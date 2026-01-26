@@ -74,11 +74,11 @@ var Interval_labels = [
   { full: "major 3rd", fingerOptions: { className: "major-third" } },
   // Fourth & Tritone (purple hues)
   { full: "perfect 4th", fingerOptions: { className: "perfect-fourth" } },
-  { full: "dim 5th aug 4th", fingerOptions: { className: "diminished-fifth" } },
+  { full: "dim 5th / aug 4th", fingerOptions: { className: "diminished-fifth" } },
   { full: "perfect 5th", fingerOptions: { className: "perfect-fifth" } },
   // Sixths (olive / yellow-green hues)
-  { full: "minor 6th aug 5th", fingerOptions: { className: "minor-sixth" } },
-  { full: "major 6th dim 7th", fingerOptions: { className: "major-sixth" } },
+  { full: "minor 6th / aug 5th", fingerOptions: { className: "minor-sixth" } },
+  { full: "major 6th / dim 7th", fingerOptions: { className: "major-sixth" } },
   // Sevenths (brown / earth tones)
   { full: "minor 7th", fingerOptions: { className: "minor-seventh" } },
   { full: "major 7th", fingerOptions: { className: "major-seventh" } }
@@ -10274,8 +10274,8 @@ function renderCartGallery() {
     item.innerHTML = `
       <div class="cart-item-header">
         <div class="cart-item-actions">
-          <button type="button" class="reorder-btn up-btn" ${index === 0 ? "disabled" : ""} aria-label="Move up">\u2191</button>
-          <button type="button" class="reorder-btn down-btn" ${index === entries.length - 1 ? "disabled" : ""} aria-label="Move down">\u2193</button>
+          <button type="button" class="reorder-btn up-btn" ${index === 0 ? "disabled" : ""} aria-label="Move up">\u25B2</button>
+          <button type="button" class="reorder-btn down-btn" ${index === entries.length - 1 ? "disabled" : ""} aria-label="Move down">\u25BC</button>
           <button type="button" class="delete-btn" aria-label="Delete chord">\u2715</button>
         </div>
       </div>

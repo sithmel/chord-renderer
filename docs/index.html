@@ -2,20 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Chord renderer</title>
+  <title>Chord Generator</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
   <script defer type="module" src="./bundle.js"></script>
 </head>
 <body>
   <header class="site-header">
-    <div class="brand">
-      <span class="logo" aria-hidden="true">♭♯</span>
-      <div class="titles">
-        <h1>Chord renderer</h1>
-        <p class="tagline">Compose and save your chords!</p>
-      </div>
-    </div>
+    <h1 class="main-title">Chord Generator</h1>
     <div class="header-actions">
       <button id="open-builder" type="button" class="builder-button">
         <span aria-hidden="true">⚡</span>
@@ -28,10 +25,6 @@
     </div>
   </header>
   
-  <section class="intro" id="intro">
-    <p>This is your saved chords gallery. Each entry shows an individual chord diagram you've created and saved. Click "Create New Chord" to open the chord builder where you can select intervals, voicings, and string sets to generate new chord diagrams.</p>
-  </section>
-
   <section id="cart-gallery" class="cart-gallery" aria-live="polite">
     <div class="gallery-header">
         <h2>Saved Chords (<span id="cart-count">0</span>)</h2>
@@ -72,7 +65,7 @@
       <form id="voicing-form">
         <fieldset class="group">
           <legend>1. Select Intervals</legend>
-          <p class="hint">Choose up to 6 unique intervals (unordered). Order and voicing are applied later.</p>
+          <p class="hint">Choose up to 6 intervals. Order and voicing are applied later.</p>
           <div class="preset-selector">
             <label for="interval-preset">Presets:</label>
             <select id="interval-preset" class="preset-dropdown">
@@ -84,13 +77,13 @@
 
         <fieldset class="group">
           <legend>2. Select Key (optional)</legend>
-          <p class="hint">Choose a key to calculate chord position and show note names for each interval.</p>
+          <p class="hint">Choose a key to calculate chord position.</p>
           <div id="key-box" class="selectors"></div>
         </fieldset>
 
         <fieldset class="group">
           <legend>3. Interval Labels</legend>
-          <p class="hint">Optional: Set a short label (max 3 chars) and choose whether to color each selected interval.</p>
+          <p class="hint">Optional: Set a a character label or color.</p>
           <div id="interval-label-options" class="interval-label-options"></div>
         </fieldset>
 
@@ -109,7 +102,7 @@
           <legend>6. Filter chords</legend>
           
           <div class="filter-subsection">
-            <p class="hint">Filter chords that are physically playable (fret span ≤ 5, unique frets ≤ 4).</p>
+            <p class="hint">Filter chords that are physically playable.</p>
             <label class="check-wrap">
               <input type="checkbox" id="filter-doable-checkbox" checked />
               <span>Show only doable chords</span>

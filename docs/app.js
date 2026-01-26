@@ -1549,8 +1549,8 @@ function renderCartGallery() {
     item.innerHTML = `
       <div class="cart-item-header">
         <div class="cart-item-actions">
-          <button type="button" class="reorder-btn up-btn" ${index === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
-          <button type="button" class="reorder-btn down-btn" ${index === entries.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+          <button type="button" class="reorder-btn up-btn" ${index === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
+          <button type="button" class="reorder-btn down-btn" ${index === entries.length - 1 ? 'disabled' : ''} aria-label="Move down">▼</button>
           <button type="button" class="delete-btn" aria-label="Delete chord">✕</button>
         </div>
       </div>
