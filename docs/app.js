@@ -67,6 +67,7 @@ const builderPanel = /** @type {HTMLElement|null} */(document.getElementById('bu
 const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('open-builder'));
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
+const saveAllBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('save-all-btn'));
 
 if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox || !lowIntervalBox || !highIntervalBox || !lowIntervalFilter || !highIntervalFilter) {
   throw new Error('Required DOM elements not found');
@@ -1025,8 +1026,21 @@ function renderHighIntervalFilters() {
 }
 
 
+/**
+ * @typedef {Object} ChordResult
+ * @property {import('../lib/chord.js').Chord} chord - The chord fingering
+ * @property {number | undefined} position - The position on the fretboard
+ * @property {HTMLInputElement} titleInput - The title input element
+ * @property {number} frets - Number of frets to display
+ */
+
+/** @type {ChordResult[]} */
+let currentResults = [];
+
 function clearResults() {
   results.innerHTML = '';
+  currentResults = [];
+  if (saveAllBtn) saveAllBtn.disabled = true;
 }
 
 
@@ -1314,6 +1328,9 @@ function generateChords() {
       setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
     }
     pushState();
+    
+    // Enable "Save All" button now that we have results
+    if (saveAllBtn) saveAllBtn.disabled = false;
   }
 }
 
@@ -1356,6 +1373,14 @@ function renderChord(chord, index, voicingName, position) {
   const saveControls = document.createElement('div');
   saveControls.className = 'chord-save-controls';
   
+  // Add title input
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.maxLength = 10;
+  titleInput.className = 'chord-name-input';
+  titleInput.placeholder = 'Title';
+  titleInput.setAttribute('aria-label', `Title for chord ${index + 1}`);
+  
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'chord-save-btn';
@@ -1372,7 +1397,7 @@ function renderChord(chord, index, voicingName, position) {
       frets,
       position,
       created: Date.now(),
-      title: '',
+      title: titleInput.value.trim(),
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -1391,6 +1416,7 @@ function renderChord(chord, index, voicingName, position) {
     }, 100);
   });
   
+  saveControls.appendChild(titleInput);
   saveControls.appendChild(saveBtn);
   holder.appendChild(saveControls);
   
@@ -1405,6 +1431,9 @@ function renderChord(chord, index, voicingName, position) {
       .chord({ fingers: chord, barres: [], title: '', position })
       .configure(config)
       .draw();
+    
+    // Track this chord for "Save All" functionality
+    currentResults.push({ chord, position, titleInput, frets });
 }
 
 // Keep submit handler for manual triggers (backward compatibility / URL state load)
@@ -1441,6 +1470,42 @@ filterDoableCheckbox.addEventListener('change', () => {
   pushState();
   tryAutoGenerate();
 });
+
+// Save All button click handler
+if (saveAllBtn) {
+  saveAllBtn.addEventListener('click', () => {
+    // Disable button temporarily to prevent double-clicks
+    saveAllBtn.disabled = true;
+    
+    const entries = loadCart();
+    let savedCount = 0;
+    
+    for (const item of currentResults) {
+      const newEntry = { 
+        id: String(Date.now()) + Math.random().toString(36).slice(2), 
+        fingers: item.chord,
+        barres: [],
+        frets: item.frets,
+        position: item.position,
+        created: Date.now(),
+        title: item.titleInput.value.trim(),
+      };
+      entries.push(newEntry);
+      savedCount++;
+    }
+    
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    
+    setMessage(`Saved ${savedCount} chord${savedCount !== 1 ? 's' : ''}.`);
+    
+    // Re-enable button after a short delay
+    setTimeout(() => {
+      saveAllBtn.disabled = false;
+    }, 500);
+  });
+}
 
 // Initial render
 renderPresetDropdown();

@@ -9266,6 +9266,10 @@ var addEmptyChordBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("add-empty-chord")
 );
+var saveAllBtn = (
+  /** @type {HTMLButtonElement|null} */
+  document.getElementById("save-all-btn")
+);
 if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox || !lowIntervalBox || !highIntervalBox || !lowIntervalFilter || !highIntervalFilter) {
   throw new Error("Required DOM elements not found");
 }
@@ -9927,8 +9931,11 @@ function renderHighIntervalFilters() {
     highIntervalBox.appendChild(label);
   }
 }
+var currentResults = [];
 function clearResults() {
   results.innerHTML = "";
+  currentResults = [];
+  if (saveAllBtn) saveAllBtn.disabled = true;
 }
 function setMessage(text, type = "") {
   message.textContent = text;
@@ -10107,6 +10114,7 @@ function generateChords() {
       setMessage(`${count} chord${count > 1 ? "s" : ""} rendered.`);
     }
     pushState();
+    if (saveAllBtn) saveAllBtn.disabled = false;
   }
 }
 function tryAutoGenerate() {
@@ -10132,6 +10140,12 @@ function renderChord(chord, index, voicingName, position2) {
   holder.appendChild(svgContainer);
   const saveControls = document.createElement("div");
   saveControls.className = "chord-save-controls";
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.maxLength = 10;
+  titleInput.className = "chord-name-input";
+  titleInput.placeholder = "Title";
+  titleInput.setAttribute("aria-label", `Title for chord ${index + 1}`);
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
   saveBtn.className = "chord-save-btn";
@@ -10147,7 +10161,7 @@ function renderChord(chord, index, voicingName, position2) {
       frets: frets2,
       position: position2,
       created: Date.now(),
-      title: ""
+      title: titleInput.value.trim()
     };
     entries.push(newEntry);
     saveCart(entries);
@@ -10162,6 +10176,7 @@ function renderChord(chord, index, voicingName, position2) {
       }
     }, 100);
   });
+  saveControls.appendChild(titleInput);
   saveControls.appendChild(saveBtn);
   holder.appendChild(saveControls);
   results.appendChild(holder);
@@ -10169,6 +10184,7 @@ function renderChord(chord, index, voicingName, position2) {
   const noPosition = position2 === void 0 || position2 === null;
   const config = { frets, noPosition, fingerSize: 0.75, fingerTextSize: 20 };
   new SVGuitarChord(svgContainer).chord({ fingers: chord, barres: [], title: "", position: position2 }).configure(config).draw();
+  currentResults.push({ chord, position: position2, titleInput, frets });
 }
 form.addEventListener("submit", (e2) => {
   e2.preventDefault();
@@ -10202,6 +10218,33 @@ filterDoableCheckbox.addEventListener("change", () => {
   pushState();
   tryAutoGenerate();
 });
+if (saveAllBtn) {
+  saveAllBtn.addEventListener("click", () => {
+    saveAllBtn.disabled = true;
+    const entries = loadCart();
+    let savedCount = 0;
+    for (const item of currentResults) {
+      const newEntry = {
+        id: String(Date.now()) + Math.random().toString(36).slice(2),
+        fingers: item.chord,
+        barres: [],
+        frets: item.frets,
+        position: item.position,
+        created: Date.now(),
+        title: item.titleInput.value.trim()
+      };
+      entries.push(newEntry);
+      savedCount++;
+    }
+    saveCart(entries);
+    updateCartCount();
+    renderCartGallery();
+    setMessage(`Saved ${savedCount} chord${savedCount !== 1 ? "s" : ""}.`);
+    setTimeout(() => {
+      saveAllBtn.disabled = false;
+    }, 500);
+  });
+}
 renderPresetDropdown();
 renderIntervals();
 renderKeys();
