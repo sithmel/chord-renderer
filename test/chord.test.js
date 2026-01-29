@@ -123,6 +123,7 @@ describe("generateInversions", () => {
 
 describe("intervalDistanceFromNotes", () => {
   test("should calculate correct distances between consecutive intervals", () => {
+    /** @type {Array<number | null>} */
     const notes = [
       Interval.UNISON,
       Interval.MAJOR_THIRD,
@@ -163,7 +164,8 @@ describe("notesToChord", () => {
     // finger numbers should be 6,5,4,3 (descending)
     assert.deepEqual(chord.map(p => p[0]), [6,5,4,3]);
     // frets normalized to start at 1
-    const minFret = Math.min(...chord.map(p => p[1]));
+    const frets = chord.map(p => /** @type {number} */ (p[1]));
+    const minFret = Math.min(...frets);
     assert.equal(minFret, 1);
   });
 
@@ -199,6 +201,7 @@ describe("notesToChord", () => {
   test("should attach custom finger options via callback", () => {
     const notes = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH];
     const stringSet = [true, true, true, false, false, false];
+    /** @type {Record<number, string>} */
     const labelMap = {
       [Interval.UNISON]: 'R',
       [Interval.MAJOR_THIRD]: '3',
@@ -207,7 +210,7 @@ describe("notesToChord", () => {
     const chord = notesToChord([...notes], [...stringSet], (interval) => ({ text: labelMap[interval ?? -1] }));
     assert.equal(chord.length, 3);
     // Implementation passes original notes mutated via shift; we can't rely on mapping, only presence of option keys
-    assert.ok(chord.every(p => p[2] && 'text' in p[2]));
+    assert.ok(chord.every(p => p[2] && typeof p[2] === 'object' && 'text' in p[2]));
   });
 });
 
@@ -345,6 +348,84 @@ describe("VOICING", () => {
       Interval.MAJOR_SEVENTH,
     ]);
   });
+
+  test("DROP_3_AND_2 should apply drop3 then drop2", () => {
+    const res = VOICING.DROP_3_AND_2(baseIntervals);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+    ]);
+  });
+});
+
+describe("Inversions and Voicings Coverage", () => {
+  /**
+   * Generate all permutations of an array
+   * @template T
+   * @param {Array<T>} arr 
+   * @returns {Array<Array<T>>}
+   */
+  function getAllPermutations(arr) {
+    if (arr.length <= 1) return [arr];
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      const current = arr[i];
+      const remaining = [...arr.slice(0, i), ...arr.slice(i + 1)];
+      const perms = getAllPermutations(remaining);
+      for (const perm of perms) {
+        result.push([current, ...perm]);
+      }
+    }
+    return result;
+  }
+
+  test("all voicings of all inversions produce valid permutations", () => {
+    const baseIntervals = [
+      Interval.UNISON, 
+      Interval.MAJOR_THIRD, 
+      Interval.PERFECT_FIFTH, 
+      Interval.MAJOR_SEVENTH
+    ];
+    
+    // Step 1: Generate all permutations (4! = 24) and store in Set
+    const allPermutations = getAllPermutations(baseIntervals);
+    const permutationSet = new Set(allPermutations.map(p => JSON.stringify(p)));
+    assert.equal(permutationSet.size, 24);
+    
+    // Step 2: Get all voicing functions
+    const voicings = [
+      VOICING.CLOSE,
+      VOICING.DROP_2,
+      VOICING.DROP_3,
+      VOICING.DROP_2_AND_3,
+      VOICING.DROP_2_AND_4,
+      VOICING.DROP_3_AND_2,
+    ];
+    
+    // Step 3: For each voicing, get all inversions and verify they are permutations
+    const generatedSet = new Set();
+    for (const voicing of voicings) {
+      const inversions = [...getAllInversions([...baseIntervals], voicing)];
+      
+      for (const inversion of inversions) {
+        const key = JSON.stringify(inversion);
+        // Each inversion must be a valid permutation
+        assert.ok(
+          permutationSet.has(key),
+          `Inversion ${key} should be a permutation of original intervals`
+        );
+        // Track unique results (some may appear in multiple voicing combinations)
+        generatedSet.add(key);
+      }
+    }
+    
+    // Step 4: Verify we generated all 24 unique permutations
+    // With the current voicing system, all permutations are covered
+    assert.equal(generatedSet.size, 24, 
+      'Voicings and inversions should produce 24 unique permutations (all possible)');
+  });
 });
 
 describe("closeChordPosition", () => {
@@ -397,8 +478,9 @@ describe("closeChordPosition", () => {
     ];
     closeChordPosition(chord);
     assert.deepEqual(chord.map(c => c[1]), [5, 8, 6]);
-    const max = Math.max(...chord.map(c => c[1]));
-    const min = Math.min(...chord.map(c => c[1]));
+    const frets = chord.map(c => /** @type {number} */ (c[1]));
+    const max = Math.max(...frets);
+    const min = Math.min(...frets);
     // Ensure overall span is <= 12 (should actually be 3 here)
     assert.ok(max - min <= 12);
   });

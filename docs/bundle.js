@@ -125,9 +125,10 @@ function drop2and4(intervals) {
   moveItem(clone, -3, 0);
   return clone;
 }
-function swapLastTwo(intervals) {
+function drop3and2(intervals) {
   const clone = [...intervals];
-  moveItem(clone, -1, -2);
+  moveItem(clone, -3, 0);
+  moveItem(clone, -2, 0);
   return clone;
 }
 var VOICING = {
@@ -136,7 +137,7 @@ var VOICING = {
   DROP_3: drop3,
   DROP_2_AND_3: drop2and3,
   DROP_2_AND_4: drop2and4,
-  SWAP_LAST_TWO: swapLastTwo
+  DROP_3_AND_2: drop3and2
 };
 function* getStringSets(numberOfNNotes, stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
   for (let i2 = 0; i2 < Math.pow(2, stringIntervals.length); i2++) {

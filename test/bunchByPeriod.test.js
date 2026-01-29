@@ -31,7 +31,8 @@ describe('bunchByPeriod', () => {
     assert.strictEqual(result[0].item, 'C');
     assert.strictEqual(result[1].item, 'G');
     // Positions should be bunched together
-    const spread = Math.abs(result[1].position - result[0].position);
+    const positions = result.map(r => /** @type {number} */ (r.position));
+    const spread = Math.abs(positions[1] - positions[0]);
     assert.ok(spread <= 7); // Should be within 7 semitones
   });
 
@@ -72,7 +73,7 @@ describe('bunchByPeriod', () => {
     
     assert.strictEqual(result.length, 3);
     // All should have the same remainder mod 12, so should be bunched tightly
-    const positions = result.map(r => r.position);
+    const positions = result.map(r => /** @type {number} */ (r.position));
     const min = Math.min(...positions);
     const max = Math.max(...positions);
     // Since all have same remainder, they should be bunched within 1 octave but optimally
@@ -92,7 +93,7 @@ describe('bunchByPeriod', () => {
     const result = bunchByPeriod(input);
     
     assert.strictEqual(result.length, 4);
-    const positions = result.map(r => r.position);
+    const positions = result.map(r => /** @type {number} */ (r.position));
     const min = Math.min(...positions);
     const max = Math.max(...positions);
     const spread = max - min;
@@ -121,7 +122,7 @@ describe('bunchByPeriod', () => {
     assert.strictEqual(result[5].item, 'note6');
     
     // Check that the spread is minimized
-    const positions = result.map(r => r.position);
+    const positions = result.map(r => /** @type {number} */ (r.position));
     const min = Math.min(...positions);
     const max = Math.max(...positions);
     const spread = max - min;
@@ -153,7 +154,7 @@ describe('bunchByPeriod', () => {
     
     assert.strictEqual(result.length, 4);
     // All positions should remain the same since they're evenly distributed
-    const positions = result.map(r => r.position);
+    const positions = result.map(r => /** @type {number} */ (r.position));
     const spread = Math.max(...positions) - Math.min(...positions);
     assert.strictEqual(spread, 9);
   });
@@ -168,7 +169,7 @@ describe('bunchByPeriod', () => {
     const result = bunchByPeriod(input);
     
     assert.strictEqual(result.length, 4);
-    const positions = result.map(r => r.position);
+    const positions = result.map(r => /** @type {number} */ (r.position));
     const min = Math.min(...positions);
     const max = Math.max(...positions);
     // Should bunch the 0,1,2 together with the 8, avoiding the large gap
