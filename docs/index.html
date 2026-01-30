@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <title>Chord Generator</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Generate and save guitar chord diagrams with customizable voicings and string sets" />
+  <meta name="theme-color" content="#1B3A5F" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
@@ -196,5 +200,40 @@
   <footer class="site-footer">
     <p class="meta">© 2025 <span class="author">Maurizio Lupo</span> · <a href="https://github.com/sithmel/chord-renderer" target="_blank" rel="noopener">GitHub</a></p>
   </footer>
+  
+  <script>
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then((registration) => {
+            console.log('Service Worker registered successfully:', registration.scope);
+            
+            // Check for updates periodically (every 60 seconds when page is active)
+            setInterval(() => {
+              registration.update();
+            }, 60000);
+            
+            // Handle updates - silent update on next load
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New version available - will be used on next page load
+                    console.log('New version available - will update on next page load');
+                  }
+                });
+              }
+            });
+          })
+          .catch((error) => {
+            console.error('Service Worker registration failed:', error);
+          });
+      });
+    } else {
+      console.log('Service Workers are not supported in this browser');
+    }
+  </script>
 </body>
 </html>

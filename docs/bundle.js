@@ -9434,6 +9434,10 @@ var INTERVAL_PRESETS = [
   { name: "Minor triad", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH"], notation: "1 \u266D3 5" },
   { name: "Diminished triad", intervals: ["UNISON", "MINOR_THIRD", "TRITONE"], notation: "1 \u266D3 \u266D5" },
   { name: "Augmented triad", intervals: ["UNISON", "MAJOR_THIRD", "MINOR_SIXTH"], notation: "1 3 \u266F5" },
+  // Shell chords
+  { name: "Major shell", intervals: ["UNISON", "MAJOR_THIRD", "MAJOR_SEVENTH"], notation: "1 3 7" },
+  { name: "Dominant shell", intervals: ["UNISON", "MAJOR_THIRD", "MINOR_SEVENTH"], notation: "1 3 \u266D7" },
+  { name: "Minor shell", intervals: ["UNISON", "MINOR_THIRD", "MINOR_SEVENTH"], notation: "1 \u266D3 \u266D7" },
   // Seventh chords
   { name: "Major seventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH"], notation: "1 3 5 7" },
   { name: "Minor seventh", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH"], notation: "1 \u266D3 5 \u266D7" },
@@ -9442,17 +9446,7 @@ var INTERVAL_PRESETS = [
   { name: "Diminished seventh", intervals: ["UNISON", "MINOR_THIRD", "TRITONE", "MAJOR_SIXTH"], notation: "1 \u266D3 \u266D5 \u266D\u266D7" },
   // Sixth chords
   { name: "Major sixth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SIXTH"], notation: "1 3 5 6" },
-  { name: "Minor sixth", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MAJOR_SIXTH"], notation: "1 \u266D3 5 6" },
-  // Jazz/Extended chords
-  { name: "Major ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "NINTH"], notation: "1 3 5 7 9" },
-  { name: "Minor ninth", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "NINTH"], notation: "1 \u266D3 5 \u266D7 9" },
-  { name: "Dominant ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "NINTH"], notation: "1 3 5 \u266D7 9" },
-  { name: "Dominant sharp ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "SHARP_NINTH"], notation: "1 3 5 \u266D7 \u266F9" },
-  { name: "Dominant flat ninth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "FLAT_NINTH"], notation: "1 3 5 \u266D7 \u266D9" },
-  { name: "Major eleventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "ELEVENTH"], notation: "1 3 5 7 11" },
-  { name: "Dominant sharp eleventh", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "SHARP_ELEVENTH"], notation: "1 3 5 \u266D7 \u266F11" },
-  { name: "Major thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MAJOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 7 13" },
-  { name: "Dominant thirteenth", intervals: ["UNISON", "MAJOR_THIRD", "PERFECT_FIFTH", "MINOR_SEVENTH", "THIRTEENTH"], notation: "1 3 5 \u266D7 13" }
+  { name: "Minor sixth", intervals: ["UNISON", "MINOR_THIRD", "PERFECT_FIFTH", "MAJOR_SIXTH"], notation: "1 \u266D3 5 6" }
 ];
 var STRING_OPEN_NOTES = [4, 9, 2, 7, 11, 4];
 var AVAILABLE_KEYS = [
@@ -9664,6 +9658,11 @@ function renderIntervals() {
         selectedIntervals.delete(name);
         setDefaultLowestIntervalColor();
       }
+      filterDoableCheckbox.checked = true;
+      selectedLowIntervals.clear();
+      selectedHighIntervals.clear();
+      selectedVoicings.clear();
+      selectedStringSets.clear();
       updateStringSets();
       renderVoicings();
       renderIntervalLabelOptions();
@@ -9734,6 +9733,11 @@ function applyPreset(presetIndex) {
     }
   }
   setDefaultLowestIntervalColor();
+  filterDoableCheckbox.checked = true;
+  selectedLowIntervals.clear();
+  selectedHighIntervals.clear();
+  selectedVoicings.clear();
+  selectedStringSets.clear();
   renderIntervals();
   updateStringSets();
   renderVoicings();
