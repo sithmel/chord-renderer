@@ -103,6 +103,10 @@ export type VOICING = Function;
 export const VOICING: {
     [x: string]: Function;
 };
+export const ALLOWED_VOICING_2: string[];
+export const ALLOWED_VOICING_3: string[];
+export const ALLOWED_VOICING_4: string[];
+export const ALLOWED_VOICING_5: string[];
 /**
  * - 1 to 6 (1 is high E)
  */

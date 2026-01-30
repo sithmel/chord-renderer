@@ -364,6 +364,242 @@ describe("VOICING", () => {
   });
 });
 
+describe("VOICING with 5-interval arrays", () => {
+  const baseIntervals5 = [
+    Interval.UNISON,
+    Interval.MAJOR_THIRD,
+    Interval.PERFECT_FIFTH,
+    Interval.MAJOR_SEVENTH,
+    Interval.NINTH
+  ];
+
+  test("CLOSE should return a shallow copy of intervals", () => {
+    const res = VOICING.CLOSE(baseIntervals5);
+    assert.deepEqual(res, baseIntervals5);
+    assert.notStrictEqual(res, baseIntervals5);
+  });
+
+  test("DROP_2 should move the 2nd from last to front", () => {
+    const res = VOICING.DROP_2(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_SEVENTH,
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3 should move the 3rd from last to front", () => {
+    const res = VOICING.DROP_3(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_3 should apply drop2 then drop3", () => {
+    const res = VOICING.DROP_2_AND_3(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3_AND_2 should apply drop3 then drop2", () => {
+    const res = VOICING.DROP_3_AND_2(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_5 should move the 2nd and 5th from last to front", () => {
+    const res = VOICING.DROP_2_AND_5(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3_AND_4 should move the 3rd and 4th from last to front", () => {
+    const res = VOICING.DROP_3_AND_4(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3_AND_5 should move the 3rd and 5th from last to front", () => {
+    const res = VOICING.DROP_3_AND_5(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.UNISON,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_4_AND_3 should move the 4th and 3rd from last to front", () => {
+    const res = VOICING.DROP_4_AND_3(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_4_AND_2 should move the 4th and 2nd from last to front", () => {
+    const res = VOICING.DROP_4_AND_2(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_SEVENTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.PERFECT_FIFTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_3_AND_4 should move the 2nd, 3rd, and 4th from last to front", () => {
+    const res = VOICING.DROP_2_AND_3_AND_4(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
+      Interval.UNISON,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_3_AND_5 should move the 2nd, 3rd, and 5th from last to front", () => {
+    const res = VOICING.DROP_2_AND_3_AND_5(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.UNISON,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
+      Interval.MAJOR_THIRD,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_4_AND_3 should move the 2nd, 4th, and 3rd from last to front", () => {
+    const res = VOICING.DROP_2_AND_4_AND_3(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
+      Interval.UNISON,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_4_AND_5 should move the 2nd, 4th, and 5th from last to front", () => {
+    const res = VOICING.DROP_2_AND_4_AND_5(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.UNISON,
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_5_AND_3 should move the 2nd, 5th, and 3rd from last to front", () => {
+    const res = VOICING.DROP_2_AND_5_AND_3(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+      Interval.MAJOR_THIRD,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_2_AND_5_AND_4 should move the 2nd, 5th, and 4th from last to front", () => {
+    const res = VOICING.DROP_2_AND_5_AND_4(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3_AND_2_AND_4 should move the 3rd, 2nd, and 4th from last to front", () => {
+    const res = VOICING.DROP_3_AND_2_AND_4(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_THIRD,
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3_AND_2_AND_5 should move the 3rd, 2nd, and 5th from last to front", () => {
+    const res = VOICING.DROP_3_AND_2_AND_5(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.UNISON,
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_3_AND_4_AND_2 should move the 3rd, 4th, and 2nd from last to front", () => {
+    const res = VOICING.DROP_3_AND_4_AND_2(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_SEVENTH,
+      Interval.MAJOR_THIRD,
+      Interval.PERFECT_FIFTH,
+      Interval.UNISON,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_4_AND_2_AND_3 should move the 4th, 2nd, and 3rd from last to front", () => {
+    const res = VOICING.DROP_4_AND_2_AND_3(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_SEVENTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.NINTH,
+    ]);
+  });
+
+  test("DROP_4_AND_3_AND_2 should move the 4th, 3rd, and 2nd from last to front", () => {
+    const res = VOICING.DROP_4_AND_3_AND_2(baseIntervals5);
+    assert.deepEqual(res, [
+      Interval.MAJOR_SEVENTH,
+      Interval.PERFECT_FIFTH,
+      Interval.MAJOR_THIRD,
+      Interval.UNISON,
+      Interval.NINTH,
+    ]);
+  });
+});
+
 describe("Inversions and Voicings Coverage", () => {
 
   /**
@@ -443,10 +679,10 @@ describe("Inversions and Voicings Coverage", () => {
         
     const generatedSet = getAllVoicings(baseIntervals, ALLOWED_VOICING_5);
 
-    // Verify we generated all 24 unique permutations
-    // With the current voicing system, all permutations are covered
+    // Verify we generated all unique permutations from valid voicings
+    // 24 voicings × 5 inversions each = 120 unique permutations
     assert.equal(generatedSet.size, 120, 
-      'Voicings and inversions should produce 120 unique permutations (all possible)');
+      'Voicings and inversions should produce 120 unique permutations from valid voicings');
   });
 });
 

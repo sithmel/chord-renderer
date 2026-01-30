@@ -100,52 +100,72 @@ var GUITAR_STANDARD_TUNING_INTERVALS = [
   4,
   5
 ];
-function moveItem(arr, from2, to2) {
-  arr.splice(to2 < 0 ? arr.length + to2 : to2, 0, arr.splice(from2 < 0 ? arr.length + from2 : from2, 1)[0]);
-}
-function drop2(intervals) {
-  const clone = [...intervals];
-  moveItem(clone, -2, 0);
-  return clone;
-}
-function drop3(intervals) {
-  const clone = [...intervals];
-  moveItem(clone, -3, 0);
-  return clone;
-}
-function drop2and3(intervals) {
-  const clone = [...intervals];
-  moveItem(clone, -2, 0);
-  moveItem(clone, -2, 0);
-  return clone;
-}
-function drop2and4(intervals) {
-  const clone = [...intervals];
-  moveItem(clone, -2, 0);
-  moveItem(clone, -3, 0);
-  return clone;
-}
-function drop3and2(intervals) {
-  const clone = [...intervals];
-  moveItem(clone, -3, 0);
-  moveItem(clone, -2, 0);
-  return clone;
-}
-function close(intervals) {
-  return [...intervals];
+function drop(...intervalsToDrop) {
+  return (intervals) => {
+    const indicesToDrop = intervalsToDrop.map((num) => intervals.length - num);
+    const indicesToDropSet = new Set(indicesToDrop);
+    const toDrop = [];
+    for (const idx of indicesToDrop) {
+      toDrop.push(intervals[idx]);
+    }
+    return [...toDrop.reverse(), ...intervals.filter((_2, idx) => !indicesToDropSet.has(idx))];
+  };
 }
 var VOICING = {
-  CLOSE: close,
-  DROP_2: drop2,
-  DROP_3: drop3,
-  DROP_2_AND_3: drop2and3,
-  DROP_2_AND_4: drop2and4,
-  DROP_3_AND_2: drop3and2
+  CLOSE: drop(),
+  DROP_2: drop(2),
+  DROP_3: drop(3),
+  DROP_4: drop(4),
+  DROP_2_AND_3: drop(2, 3),
+  DROP_2_AND_4: drop(2, 4),
+  DROP_3_AND_2: drop(3, 2),
+  DROP_2_AND_5: drop(2, 5),
+  DROP_3_AND_4: drop(3, 4),
+  DROP_3_AND_5: drop(3, 5),
+  DROP_4_AND_3: drop(4, 3),
+  DROP_4_AND_2: drop(4, 2),
+  DROP_2_AND_3_AND_4: drop(2, 3, 4),
+  DROP_2_AND_3_AND_5: drop(2, 3, 5),
+  DROP_2_AND_4_AND_3: drop(2, 4, 3),
+  DROP_2_AND_4_AND_5: drop(2, 4, 5),
+  DROP_2_AND_5_AND_3: drop(2, 5, 3),
+  DROP_2_AND_5_AND_4: drop(2, 5, 4),
+  DROP_3_AND_2_AND_4: drop(3, 2, 4),
+  DROP_3_AND_2_AND_5: drop(3, 2, 5),
+  DROP_3_AND_4_AND_2: drop(3, 4, 2),
+  DROP_3_AND_5_AND_2: drop(3, 5, 2),
+  DROP_4_AND_2_AND_3: drop(4, 2, 3),
+  DROP_4_AND_3_AND_2: drop(4, 3, 2)
 };
 var ALLOWED_VOICING_2 = ["CLOSE"];
 var ALLOWED_VOICING_3 = ["CLOSE", "DROP_2"];
 var ALLOWED_VOICING_4 = ["CLOSE", "DROP_2", "DROP_3", "DROP_2_AND_3", "DROP_2_AND_4", "DROP_3_AND_2"];
-var ALLOWED_VOICING_5 = ["CLOSE", "DROP_2", "DROP_3", "DROP_2_AND_3", "DROP_2_AND_4", "DROP_3_AND_2"];
+var ALLOWED_VOICING_5 = [
+  "CLOSE",
+  "DROP_2",
+  "DROP_3",
+  "DROP_4",
+  "DROP_2_AND_3",
+  "DROP_2_AND_4",
+  "DROP_2_AND_5",
+  "DROP_2_AND_3_AND_4",
+  "DROP_2_AND_3_AND_5",
+  "DROP_2_AND_4_AND_3",
+  "DROP_2_AND_4_AND_5",
+  "DROP_2_AND_5_AND_3",
+  "DROP_2_AND_5_AND_4",
+  "DROP_3_AND_2",
+  "DROP_3_AND_4",
+  "DROP_3_AND_5",
+  "DROP_3_AND_2_AND_4",
+  "DROP_3_AND_2_AND_5",
+  "DROP_3_AND_4_AND_2",
+  "DROP_3_AND_5_AND_2",
+  "DROP_4_AND_3",
+  "DROP_4_AND_2",
+  "DROP_4_AND_2_AND_3",
+  "DROP_4_AND_3_AND_2"
+];
 function* getStringSets(numberOfNNotes, stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
   for (let i2 = 0; i2 < Math.pow(2, stringIntervals.length); i2++) {
     let numberOfStrings = 0;
