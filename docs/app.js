@@ -352,7 +352,7 @@ function applyState(state) {
   const intervals = Array.isArray(s.i) ? s.i : [];
   selectedIntervals.clear();
   for (const nameOrValue of intervals) {
-    if (selectedIntervals.size >= 6) break; // enforce limit
+    if (selectedIntervals.size >= 5) break; // enforce limit
     
     // Backward compatibility: if it's a number, convert to interval name
     if (typeof nameOrValue === 'number') {
@@ -468,9 +468,9 @@ function renderIntervals() {
     input.checked = selectedIntervals.has(name);
     input.addEventListener('change', () => {
       if (input.checked) {
-        if (selectedIntervals.size >= 6) {
+        if (selectedIntervals.size >= 5) {
           input.checked = false;
-          setMessage('Max 6 intervals.', 'error');
+          setMessage('Max 5 intervals.', 'error');
           return;
         }
         selectedIntervals.set(name, val);
@@ -1319,12 +1319,12 @@ function generateChords() {
     if (chordShapes.length === 0) {
       setMessage('No chords produced (unexpected).', 'error');
     } else {
-      setMessage('No doable chords found. Try unchecking the filter.', 'error');
+      setMessage('No valid chords found. Try unchecking the filter.', 'error');
     }
   } else {
     const totalCount = chordShapes.length;
     if (filterDoableCheckbox.checked && count < totalCount) {
-      setMessage(`${count} chord${count > 1 ? 's' : ''} rendered (${count} doable out of ${totalCount} total).`);
+      setMessage(`${count} chord${count > 1 ? 's' : ''} rendered (${count} valid out of ${totalCount} total).`);
     } else {
       setMessage(`${count} chord${count > 1 ? 's' : ''} rendered.`);
     }
