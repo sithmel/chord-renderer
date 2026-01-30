@@ -1,7 +1,7 @@
 //@ts-check
 // NEW LAYOUT: Main page displays saved individual chords gallery with inline previews.
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
-import { Interval, VOICING, getStringSets, getAllInversions, notesToChord, Interval_labels, EXTENDED_INTERVAL_LABELS } from '../lib/chord.js';
+import { Interval, VOICING, ALLOWED_VOICING_2, ALLOWED_VOICING_3, ALLOWED_VOICING_4, ALLOWED_VOICING_5, getStringSets, getAllInversions, notesToChord, Interval_labels, EXTENDED_INTERVAL_LABELS } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
 import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings, splitStringInRectangles, stringToFingering } from 'text-guitar-chart';
 import isChordDoable from '../lib/isChordDoable.js';
@@ -687,9 +687,10 @@ function updateStringSets() {
  * @returns {VoicingName[]}
  */
 function getAllowedVoicingNames(count) {
-  if (count === 2) return ['CLOSE'];
-  if (count === 3) return ['CLOSE', 'DROP_2'];
-  if (count >= 4) return Object.keys(VOICING);
+  if (count === 2) return ALLOWED_VOICING_2;
+  if (count === 3) return ALLOWED_VOICING_3;
+  if (count === 4) return ALLOWED_VOICING_4;
+  if (count === 5) return ALLOWED_VOICING_5;
   return []; // <2 notes
 }
 

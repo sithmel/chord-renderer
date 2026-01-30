@@ -131,14 +131,21 @@ function drop3and2(intervals) {
   moveItem(clone, -2, 0);
   return clone;
 }
+function close(intervals) {
+  return [...intervals];
+}
 var VOICING = {
-  CLOSE: (intervals) => [...intervals],
+  CLOSE: close,
   DROP_2: drop2,
   DROP_3: drop3,
   DROP_2_AND_3: drop2and3,
   DROP_2_AND_4: drop2and4,
   DROP_3_AND_2: drop3and2
 };
+var ALLOWED_VOICING_2 = ["CLOSE"];
+var ALLOWED_VOICING_3 = ["CLOSE", "DROP_2"];
+var ALLOWED_VOICING_4 = ["CLOSE", "DROP_2", "DROP_3", "DROP_2_AND_3", "DROP_2_AND_4", "DROP_3_AND_2"];
+var ALLOWED_VOICING_5 = ["CLOSE", "DROP_2", "DROP_3", "DROP_2_AND_3", "DROP_2_AND_4", "DROP_3_AND_2"];
 function* getStringSets(numberOfNNotes, stringIntervals = GUITAR_STANDARD_TUNING_INTERVALS) {
   for (let i2 = 0; i2 < Math.pow(2, stringIntervals.length); i2++) {
     let numberOfStrings = 0;
@@ -9661,9 +9668,10 @@ function updateStringSets() {
   }
 }
 function getAllowedVoicingNames(count) {
-  if (count === 2) return ["CLOSE"];
-  if (count === 3) return ["CLOSE", "DROP_2"];
-  if (count >= 4) return Object.keys(VOICING);
+  if (count === 2) return ALLOWED_VOICING_2;
+  if (count === 3) return ALLOWED_VOICING_3;
+  if (count === 4) return ALLOWED_VOICING_4;
+  if (count === 5) return ALLOWED_VOICING_5;
   return [];
 }
 function renderVoicings() {

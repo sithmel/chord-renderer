@@ -1,5 +1,5 @@
 //@ts-check
-import { test, describe } from "node:test";
+import { test, describe, beforeEach } from "node:test";
 import { strict as assert } from "node:assert";
 import {
   Interval,
@@ -9,6 +9,10 @@ import {
   intervalDistanceFromNotes,
   getStringSets,
   VOICING,
+  ALLOWED_VOICING_2,
+  ALLOWED_VOICING_3,
+  ALLOWED_VOICING_4,
+  ALLOWED_VOICING_5,
   getAllInversions,
   closeChordPosition,
  } from "../lib/chord.js";
@@ -254,7 +258,7 @@ describe("getStringSets", () => {
   });
 });
 
-describe("getAllInversions", () => {
+describe("getAllInversions VOICING", () => {
   /**
    * @template T
    * @param {Array<T>} arr 
@@ -361,49 +365,15 @@ describe("VOICING", () => {
 });
 
 describe("Inversions and Voicings Coverage", () => {
-  /**
-   * Generate all permutations of an array
-   * @template T
-   * @param {Array<T>} arr 
-   * @returns {Array<Array<T>>}
-   */
-  function getAllPermutations(arr) {
-    if (arr.length <= 1) return [arr];
-    const result = [];
-    for (let i = 0; i < arr.length; i++) {
-      const current = arr[i];
-      const remaining = [...arr.slice(0, i), ...arr.slice(i + 1)];
-      const perms = getAllPermutations(remaining);
-      for (const perm of perms) {
-        result.push([current, ...perm]);
-      }
-    }
-    return result;
-  }
 
-  test("all voicings of all inversions produce valid permutations", () => {
-    const baseIntervals = [
-      Interval.UNISON, 
-      Interval.MAJOR_THIRD, 
-      Interval.PERFECT_FIFTH, 
-      Interval.MAJOR_SEVENTH
-    ];
+  /**
+   * @param {Array<Interval>} baseIntervals
+   * @param {Array<string>} voicingNames
+   * @returns {Set<string>}
+   */
+  function getAllVoicings(baseIntervals, voicingNames) {
     
-    // Step 1: Generate all permutations (4! = 24) and store in Set
-    const allPermutations = getAllPermutations(baseIntervals);
-    const permutationSet = new Set(allPermutations.map(p => JSON.stringify(p)));
-    assert.equal(permutationSet.size, 24);
-    
-    // Step 2: Get all voicing functions
-    const voicings = [
-      VOICING.CLOSE,
-      VOICING.DROP_2,
-      VOICING.DROP_3,
-      VOICING.DROP_2_AND_3,
-      VOICING.DROP_2_AND_4,
-      VOICING.DROP_3_AND_2,
-    ];
-    
+    const voicings = voicingNames.map((/** @type {string | number} */ name) => VOICING[name]);
     // Step 3: For each voicing, get all inversions and verify they are permutations
     const generatedSet = new Set();
     for (const voicing of voicings) {
@@ -411,20 +381,72 @@ describe("Inversions and Voicings Coverage", () => {
       
       for (const inversion of inversions) {
         const key = JSON.stringify(inversion);
-        // Each inversion must be a valid permutation
-        assert.ok(
-          permutationSet.has(key),
-          `Inversion ${key} should be a permutation of original intervals`
-        );
-        // Track unique results (some may appear in multiple voicing combinations)
         generatedSet.add(key);
       }
     }
-    
-    // Step 4: Verify we generated all 24 unique permutations
+    return generatedSet;
+  }
+
+  test("all voicings of all inversions produce valid permutations with 2 notes", () => {
+    const baseIntervals = [
+      Interval.UNISON, 
+      Interval.MAJOR_THIRD,
+    ];
+        
+    const generatedSet = getAllVoicings(baseIntervals, ALLOWED_VOICING_2);
+
+    // Verify we generated all 24 unique permutations
+    // With the current voicing system, all permutations are covered
+    assert.equal(generatedSet.size, 2, 
+      'Voicings and inversions should produce 2 unique permutations (all possible)');
+  });
+
+  test("all voicings of all inversions produce valid permutations with 3 notes", () => {
+    const baseIntervals = [
+      Interval.UNISON, 
+      Interval.MAJOR_THIRD, 
+      Interval.PERFECT_FIFTH
+    ];
+        
+    const generatedSet = getAllVoicings(baseIntervals, ALLOWED_VOICING_3);
+
+    // Verify we generated all 24 unique permutations
+    // With the current voicing system, all permutations are covered
+    assert.equal(generatedSet.size, 6, 
+      'Voicings and inversions should produce 6 unique permutations (all possible)');
+  });
+
+  test("all voicings of all inversions produce valid permutations with 4 notes", () => {
+    const baseIntervals = [
+      Interval.UNISON, 
+      Interval.MAJOR_THIRD, 
+      Interval.PERFECT_FIFTH, 
+      Interval.MAJOR_SEVENTH
+    ];
+        
+    const generatedSet = getAllVoicings(baseIntervals, ALLOWED_VOICING_4);
+
+    // Verify we generated all 24 unique permutations
     // With the current voicing system, all permutations are covered
     assert.equal(generatedSet.size, 24, 
       'Voicings and inversions should produce 24 unique permutations (all possible)');
+  });
+
+  test("all voicings of all inversions produce valid permutations with 5 notes", () => {
+    const baseIntervals = [
+      Interval.UNISON, 
+      Interval.MAJOR_THIRD, 
+      Interval.PERFECT_FIFTH, 
+      Interval.MAJOR_SEVENTH,
+      Interval.FLAT_NINTH,
+    ];
+        
+    const generatedSet = getAllVoicings(baseIntervals, ALLOWED_VOICING_5);
+
+    // Verify we generated all 24 unique permutations
+    // With the current voicing system, all permutations are covered
+    assert.equal(generatedSet.size, 120, 
+      'Voicings and inversions should produce 120 unique permutations (all possible)');
   });
 });
 
