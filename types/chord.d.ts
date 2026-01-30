@@ -54,6 +54,15 @@ export function notesToChord(notes: Notes, stringSet: Array<boolean>, intervalTo
  * @returns {Generator<Notes>} - Array of chords with all inversions
  */
 export function getAllInversions(notes: Notes, voicing?: VOICING): Generator<Notes>;
+/**
+ * This function returns the name of the chord. Here are some rules:
+ * name can be one note "C" or "C#/Dd"
+ *
+ * @param {Array<Interval>} intervals
+ * @param {string} name
+ * @returns {string}
+ */
+export function getNameFromInterval(intervals: Array<Interval>, name?: string): string;
 export type Interval = number;
 export namespace Interval {
     let UNISON: number;

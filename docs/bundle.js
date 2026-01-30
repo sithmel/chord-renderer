@@ -264,6 +264,129 @@ function* getAllInversions(notes, voicing = VOICING.CLOSE) {
     yield voicing(inversion);
   }
 }
+function getNameFromInterval(intervals, name = "") {
+  if (intervals.length < 2) return "";
+  if (intervals.length === 2) {
+    const intervalSet2 = new Set(intervals);
+    const hasPowerChord = intervalSet2.has(Interval.UNISON) && intervalSet2.has(Interval.PERFECT_FIFTH);
+    if (hasPowerChord) {
+      return name + "5";
+    }
+    return "";
+  }
+  const intervalSet = new Set(intervals);
+  intervalSet.delete(Interval.UNISON);
+  const has3 = intervalSet.has(Interval.MAJOR_THIRD);
+  const hasb3 = intervalSet.has(Interval.MINOR_THIRD);
+  const has5 = intervalSet.has(Interval.PERFECT_FIFTH);
+  const hasb5 = intervalSet.has(Interval.TRITONE);
+  const hasSharp5 = intervalSet.has(Interval.MINOR_SIXTH);
+  const has7 = intervalSet.has(Interval.MAJOR_SEVENTH);
+  const hasb7 = intervalSet.has(Interval.MINOR_SEVENTH);
+  const hasdim7 = intervalSet.has(Interval.MAJOR_SIXTH);
+  const has2 = intervalSet.has(Interval.MAJOR_SECOND);
+  const has4 = intervalSet.has(Interval.PERFECT_FOURTH);
+  const hasb9 = intervalSet.has(Interval.FLAT_NINTH);
+  const hasRoot = intervals.includes(Interval.UNISON);
+  const hasThird = hasb3 || has3;
+  const hasFifth = hasb5 || has5 || hasSharp5;
+  const isTriad = intervals.length === 3 && hasRoot && hasThird && hasFifth;
+  let chordName = name;
+  if (hasb3 && hasb5 && hasdim7 && !hasb7 && !has7) {
+    return chordName + "dim7";
+  }
+  if (hasb3 && hasb5 && hasb7) {
+    return chordName + "m7b5";
+  }
+  if (hasb3 && hasb5 && !hasb7 && !has7 && !hasdim7) {
+    chordName += "dim";
+    if (isTriad) {
+      chordName += " triad";
+    }
+    return chordName;
+  }
+  if (!has3 && !hasb3) {
+    if (has4 && hasb7) {
+      return chordName + "7sus4";
+    }
+    if (has2 && !hasb7 && !has7) {
+      return chordName + "sus2";
+    } else if (has4 && !hasb7 && !has7) {
+      return chordName + "sus4";
+    }
+    return chordName;
+  }
+  let quality = "";
+  if (has3 && hasb3) {
+    quality = "";
+  } else if (hasb3) {
+    quality = "m";
+  } else if (has3) {
+    quality = "";
+  }
+  const hasSeventh = has7 || hasb7;
+  let extension = "";
+  let extensionPrefix = "";
+  if (hasdim7 && hasSeventh && (has3 || hasb3)) {
+    extension = "13";
+    extensionPrefix = has7 ? "maj" : "";
+  } else if (has4 && (has3 || hasb3) && hasSeventh) {
+    extension = "11";
+    extensionPrefix = has7 ? "maj" : "";
+  } else if (has2 && hasSeventh) {
+    extension = "9";
+    extensionPrefix = has7 ? "maj" : "";
+  }
+  if (extension) {
+    chordName += quality + extensionPrefix + extension;
+    if (hasb9) {
+      chordName += "b9";
+    } else if (hasb5 && quality !== "m") {
+      chordName += "b5";
+    } else if (hasSharp5) {
+      chordName += "#5";
+    } else if (intervalSet.has(Interval.SHARP_NINTH) && has3 && !hasb3) {
+      chordName += "#9";
+    }
+    return chordName;
+  }
+  chordName += quality;
+  if (has7) {
+    chordName += "maj7";
+  } else if (hasb7) {
+    chordName += "7";
+  }
+  if (hasb7) {
+    if (hasb9) {
+      chordName += "b9";
+    } else if (intervalSet.has(Interval.SHARP_NINTH) && has3) {
+      chordName += "#9";
+    } else if (hasb5 && quality !== "m") {
+      chordName += "b5";
+    } else if (hasSharp5 && quality !== "aug") {
+      chordName += "#5";
+    }
+  } else if (!hasSeventh) {
+    if (hasSharp5 && has3) {
+      chordName += "aug";
+      if (isTriad) {
+        chordName += " triad";
+      }
+      return chordName;
+    }
+    if (hasdim7 && !hasb5) {
+      chordName += "add13";
+    } else if (has4 && (has3 || hasb3)) {
+      chordName += "add11";
+    } else if (has2) {
+      chordName += "add9";
+    }
+  }
+  if (isTriad) {
+    chordName += " triad";
+  }
+  return chordName;
+}
 
 // node_modules/svguitar/dist/svguitar.es5.js
 var extendStatics = function(d2, b2) {
@@ -9298,6 +9421,10 @@ var saveAllBtn = (
   /** @type {HTMLButtonElement|null} */
   document.getElementById("save-all-btn")
 );
+var chordNameDisplay = (
+  /** @type {HTMLElement|null} */
+  document.getElementById("chord-name-display")
+);
 if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox || !lowIntervalBox || !highIntervalBox || !lowIntervalFilter || !highIntervalFilter) {
   throw new Error("Required DOM elements not found");
 }
@@ -9509,6 +9636,7 @@ function applyState(state) {
   }
   renderLowIntervalFilters();
   renderHighIntervalFilters();
+  updateChordName();
 }
 function renderIntervals() {
   intervalBox.innerHTML = "";
@@ -9541,6 +9669,7 @@ function renderIntervals() {
       renderIntervalLabelOptions();
       renderLowIntervalFilters();
       renderHighIntervalFilters();
+      updateChordName();
       pushState();
       tryAutoGenerate();
     });
@@ -9558,6 +9687,7 @@ function renderKeys() {
     selectedKey = null;
     renderKeys();
     renderIntervalLabelOptions();
+    updateChordName();
     pushState();
     tryAutoGenerate();
   });
@@ -9572,6 +9702,7 @@ function renderKeys() {
       selectedKey = key.semitone;
       renderKeys();
       renderIntervalLabelOptions();
+      updateChordName();
       pushState();
       tryAutoGenerate();
     });
@@ -9609,6 +9740,7 @@ function applyPreset(presetIndex) {
   renderIntervalLabelOptions();
   renderLowIntervalFilters();
   renderHighIntervalFilters();
+  updateChordName();
   pushState();
   tryAutoGenerate();
   intervalPresetSelect.value = "";
@@ -9970,6 +10102,26 @@ function setMessage(text, type = "") {
   message.textContent = text;
   message.className = "message " + type;
 }
+function updateChordName() {
+  if (!chordNameDisplay) return;
+  if (selectedIntervals.size < 2) {
+    chordNameDisplay.hidden = true;
+    return;
+  }
+  const intervalsArray = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name)).map(([_2, value]) => value);
+  let keyName = "";
+  if (selectedKey !== null) {
+    const keyInfo = AVAILABLE_KEYS.find((k2) => k2.semitone === selectedKey);
+    keyName = keyInfo ? keyInfo.name : "";
+  }
+  const chordName = getNameFromInterval(intervalsArray, keyName);
+  if (chordName) {
+    chordNameDisplay.textContent = chordName;
+    chordNameDisplay.hidden = false;
+  } else {
+    chordNameDisplay.hidden = true;
+  }
+}
 function canGenerate() {
   if (selectedIntervals.size < 2) return false;
   if (selectedVoicings.size === 0) return false;
@@ -10282,6 +10434,7 @@ updateStringSets();
 renderIntervalLabelOptions();
 renderLowIntervalFilters();
 renderHighIntervalFilters();
+updateChordName();
 var initialState = readStateFromURL();
 if (initialState) {
   applyState(initialState);

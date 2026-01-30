@@ -1,7 +1,7 @@
 //@ts-check
 // NEW LAYOUT: Main page displays saved individual chords gallery with inline previews.
 // Click "Create New Chord" to open slide-out builder panel for interval/voicing selection.
-import { Interval, VOICING, ALLOWED_VOICING_2, ALLOWED_VOICING_3, ALLOWED_VOICING_4, ALLOWED_VOICING_5, getStringSets, getAllInversions, notesToChord, Interval_labels, EXTENDED_INTERVAL_LABELS } from '../lib/chord.js';
+import { Interval, VOICING, ALLOWED_VOICING_2, ALLOWED_VOICING_3, ALLOWED_VOICING_4, ALLOWED_VOICING_5, getStringSets, getAllInversions, notesToChord, Interval_labels, EXTENDED_INTERVAL_LABELS, getNameFromInterval } from '../lib/chord.js';
 import { SVGuitarChord } from 'svguitar';
 import { EditableSVGuitarChord, DOT_COLORS, fingeringToString, layoutChordStrings, splitStringInRectangles, stringToFingering } from 'text-guitar-chart';
 import isChordDoable from '../lib/isChordDoable.js';
@@ -68,6 +68,7 @@ const openBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElement
 const closeBuilderBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('close-builder'));
 const addEmptyChordBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('add-empty-chord'));
 const saveAllBtn = /** @type {HTMLButtonElement|null} */(document.getElementById('save-all-btn'));
+const chordNameDisplay = /** @type {HTMLElement|null} */(document.getElementById('chord-name-display'));
 
 if (!intervalBox || !keyBox || !stringSetBox || !voicingBox || !form || !results || !message || !intervalLabelOptionsBox || !intervalPresetSelect || !filterDoableCheckbox || !lowIntervalBox || !highIntervalBox || !lowIntervalFilter || !highIntervalFilter) {
   throw new Error('Required DOM elements not found');
@@ -454,6 +455,9 @@ function applyState(state) {
   // Render the filter UI
   renderLowIntervalFilters();
   renderHighIntervalFilters();
+  
+  // Update chord name display
+  updateChordName();
 }
 
 function renderIntervals() {
@@ -484,6 +488,7 @@ function renderIntervals() {
       renderIntervalLabelOptions();
       renderLowIntervalFilters();
       renderHighIntervalFilters();
+      updateChordName();
       pushState();
       tryAutoGenerate();
     });
@@ -507,6 +512,7 @@ function renderKeys() {
     selectedKey = null;
     renderKeys();
     renderIntervalLabelOptions();
+    updateChordName();
     pushState();
     tryAutoGenerate();
   });
@@ -523,6 +529,7 @@ function renderKeys() {
       selectedKey = key.semitone;
       renderKeys();
       renderIntervalLabelOptions();
+      updateChordName();
       pushState();
       tryAutoGenerate();
     });
@@ -581,6 +588,7 @@ function applyPreset(presetIndex) {
   renderIntervalLabelOptions();
   renderLowIntervalFilters();
   renderHighIntervalFilters();
+  updateChordName();
   pushState();
   tryAutoGenerate();
   
@@ -1055,6 +1063,42 @@ function setMessage(text, type = '') {
   message.className = 'message ' + type;
 }
 
+/**
+ * Update the chord name display based on current intervals and key selection.
+ */
+function updateChordName() {
+  if (!chordNameDisplay) return;
+  
+  // Need at least 2 intervals to calculate a chord name
+  if (selectedIntervals.size < 2) {
+    chordNameDisplay.hidden = true;
+    return;
+  }
+  
+  // Extract interval values in enum definition order
+  const intervalsArray = intervalEntries
+    .filter(([name, _]) => selectedIntervals.has(name))
+    .map(([_, value]) => value);
+  
+  // Get key note name (or empty string if no key selected)
+  let keyName = '';
+  if (selectedKey !== null) {
+    const keyInfo = AVAILABLE_KEYS.find(k => k.semitone === selectedKey);
+    keyName = keyInfo ? keyInfo.name : '';
+  }
+  
+  // Calculate chord name using the imported function
+  const chordName = getNameFromInterval(intervalsArray, keyName);
+  
+  // Show/hide display based on whether we got a valid name
+  if (chordName) {
+    chordNameDisplay.textContent = chordName;
+    chordNameDisplay.hidden = false;
+  } else {
+    chordNameDisplay.hidden = true;
+  }
+}
+
 
 
 /**
@@ -1517,6 +1561,7 @@ updateStringSets();
 renderIntervalLabelOptions();
 renderLowIntervalFilters();
 renderHighIntervalFilters();
+updateChordName();
 // Apply state from URL if present
 const initialState = readStateFromURL();
 if (initialState) {

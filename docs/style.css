@@ -333,6 +333,21 @@ svg { max-width: 215px; height: auto; display: block; margin: 0 auto; }
 .message { min-height: 1.2rem; font-size: 0.8rem; margin: 0.4rem 0 0.9rem; color: var(--color-text-subtle); }
 .message.error { color: var(--color-danger); font-weight: 600; }
 
+/* Chord name display */
+.chord-name-display {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem auto 0.5rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  max-width: 300px;
+  letter-spacing: 0.5px;
+}
+
 /* Export JSON */
 .export { margin-top: 2rem; background: var(--color-surface); padding: 0 1.1rem 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
 .export[open] { animation: fadeIn .25s ease; }

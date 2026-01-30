@@ -15,6 +15,7 @@ import {
   ALLOWED_VOICING_5,
   getAllInversions,
   closeChordPosition,
+  getNameFromInterval,
  } from "../lib/chord.js";
 
 describe("fretNormalizer", () => {
@@ -753,5 +754,270 @@ describe("closeChordPosition", () => {
     const fingerOrder = chord.map(c => c[0]);
     closeChordPosition(chord);
     assert.deepEqual(chord.map(c => c[0]), fingerOrder);
+  });
+});
+
+describe("getNameFromInterval", () => {
+  describe("Basic Triads", () => {
+    test("should name major triad", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "C"), "C triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "D"), "D triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "F#"), "F# triad");
+    });
+
+    test("should name minor triad", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH], "C"), "Cm triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH], "A"), "Am triad");
+    });
+
+    test("should name diminished triad", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.TRITONE], "B"), "Bdim triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.TRITONE], "C"), "Cdim triad");
+    });
+
+    test("should name augmented triad", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SIXTH], "C"), "Caug triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SIXTH], "G"), "Gaug triad");
+    });
+
+    test("should handle triads without perfect 5th", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD], "C"), "");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD], "C"), "");
+    });
+  });
+
+  describe("Seventh Chords", () => {
+    test("should name major 7th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH], "C"), "Cmaj7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH], "F"), "Fmaj7");
+    });
+
+    test("should name dominant 7th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "C"), "C7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "G"), "G7");
+    });
+
+    test("should name minor 7th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "C"), "Cm7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "D"), "Dm7");
+    });
+
+    test("should name half-diminished chord (m7b5)", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.TRITONE, Interval.MINOR_SEVENTH], "B"), "Bm7b5");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.TRITONE, Interval.MINOR_SEVENTH], "C"), "Cm7b5");
+    });
+
+    test("should name diminished 7th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.TRITONE, Interval.MAJOR_SIXTH], "B"), "Bdim7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.TRITONE, Interval.MAJOR_SIXTH], "G#"), "G#dim7");
+    });
+
+    test("should handle 7th chords without perfect 5th", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MAJOR_SEVENTH], "C"), "Cmaj7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SEVENTH], "C"), "C7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.MINOR_SEVENTH], "C"), "Cm7");
+    });
+  });
+
+  describe("Suspended Chords", () => {
+    test("should name sus2 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_SECOND, Interval.PERFECT_FIFTH], "C"), "Csus2");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_SECOND, Interval.PERFECT_FIFTH], "D"), "Dsus2");
+    });
+
+    test("should name sus4 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FOURTH, Interval.PERFECT_FIFTH], "C"), "Csus4");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FOURTH, Interval.PERFECT_FIFTH], "G"), "Gsus4");
+    });
+
+    test("should name 7sus4 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FOURTH, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "C"), "C7sus4");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FOURTH, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "F"), "F7sus4");
+    });
+
+    test("should handle sus chords without perfect 5th", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_SECOND], "C"), "");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FOURTH], "C"), "");
+    });
+  });
+
+  describe("Add Chords", () => {
+    test("should name add9 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.NINTH], "C"), "Cadd9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "G"), "Gadd9");
+    });
+
+    test("should name minor add9 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.NINTH], "C"), "Cmadd9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH], "A"), "Amadd9");
+    });
+
+    test("should name add11 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.ELEVENTH], "C"), "Cadd11");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.ELEVENTH, Interval.PERFECT_FIFTH], "F"), "Fadd11");
+    });
+
+    test("should name add13 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.THIRTEENTH], "C"), "Cadd13");
+    });
+  });
+
+  describe("Extended Chords (9th, 11th, 13th)", () => {
+    test("should name dominant 9th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH], "C"), "C9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "G"), "G9");
+    });
+
+    test("should name minor 9th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH], "C"), "Cm9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "D"), "Dm9");
+    });
+
+    test("should name major 9th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH, Interval.NINTH], "C"), "Cmaj9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH], "F"), "Fmaj9");
+    });
+
+    test("should name 11th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.ELEVENTH], "C"), "C11");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.ELEVENTH], "D"), "Dm11");
+    });
+
+    test("should name major 11th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH, Interval.NINTH, Interval.ELEVENTH], "C"), "Cmaj11");
+    });
+
+    test("should name 13th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.THIRTEENTH], "C"), "C13");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.THIRTEENTH, Interval.MINOR_SEVENTH], "G"), "G13");
+    });
+
+    test("should name major 13th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MAJOR_SEVENTH, Interval.NINTH, Interval.THIRTEENTH], "C"), "Cmaj13");
+    });
+
+    test("should name minor 13th chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.THIRTEENTH], "C"), "Cm13");
+    });
+
+    test("should prioritize highest extension", () => {
+      // With both 9 and 11, should use 11
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.ELEVENTH], "C"), "C11");
+      // With 9, 11, and 13, should use 13
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.ELEVENTH, Interval.THIRTEENTH], "C"), "C13");
+    });
+  });
+
+  describe("Altered Dominant Chords", () => {
+    test("should name 7b9 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.FLAT_NINTH], "C"), "C7b9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.FLAT_NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "G"), "G7b9");
+    });
+
+    test("should name 7#9 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.SHARP_NINTH], "C"), "C7#9");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.SHARP_NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "G"), "G7#9");
+    });
+
+    test("should name 7b5 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.TRITONE, Interval.MINOR_SEVENTH], "C"), "C7b5");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.TRITONE, Interval.MINOR_SEVENTH], "G"), "G7b5");
+    });
+
+    test("should name 7#5 chord", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SIXTH, Interval.MINOR_SEVENTH], "C"), "C7#5");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SIXTH, Interval.MINOR_SEVENTH], "D"), "D7#5");
+    });
+
+    test("should handle combinations of alterations", () => {
+      // 7b5b9
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.TRITONE, Interval.MINOR_SEVENTH, Interval.FLAT_NINTH], "C"), "C7b9");
+      // 7#5#9
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SIXTH, Interval.MINOR_SEVENTH, Interval.SHARP_NINTH], "C"), "C7#9");
+    });
+  });
+
+  describe("Complex Chord Structures", () => {
+    test("should handle chords with missing 5th", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MINOR_SEVENTH], "C"), "C7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.MINOR_SEVENTH], "C"), "Cm7");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.MAJOR_SEVENTH], "C"), "Cmaj7");
+    });
+
+    test("should handle chords with doubled notes", () => {
+      // Doubled root
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "C"), "C");
+      // Should still work with sets
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.PERFECT_FIFTH], "C"), "C");
+    });
+
+    test("should handle inversions (different bass note)", () => {
+      // These tests verify the function works regardless of order
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "C"), "C triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FIFTH, Interval.MAJOR_THIRD], "C"), "C triad");
+    });
+
+    test("should handle wide voicings", () => {
+      // All intervals present, just checking it works
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.NINTH, Interval.MAJOR_THIRD, Interval.ELEVENTH, Interval.PERFECT_FIFTH, Interval.THIRTEENTH, Interval.MINOR_SEVENTH], "C"), "C13");
+    });
+  });
+
+  describe("Edge Cases", () => {
+    test("should return name for empty intervals", () => {
+      assert.equal(getNameFromInterval([], "C"), "");
+      assert.equal(getNameFromInterval([], "F#"), "");
+    });
+
+    test("should return name for root only", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON], "C"), "");
+      assert.equal(getNameFromInterval([Interval.UNISON], "Bb"), "");
+    });
+
+    test("should handle different note names", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "C#"), "C# triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "Db"), "Db triad");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "C#/Db"), "C#/Db triad");
+    });
+  });
+
+  describe("Special Cases from Music Theory", () => {
+    test("should differentiate major 3rd with both intervals 3 and 4", () => {
+      // When both minor 3rd and major 3rd are present, 
+      // treat as major chord with #9
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.SHARP_NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH], "C"), "C7#9");
+    });
+
+    test("should handle power chords (no 3rd)", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.PERFECT_FIFTH], "C"), "C5");
+    });
+
+    test("should handle 6th chords as add13", () => {
+      // Major 6th without 7th is add13
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.THIRTEENTH], "C"), "Cadd13");
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_THIRD, Interval.PERFECT_FIFTH, Interval.THIRTEENTH], "C"), "Cmadd13");
+    });
+
+    test("should handle 6/9 chord", () => {
+      // With both 9 and 13 but no 7th, highest extension takes precedence
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.NINTH, Interval.THIRTEENTH], "C"), "Cadd13");
+    });
+  });
+
+  describe("Interval Order Independence", () => {
+    test("should produce same result regardless of interval order", () => {
+      const intervals1 = [Interval.UNISON, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH];
+      const intervals2 = [Interval.UNISON, Interval.MINOR_SEVENTH, Interval.PERFECT_FIFTH, Interval.MAJOR_THIRD];
+      const intervals3 = [Interval.PERFECT_FIFTH, Interval.UNISON, Interval.MINOR_SEVENTH, Interval.MAJOR_THIRD];
+      
+      assert.equal(getNameFromInterval(intervals1, "C"), "C7");
+      assert.equal(getNameFromInterval(intervals2, "C"), "C7");
+      assert.equal(getNameFromInterval(intervals3, "C"), "C7");
+    });
+
+    test("should handle scattered intervals in extensions", () => {
+      assert.equal(getNameFromInterval([Interval.UNISON, Interval.MINOR_SEVENTH, Interval.NINTH, Interval.MAJOR_THIRD, Interval.PERFECT_FIFTH], "C"), "C9");
+      assert.equal(getNameFromInterval([Interval.NINTH, Interval.UNISON, Interval.PERFECT_FIFTH, Interval.MINOR_SEVENTH, Interval.MAJOR_THIRD], "C"), "C9");
+    });
   });
 });
