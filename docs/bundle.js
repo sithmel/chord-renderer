@@ -9749,6 +9749,19 @@ function applyPreset(presetIndex) {
   tryAutoGenerate();
   intervalPresetSelect.value = "";
 }
+function maxAdjacentTrue(arr) {
+  let max = 0;
+  let run = 0;
+  for (const v2 of arr) {
+    if (v2) {
+      run++;
+      if (run > max) max = run;
+    } else {
+      run = 0;
+    }
+  }
+  return max;
+}
 function updateStringSets() {
   stringSetBox.innerHTML = "";
   const count = selectedIntervals.size;
@@ -9759,6 +9772,7 @@ function updateStringSets() {
   }
   stringsHint.textContent = `${count} interval${count > 1 ? "s" : ""} selected.`;
   const allSets = Array.from(getStringSets(count));
+  allSets.sort((a2, b2) => maxAdjacentTrue(b2) - maxAdjacentTrue(a2));
   const allSetValues = allSets.map((set) => set.map((b2) => b2 ? 1 : 0).join(""));
   const previousSelections = Array.from(selectedStringSets);
   selectedStringSets.clear();

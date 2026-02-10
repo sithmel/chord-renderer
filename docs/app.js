@@ -603,6 +603,21 @@ function applyPreset(presetIndex) {
   intervalPresetSelect.value = '';
 }
 
+/**
+ * Count the longest contiguous run of `true` values in a boolean array.
+ * @param {boolean[]} arr
+ * @returns {number}
+ */
+function maxAdjacentTrue(arr) {
+  let max = 0;
+  let run = 0;
+  for (const v of arr) {
+    if (v) { run++; if (run > max) max = run; }
+    else { run = 0; }
+  }
+  return max;
+}
+
 function updateStringSets() {
   stringSetBox.innerHTML = '';
   const count = selectedIntervals.size;
@@ -613,8 +628,11 @@ function updateStringSets() {
   }
   stringsHint.textContent = `${count} interval${count>1?'s':''} selected.`;
   
-  // Get all valid string sets for current interval count
+  // Get all valid string sets for current interval count,
+  // sorted so sets with more adjacent selected strings come first.
+  // Tiebreaker: higher (thinner) strings first (original binary order).
   const allSets = Array.from(getStringSets(count));
+  allSets.sort((a, b) => maxAdjacentTrue(b) - maxAdjacentTrue(a));
   const allSetValues = allSets.map(set => set.map(b=>b?1:0).join(''));
   
   // Preserve previous selections if still valid, otherwise select all
