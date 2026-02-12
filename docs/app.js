@@ -181,16 +181,14 @@ const selectedLowIntervals = new Set();
 const selectedHighIntervals = new Set();
 
 /**
- * Normalize color values: non-black colors → BLACK, black → black, undefined/transparent → unchanged
+ * Normalize color values: keep known DOT_COLORS, map unknown to BLACK.
  * @param {string|undefined} color
  * @returns {string|undefined}
  */
 function normalizeColor(color) {
   if (!color || color === 'transparent') return color;
-  const normalized = color.toLowerCase().trim();
-  if (normalized === '#000000' || normalized === '#000' || normalized === 'black') {
-    return DOT_COLORS.BLACK;
-  }
+  const known = Object.values(DOT_COLORS);
+  if (known.includes(color)) return color;
   return DOT_COLORS.BLACK;
 }
 
@@ -811,84 +809,83 @@ function renderIntervalLabelOptions() {
   if (selectedIntervals.size === 0) return;
   // Use intervalEntries order (enum definition order), not Map insertion order
   const sortedEntries = intervalEntries.filter(([name, _]) => selectedIntervals.has(name));
+  /** @type {Array<{key: string, color: string}>} */
+  const colorChoices = [
+    { key: 'RED', color: DOT_COLORS.RED },
+    { key: 'GREY', color: DOT_COLORS.GREY },
+    { key: 'BLUE', color: DOT_COLORS.BLUE },
+    { key: 'BLACK', color: DOT_COLORS.BLACK },
+  ];
   for (const [intervalName, semitoneValue] of sortedEntries) {
-    const baseLabel = getIntervalFingerOptions(intervalName, semitoneValue);
     const displayName = getIntervalDisplayName(intervalName, semitoneValue);
     const existing = userIntervalOptions.get(semitoneValue) || {};
+    const currentColor = existing.color || DOT_COLORS.BLACK;
     const row = document.createElement('div');
     row.className = 'interval-label-row';
+
     const nameSpan = document.createElement('span');
     nameSpan.className = 'interval-name';
-    // Display interval name only
     nameSpan.textContent = displayName;
-    
+
+    // Color swatch buttons
+    const colorContainer = document.createElement('div');
+    colorContainer.className = 'color-presets';
+
     // Text input (only visible when BLACK is selected)
     const input = document.createElement('input');
     input.type = 'text';
     input.maxLength = 1;
+    input.placeholder = 'Aa';
     input.value = existing.text !== undefined ? existing.text : '';
     input.setAttribute('aria-label', displayName + ' label');
     input.addEventListener('input', () => {
-      const val = input.value;
-      if (val.length > 2) input.value = val.slice(0, 2);
+      if (input.value.length > 2) input.value = input.value.slice(0, 2);
       const record = userIntervalOptions.get(semitoneValue) || {};
-      // Preserve empty string to explicitly clear default label
       record.text = input.value;
       userIntervalOptions.set(semitoneValue, record);
       pushState();
       tryAutoGenerate();
     });
-    
-    // Color picker: Show checkbox for red color
-    const colorContainer = document.createElement('div');
-    colorContainer.className = 'color-presets';
-    const currentColor = existing.color;
-    
-    // Red checkbox
-    const redLabel = document.createElement('label');
-    redLabel.className = 'color-checkbox-label';
-    const redCheckbox = document.createElement('input');
-    redCheckbox.type = 'checkbox';
-    redCheckbox.checked = currentColor === DOT_COLORS.RED;
-    const redSpan = document.createElement('span');
-    redSpan.textContent = 'red';
-    redLabel.appendChild(redCheckbox);
-    redLabel.appendChild(redSpan);
-    
-    // Update input visibility based on color selection
+
     const updateInputVisibility = () => {
-      const isRed = redCheckbox.checked;
-      input.style.display = isRed ? 'none' : '';
-      if (isRed) {
-        // Clear text when RED is selected
+      const record = userIntervalOptions.get(semitoneValue) || {};
+      const isBlack = !record.color || record.color === DOT_COLORS.BLACK;
+      input.style.display = isBlack ? '' : 'none';
+      if (!isBlack) {
         input.value = '';
-        const record = userIntervalOptions.get(semitoneValue) || {};
         record.text = '';
         userIntervalOptions.set(semitoneValue, record);
       }
     };
-    
-    redCheckbox.addEventListener('change', () => {
-      const record = userIntervalOptions.get(semitoneValue) || {};
-      if (redCheckbox.checked) {
-        record.color = DOT_COLORS.RED;
-      } else {
-        record.color = DOT_COLORS.BLACK;
-      }
-      userIntervalOptions.set(semitoneValue, record);
-      updateInputVisibility();
-      pushState();
-      tryAutoGenerate();
-    });
-    
-    colorContainer.appendChild(redLabel);
-    
+
+    /** @type {HTMLButtonElement[]} */
+    const buttons = [];
+    for (const choice of colorChoices) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-preset-btn' +
+        (currentColor === choice.color ? ' selected' : '');
+      btn.style.backgroundColor = choice.color;
+      btn.setAttribute('aria-label', choice.key);
+      btn.addEventListener('click', () => {
+        const record = userIntervalOptions.get(semitoneValue) || {};
+        record.color = choice.color;
+        userIntervalOptions.set(semitoneValue, record);
+        for (const b of buttons) b.classList.remove('selected');
+        btn.classList.add('selected');
+        updateInputVisibility();
+        pushState();
+        tryAutoGenerate();
+      });
+      buttons.push(btn);
+      colorContainer.appendChild(btn);
+    }
+
     row.appendChild(nameSpan);
     row.appendChild(colorContainer);
     row.appendChild(input);
     intervalLabelOptionsBox.appendChild(row);
-    
-    // Set initial visibility
+
     updateInputVisibility();
   }
 }

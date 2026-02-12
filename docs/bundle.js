@@ -7644,6 +7644,17 @@ var SVGuitarChord = (
 );
 
 // node_modules/text-guitar-chart/lib/fingeringToString.js
+var COLOR_GREY = "#9B9B9B";
+var COLOR_BLUE = "#4A90E2";
+function getMarkerChar(color, isUnicode) {
+  if (color === COLOR_GREY) {
+    return isUnicode ? "\u25A1" : "O";
+  }
+  if (color === COLOR_BLUE) {
+    return isUnicode ? "\u25A0" : "+";
+  }
+  return isUnicode ? "\u25CF" : "*";
+}
 function fingeringToString(chord, options = {}) {
   const { useUnicode = false } = options;
   const { fingers = [], title = "", position: position2 } = chord;
@@ -7729,7 +7740,7 @@ function buildAsciiOutput(title, stringData, openStrings, mutedStrings, numFrets
       const fingerInfo = (_a = stringData.get(str)) == null ? void 0 : _a.get(fret);
       if (fingerInfo) {
         if (fingerInfo.color !== "#000000") {
-          line += "*";
+          line += getMarkerChar(fingerInfo.color, false);
         } else if (fingerInfo.text) {
           line += fingerInfo.text[0];
         } else {
@@ -7786,7 +7797,7 @@ function buildUnicodeOutput(title, stringData, openStrings, mutedStrings, numFre
       const fingerInfo = (_a = stringData.get(str)) == null ? void 0 : _a.get(fret);
       if (fingerInfo) {
         if (fingerInfo.color !== "#000000") {
-          line += "\u25CF";
+          line += getMarkerChar(fingerInfo.color, true);
         } else if (fingerInfo.text) {
           line += fingerInfo.text[0];
         } else {
@@ -7810,7 +7821,9 @@ function buildUnicodeOutput(title, stringData, openStrings, mutedStrings, numFre
 // node_modules/text-guitar-chart/lib/editableSVGuitar.js
 var DOT_COLORS = {
   RED: "#e74c3c",
-  BLACK: "#000000"
+  BLACK: "#000000",
+  GREY: "#9B9B9B",
+  BLUE: "#4A90E2"
 };
 var EditableSVGuitarChord = class {
   /**
@@ -7881,7 +7894,7 @@ var EditableSVGuitarChord = class {
       padding: 20px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       z-index: 1000;
-      min-width: 280px;
+      min-width: 220px;
     `;
     const title = document.createElement("h3");
     title.textContent = "Chord Settings";
@@ -7889,28 +7902,32 @@ var EditableSVGuitarChord = class {
     const titleSection = document.createElement("div");
     titleSection.style.cssText = "margin-bottom: 15px;";
     const titleLabel = document.createElement("label");
-    titleLabel.textContent = "Title (optional): ";
-    titleLabel.style.cssText = "display: block; margin-bottom: 5px; font-weight: bold;";
+    titleLabel.textContent = "Title: ";
+    titleLabel.htmlFor = "editable-svguitar-title-input";
+    titleLabel.style.cssText = "display: inline-block; margin-bottom: 5px; font-weight: bold; width: 80px;";
     this.titleInput = document.createElement("input");
+    this.titleInput.id = "editable-svguitar-title-input";
     this.titleInput.type = "text";
     this.titleInput.placeholder = "e.g. A min";
     this.titleInput.maxLength = 10;
     this.titleInput.style.cssText = "width: 10em; padding: 6px; border: 1px solid #ccc; border-radius: 3px; box-sizing: border-box;";
-    titleLabel.appendChild(this.titleInput);
     titleSection.appendChild(titleLabel);
+    titleSection.appendChild(this.titleInput);
     const positionSection = document.createElement("div");
     positionSection.style.cssText = "margin-bottom: 15px;";
     const positionLabel = document.createElement("label");
-    positionLabel.textContent = "Position (optional): ";
-    positionLabel.style.cssText = "display: block; margin-bottom: 5px; font-weight: bold;";
+    positionLabel.textContent = "Position: ";
+    positionLabel.htmlFor = "editable-svguitar-position-input";
+    positionLabel.style.cssText = "display: inline-block; margin-bottom: 5px; font-weight: bold; width: 80px;";
     this.positionInput = document.createElement("input");
+    this.positionInput.id = "editable-svguitar-position-input";
     this.positionInput.type = "number";
     this.positionInput.min = "1";
     this.positionInput.max = "30";
     this.positionInput.placeholder = "1-30";
     this.positionInput.style.cssText = "width: 5em; padding: 6px; border: 1px solid #ccc; border-radius: 3px; box-sizing: border-box;";
-    positionLabel.appendChild(this.positionInput);
     positionSection.appendChild(positionLabel);
+    positionSection.appendChild(this.positionInput);
     const buttonDiv = document.createElement("div");
     buttonDiv.style.cssText = "display: flex; gap: 10px; justify-content: flex-end;";
     const cancelBtn = document.createElement("button");
@@ -7958,60 +7975,82 @@ var EditableSVGuitarChord = class {
       padding: 20px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       z-index: 1000;
-      min-width: 250px;
+      min-width: 200px;
     `;
     const title = document.createElement("h3");
     title.textContent = "Edit Dot";
     title.style.cssText = "margin: 0 0 15px 0; font-size: 16px;";
     const colorSection = document.createElement("div");
     colorSection.style.cssText = "margin-bottom: 15px;";
-    const colorLabel = document.createElement("div");
-    colorLabel.textContent = "Color:";
-    colorLabel.style.cssText = "font-weight: bold; margin-bottom: 8px;";
-    colorSection.appendChild(colorLabel);
     const colorOptions = document.createElement("div");
-    colorOptions.style.cssText = "display: flex; gap: 15px;";
+    colorOptions.style.cssText = "display: flex; gap: 8px; align-items: center;";
+    const hiddenRadioStyle = "position:absolute;opacity:0;width:0;height:0;";
+    const swatchStyle = (color) => `width:28px;height:28px;display:block;background:${color};border-radius:3px;cursor:pointer;box-sizing:border-box;`;
     const redOption = document.createElement("label");
-    redOption.style.cssText = "display: flex; align-items: center; cursor: pointer;";
+    redOption.style.cssText = "display:inline-block;position:relative;cursor:pointer;";
     this.redRadio = document.createElement("input");
     this.redRadio.type = "radio";
     this.redRadio.name = "dotColor";
     this.redRadio.value = DOT_COLORS.RED;
+    this.redRadio.style.cssText = hiddenRadioStyle;
     this.redRadio.addEventListener("change", () => this.updateDotColor());
-    const redLabel = document.createElement("span");
-    redLabel.textContent = "Red";
-    redLabel.style.cssText = "margin-left: 5px; color: #e74c3c; font-weight: bold;";
+    const redSwatch = document.createElement("span");
+    redSwatch.className = "color-swatch";
+    redSwatch.style.cssText = swatchStyle(DOT_COLORS.RED);
     redOption.appendChild(this.redRadio);
-    redOption.appendChild(redLabel);
+    redOption.appendChild(redSwatch);
+    const greyOption = document.createElement("label");
+    greyOption.style.cssText = "display:inline-block;position:relative;cursor:pointer;";
+    this.greyRadio = document.createElement("input");
+    this.greyRadio.type = "radio";
+    this.greyRadio.name = "dotColor";
+    this.greyRadio.value = DOT_COLORS.GREY;
+    this.greyRadio.style.cssText = hiddenRadioStyle;
+    this.greyRadio.addEventListener("change", () => this.updateDotColor());
+    const greySwatch = document.createElement("span");
+    greySwatch.className = "color-swatch";
+    greySwatch.style.cssText = swatchStyle(DOT_COLORS.GREY);
+    greyOption.appendChild(this.greyRadio);
+    greyOption.appendChild(greySwatch);
+    const blueOption = document.createElement("label");
+    blueOption.style.cssText = "display:inline-block;position:relative;cursor:pointer;";
+    this.blueRadio = document.createElement("input");
+    this.blueRadio.type = "radio";
+    this.blueRadio.name = "dotColor";
+    this.blueRadio.value = DOT_COLORS.BLUE;
+    this.blueRadio.style.cssText = hiddenRadioStyle;
+    this.blueRadio.addEventListener("change", () => this.updateDotColor());
+    const blueSwatch = document.createElement("span");
+    blueSwatch.className = "color-swatch";
+    blueSwatch.style.cssText = swatchStyle(DOT_COLORS.BLUE);
+    blueOption.appendChild(this.blueRadio);
+    blueOption.appendChild(blueSwatch);
     const blackOption = document.createElement("label");
-    blackOption.style.cssText = "display: flex; align-items: center; cursor: pointer;";
+    blackOption.style.cssText = "display:inline-block;position:relative;cursor:pointer;";
     this.blackRadio = document.createElement("input");
     this.blackRadio.type = "radio";
     this.blackRadio.name = "dotColor";
     this.blackRadio.value = DOT_COLORS.BLACK;
     this.blackRadio.checked = true;
+    this.blackRadio.style.cssText = hiddenRadioStyle;
     this.blackRadio.addEventListener("change", () => this.updateDotColor());
-    const blackLabel = document.createElement("span");
-    blackLabel.textContent = "Black";
-    blackLabel.style.cssText = "margin-left: 5px; color: #000000; font-weight: bold;";
+    const blackSwatch = document.createElement("span");
+    blackSwatch.className = "color-swatch";
+    blackSwatch.style.cssText = swatchStyle(DOT_COLORS.BLACK);
     blackOption.appendChild(this.blackRadio);
-    blackOption.appendChild(blackLabel);
+    blackOption.appendChild(blackSwatch);
     colorOptions.appendChild(redOption);
+    colorOptions.appendChild(greyOption);
+    colorOptions.appendChild(blueOption);
     colorOptions.appendChild(blackOption);
-    colorSection.appendChild(colorOptions);
-    this.textSection = document.createElement("div");
-    this.textSection.style.cssText = "margin-bottom: 15px;";
-    const textLabel = document.createElement("label");
-    textLabel.textContent = "Text (optional): ";
-    textLabel.style.cssText = "display: block; margin-bottom: 5px; font-weight: bold;";
     this.textInput = document.createElement("input");
     this.textInput.type = "text";
-    this.textInput.maxLength = 2;
-    this.textInput.placeholder = "1-2 chars";
-    this.textInput.style.cssText = "width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;";
+    this.textInput.maxLength = 1;
+    this.textInput.placeholder = "Aa";
+    this.textInput.style.cssText = "width:32px;height:28px;padding:0 4px;margin-left:4px;border:1px solid #ccc;border-radius:3px;box-sizing:border-box;";
     this.textInput.addEventListener("input", () => this.updateDotText());
-    textLabel.appendChild(this.textInput);
-    this.textSection.appendChild(textLabel);
+    colorOptions.appendChild(this.textInput);
+    colorSection.appendChild(colorOptions);
     const buttonDiv = document.createElement("div");
     buttonDiv.style.cssText = "display: flex; gap: 10px; justify-content: flex-end;";
     const removeBtn = document.createElement("button");
@@ -8026,7 +8065,6 @@ var EditableSVGuitarChord = class {
     buttonDiv.appendChild(doneBtn);
     this.dialog.appendChild(title);
     this.dialog.appendChild(colorSection);
-    this.dialog.appendChild(this.textSection);
     this.dialog.appendChild(buttonDiv);
     document.body.appendChild(this.dialog);
     this.backdrop = document.createElement("div");
@@ -8060,60 +8098,59 @@ var EditableSVGuitarChord = class {
       padding: 20px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       z-index: 1000;
-      min-width: 250px;
+      min-width: 165px;
     `;
     const title = document.createElement("h3");
     title.textContent = "Edit Open String";
     title.style.cssText = "margin: 0 0 15px 0; font-size: 16px;";
     const typeSection = document.createElement("div");
     typeSection.style.cssText = "margin-bottom: 15px;";
-    const typeLabel = document.createElement("div");
-    typeLabel.textContent = "Type:";
-    typeLabel.style.cssText = "font-weight: bold; margin-bottom: 8px;";
-    typeSection.appendChild(typeLabel);
     const typeOptions = document.createElement("div");
-    typeOptions.style.cssText = "display: flex; gap: 15px;";
+    typeOptions.style.cssText = "display: flex; gap: 8px; align-items: center;";
+    const hiddenRadioStyle = "position:absolute;opacity:0;width:0;height:0;";
+    const openStringSwatchStyle = "width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;box-sizing:border-box;font-size:16px;font-weight:bold;user-select:none;";
+    const mutedOption = document.createElement("label");
+    mutedOption.style.cssText = "display:inline-block;position:relative;cursor:pointer;";
+    this.mutedRadio = document.createElement("input");
+    this.mutedRadio.type = "radio";
+    this.mutedRadio.name = "openStringType";
+    this.mutedRadio.value = "x";
+    this.mutedRadio.style.cssText = hiddenRadioStyle;
+    this.mutedRadio.addEventListener("change", () => this.updateOpenStringType());
+    const mutedSwatch = document.createElement("span");
+    mutedSwatch.className = "open-string-swatch";
+    mutedSwatch.textContent = "\xD7";
+    mutedSwatch.style.cssText = openStringSwatchStyle;
+    mutedOption.appendChild(this.mutedRadio);
+    mutedOption.appendChild(mutedSwatch);
     const openOption = document.createElement("label");
-    openOption.style.cssText = "display: flex; align-items: center; cursor: pointer;";
+    openOption.style.cssText = "display:inline-block;position:relative;cursor:pointer;";
     this.openRadio = document.createElement("input");
     this.openRadio.type = "radio";
     this.openRadio.name = "openStringType";
     this.openRadio.value = "0";
     this.openRadio.checked = true;
+    this.openRadio.style.cssText = hiddenRadioStyle;
     this.openRadio.addEventListener("change", () => this.updateOpenStringType());
-    const openLabel = document.createElement("span");
-    openLabel.textContent = "Open";
-    openLabel.style.cssText = "margin-left: 5px; font-weight: bold;";
+    const openSwatch = document.createElement("span");
+    openSwatch.className = "open-string-swatch";
+    openSwatch.textContent = "\u25CB";
+    openSwatch.style.cssText = openStringSwatchStyle;
     openOption.appendChild(this.openRadio);
-    openOption.appendChild(openLabel);
-    const mutedOption = document.createElement("label");
-    mutedOption.style.cssText = "display: flex; align-items: center; cursor: pointer;";
-    this.mutedRadio = document.createElement("input");
-    this.mutedRadio.type = "radio";
-    this.mutedRadio.name = "openStringType";
-    this.mutedRadio.value = "x";
-    this.mutedRadio.addEventListener("change", () => this.updateOpenStringType());
-    const mutedLabel = document.createElement("span");
-    mutedLabel.textContent = "Muted";
-    mutedLabel.style.cssText = "margin-left: 5px; font-weight: bold;";
-    mutedOption.appendChild(this.mutedRadio);
-    mutedOption.appendChild(mutedLabel);
-    typeOptions.appendChild(openOption);
+    openOption.appendChild(openSwatch);
     typeOptions.appendChild(mutedOption);
-    typeSection.appendChild(typeOptions);
-    this.openStringTextSection = document.createElement("div");
-    this.openStringTextSection.style.cssText = "margin-bottom: 15px;";
-    const textLabel = document.createElement("label");
-    textLabel.textContent = "Text (optional): ";
-    textLabel.style.cssText = "display: block; margin-bottom: 5px; font-weight: bold;";
+    typeOptions.appendChild(openOption);
     this.openStringTextInput = document.createElement("input");
     this.openStringTextInput.type = "text";
-    this.openStringTextInput.maxLength = 2;
-    this.openStringTextInput.placeholder = "1-2 chars";
-    this.openStringTextInput.style.cssText = "width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;";
-    this.openStringTextInput.addEventListener("input", () => this.updateOpenStringText());
-    textLabel.appendChild(this.openStringTextInput);
-    this.openStringTextSection.appendChild(textLabel);
+    this.openStringTextInput.maxLength = 1;
+    this.openStringTextInput.placeholder = "Aa";
+    this.openStringTextInput.style.cssText = "width:32px;height:28px;padding:0 4px;margin-left:4px;border:1px solid #ccc;border-radius:3px;box-sizing:border-box;";
+    this.openStringTextInput.addEventListener(
+      "input",
+      () => this.updateOpenStringText()
+    );
+    typeOptions.appendChild(this.openStringTextInput);
+    typeSection.appendChild(typeOptions);
     const buttonDiv = document.createElement("div");
     buttonDiv.style.cssText = "display: flex; gap: 10px; justify-content: flex-end;";
     const removeBtn = document.createElement("button");
@@ -8128,7 +8165,6 @@ var EditableSVGuitarChord = class {
     buttonDiv.appendChild(doneBtn);
     this.openStringDialog.appendChild(title);
     this.openStringDialog.appendChild(typeSection);
-    this.openStringDialog.appendChild(this.openStringTextSection);
     this.openStringDialog.appendChild(buttonDiv);
     document.body.appendChild(this.openStringDialog);
     this.openStringBackdrop = document.createElement("div");
@@ -8373,9 +8409,14 @@ var EditableSVGuitarChord = class {
     this.currentEditFret = fret;
     const currentColor = typeof finger[2] === "object" && ((_a = finger[2]) == null ? void 0 : _a.color) || DOT_COLORS.BLACK;
     const currentText = typeof finger[2] === "object" && ((_b = finger[2]) == null ? void 0 : _b.text) || "";
-    const normalizedColor = currentColor === DOT_COLORS.RED ? DOT_COLORS.RED : DOT_COLORS.BLACK;
+    let normalizedColor = DOT_COLORS.BLACK;
+    if (currentColor === DOT_COLORS.RED) normalizedColor = DOT_COLORS.RED;
+    else if (currentColor === DOT_COLORS.GREY) normalizedColor = DOT_COLORS.GREY;
+    else if (currentColor === DOT_COLORS.BLUE) normalizedColor = DOT_COLORS.BLUE;
     this.redRadio.checked = normalizedColor === DOT_COLORS.RED;
     this.blackRadio.checked = normalizedColor === DOT_COLORS.BLACK;
+    this.greyRadio.checked = normalizedColor === DOT_COLORS.GREY;
+    this.blueRadio.checked = normalizedColor === DOT_COLORS.BLUE;
     this.textInput.value = currentText;
     this.updateTextSectionVisibility();
     this.openDialog();
@@ -8597,6 +8638,14 @@ var EditableSVGuitarChord = class {
       .editable-svguitar-settings-btn:hover {
         background: #f0f0f0;
       }
+
+      .editable-svguitar-dialog input[name="dotColor"]:checked + .color-swatch {
+        box-shadow: 0 0 0 2px white, 0 0 0 4px grey;
+      }
+
+      .editable-svguitar-open-string-dialog input[name="openStringType"]:checked + .open-string-swatch {
+        box-shadow: 0 0 0 2px white, 0 0 0 4px grey;
+      }
       `;
     document.head.appendChild(style);
   }
@@ -8628,23 +8677,19 @@ var EditableSVGuitarChord = class {
    * Update text section visibility based on color selection
    */
   updateTextSectionVisibility() {
-    if (!this.textSection) return;
+    if (!this.textInput) return;
     const isBlack = this.blackRadio && this.blackRadio.checked;
-    this.textSection.style.display = isBlack ? "block" : "none";
-    if (this.textInput) {
-      this.textInput.disabled = !isBlack;
-    }
+    this.textInput.style.display = isBlack ? "inline-block" : "none";
+    this.textInput.disabled = !isBlack;
   }
   /**
    * Update text section visibility for open string dialog based on type selection
    */
   updateOpenStringTextSectionVisibility() {
-    if (!this.openStringTextSection) return;
+    if (!this.openStringTextInput) return;
     const isOpen = this.openRadio && this.openRadio.checked;
-    this.openStringTextSection.style.display = isOpen ? "block" : "none";
-    if (this.openStringTextInput) {
-      this.openStringTextInput.disabled = !isOpen;
-    }
+    this.openStringTextInput.style.display = isOpen ? "inline-block" : "none";
+    this.openStringTextInput.disabled = !isOpen;
   }
   /**
    * Update dot text in real-time
@@ -8698,10 +8743,13 @@ var EditableSVGuitarChord = class {
     if (!this.currentEditFinger[2]) {
       this.currentEditFinger[2] = {};
     }
-    const selectedColor = this.redRadio.checked ? DOT_COLORS.RED : DOT_COLORS.BLACK;
+    let selectedColor = DOT_COLORS.BLACK;
+    if (this.redRadio.checked) selectedColor = DOT_COLORS.RED;
+    else if (this.greyRadio.checked) selectedColor = DOT_COLORS.GREY;
+    else if (this.blueRadio.checked) selectedColor = DOT_COLORS.BLUE;
     const fingerOptions = typeof this.currentEditFinger[2] === "object" ? this.currentEditFinger[2] : {};
     this.currentEditFinger[2] = { ...fingerOptions, color: selectedColor };
-    if (selectedColor === DOT_COLORS.RED) {
+    if (selectedColor !== DOT_COLORS.BLACK) {
       this.currentEditFinger[2].text = "";
       this.textInput.value = "";
     }
@@ -8717,7 +8765,10 @@ var EditableSVGuitarChord = class {
     if (!this.currentEditFinger[2]) {
       this.currentEditFinger[2] = {};
     }
-    const selectedColor = this.redRadio.checked ? DOT_COLORS.RED : DOT_COLORS.BLACK;
+    let selectedColor = DOT_COLORS.BLACK;
+    if (this.redRadio.checked) selectedColor = DOT_COLORS.RED;
+    else if (this.greyRadio.checked) selectedColor = DOT_COLORS.GREY;
+    else if (this.blueRadio.checked) selectedColor = DOT_COLORS.BLUE;
     this.currentEditFinger[2] = { text: this.textInput.value, color: selectedColor };
     this.closeDialog();
     this.redraw();
@@ -8861,13 +8912,17 @@ var ASCII_EQUALS = "=";
 var ASCII_OPEN = "o";
 var ASCII_MUTED = "x";
 var ASCII_ROOT = "*";
+var ASCII_GREY = "O";
+var ASCII_BLUE = "+";
 var UNICODE_VERTICAL = "\u2502";
 var UNICODE_OPEN = "\u25CB";
 var UNICODE_MUTED = "\xD7";
 var UNICODE_ROOT = "\u25CF";
+var UNICODE_GREY = "\u25A1";
+var UNICODE_BLUE = "\u25A0";
 var UNICODE_BOX_CHARS = "\u2552\u2550\u2564\u2555\u251C\u2500\u253C\u2524\u2514\u2534\u2518\u250C\u252C\u2510";
 function isUnicodeFormat(str) {
-  return str.includes(UNICODE_VERTICAL) || str.includes(UNICODE_OPEN) || str.includes(UNICODE_ROOT) || str.includes(UNICODE_MUTED) || [...UNICODE_BOX_CHARS].some((c2) => str.includes(c2));
+  return str.includes(UNICODE_VERTICAL) || str.includes(UNICODE_OPEN) || str.includes(UNICODE_ROOT) || str.includes(UNICODE_MUTED) || str.includes(UNICODE_GREY) || str.includes(UNICODE_BLUE) || [...UNICODE_BOX_CHARS].some((c2) => str.includes(c2));
 }
 function findUnicodeGridBoundaries(lines, firstGridRowIdx) {
   const firstLine = lines[firstGridRowIdx];
@@ -8944,7 +8999,12 @@ function isGridRow(line, isUnicode) {
   }
 }
 function stringToFingering(fingeringStr, options = {}) {
-  const { redColor = "#e74c3c", blackColor = "#000000" } = options;
+  const {
+    redColor = "#e74c3c",
+    blackColor = "#000000",
+    greyColor = "#9B9B9B",
+    blueColor = "#4A90E2"
+  } = options;
   if (!fingeringStr || fingeringStr.trim() === "") {
     return null;
   }
@@ -8953,6 +9013,8 @@ function stringToFingering(fingeringStr, options = {}) {
   const openChar = isUnicode ? UNICODE_OPEN : ASCII_OPEN;
   const mutedChar = isUnicode ? UNICODE_MUTED : ASCII_MUTED;
   const rootChar = isUnicode ? UNICODE_ROOT : ASCII_ROOT;
+  const greyChar = isUnicode ? UNICODE_GREY : ASCII_GREY;
+  const blueChar = isUnicode ? UNICODE_BLUE : ASCII_BLUE;
   const fingers = [];
   let title;
   let position2;
@@ -9064,6 +9126,10 @@ function stringToFingering(fingeringStr, options = {}) {
       }
       if (char === rootChar) {
         fingers.push([stringNum, fretNumber, { text: "", color: redColor }]);
+      } else if (char === greyChar) {
+        fingers.push([stringNum, fretNumber, { text: "", color: greyColor }]);
+      } else if (char === blueChar) {
+        fingers.push([stringNum, fretNumber, { text: "", color: blueColor }]);
       } else if (char === UNICODE_OPEN || char === ASCII_OPEN) {
         fingers.push([stringNum, fretNumber, { text: "", color: blackColor }]);
       } else if (/\S/.test(char)) {
@@ -9473,10 +9539,8 @@ var selectedLowIntervals = /* @__PURE__ */ new Set();
 var selectedHighIntervals = /* @__PURE__ */ new Set();
 function normalizeColor(color) {
   if (!color || color === "transparent") return color;
-  const normalized = color.toLowerCase().trim();
-  if (normalized === "#000000" || normalized === "#000" || normalized === "black") {
-    return DOT_COLORS.BLACK;
-  }
+  const known = Object.values(DOT_COLORS);
+  if (known.includes(color)) return color;
   return DOT_COLORS.BLACK;
 }
 function getIntervalDisplayName(intervalName, semitoneValue) {
@@ -9915,64 +9979,67 @@ function renderIntervalLabelOptions() {
   intervalLabelOptionsBox.innerHTML = "";
   if (selectedIntervals.size === 0) return;
   const sortedEntries = intervalEntries.filter(([name, _2]) => selectedIntervals.has(name));
+  const colorChoices = [
+    { key: "RED", color: DOT_COLORS.RED },
+    { key: "GREY", color: DOT_COLORS.GREY },
+    { key: "BLUE", color: DOT_COLORS.BLUE },
+    { key: "BLACK", color: DOT_COLORS.BLACK }
+  ];
   for (const [intervalName, semitoneValue] of sortedEntries) {
-    const baseLabel = getIntervalFingerOptions(intervalName, semitoneValue);
     const displayName = getIntervalDisplayName(intervalName, semitoneValue);
     const existing = userIntervalOptions.get(semitoneValue) || {};
+    const currentColor = existing.color || DOT_COLORS.BLACK;
     const row = document.createElement("div");
     row.className = "interval-label-row";
     const nameSpan = document.createElement("span");
     nameSpan.className = "interval-name";
     nameSpan.textContent = displayName;
+    const colorContainer = document.createElement("div");
+    colorContainer.className = "color-presets";
     const input = document.createElement("input");
     input.type = "text";
     input.maxLength = 1;
+    input.placeholder = "Aa";
     input.value = existing.text !== void 0 ? existing.text : "";
     input.setAttribute("aria-label", displayName + " label");
     input.addEventListener("input", () => {
-      const val = input.value;
-      if (val.length > 2) input.value = val.slice(0, 2);
+      if (input.value.length > 2) input.value = input.value.slice(0, 2);
       const record = userIntervalOptions.get(semitoneValue) || {};
       record.text = input.value;
       userIntervalOptions.set(semitoneValue, record);
       pushState();
       tryAutoGenerate();
     });
-    const colorContainer = document.createElement("div");
-    colorContainer.className = "color-presets";
-    const currentColor = existing.color;
-    const redLabel = document.createElement("label");
-    redLabel.className = "color-checkbox-label";
-    const redCheckbox = document.createElement("input");
-    redCheckbox.type = "checkbox";
-    redCheckbox.checked = currentColor === DOT_COLORS.RED;
-    const redSpan = document.createElement("span");
-    redSpan.textContent = "red";
-    redLabel.appendChild(redCheckbox);
-    redLabel.appendChild(redSpan);
     const updateInputVisibility = () => {
-      const isRed = redCheckbox.checked;
-      input.style.display = isRed ? "none" : "";
-      if (isRed) {
+      const record = userIntervalOptions.get(semitoneValue) || {};
+      const isBlack = !record.color || record.color === DOT_COLORS.BLACK;
+      input.style.display = isBlack ? "" : "none";
+      if (!isBlack) {
         input.value = "";
-        const record = userIntervalOptions.get(semitoneValue) || {};
         record.text = "";
         userIntervalOptions.set(semitoneValue, record);
       }
     };
-    redCheckbox.addEventListener("change", () => {
-      const record = userIntervalOptions.get(semitoneValue) || {};
-      if (redCheckbox.checked) {
-        record.color = DOT_COLORS.RED;
-      } else {
-        record.color = DOT_COLORS.BLACK;
-      }
-      userIntervalOptions.set(semitoneValue, record);
-      updateInputVisibility();
-      pushState();
-      tryAutoGenerate();
-    });
-    colorContainer.appendChild(redLabel);
+    const buttons = [];
+    for (const choice of colorChoices) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "color-preset-btn" + (currentColor === choice.color ? " selected" : "");
+      btn.style.backgroundColor = choice.color;
+      btn.setAttribute("aria-label", choice.key);
+      btn.addEventListener("click", () => {
+        const record = userIntervalOptions.get(semitoneValue) || {};
+        record.color = choice.color;
+        userIntervalOptions.set(semitoneValue, record);
+        for (const b2 of buttons) b2.classList.remove("selected");
+        btn.classList.add("selected");
+        updateInputVisibility();
+        pushState();
+        tryAutoGenerate();
+      });
+      buttons.push(btn);
+      colorContainer.appendChild(btn);
+    }
     row.appendChild(nameSpan);
     row.appendChild(colorContainer);
     row.appendChild(input);

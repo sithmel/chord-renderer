@@ -41,6 +41,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "text-guitar-chart": "^0.1.2"
+    "text-guitar-chart": "^0.2.0"
   }
 }
